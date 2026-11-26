@@ -69,12 +69,16 @@ Pick one Cloudflare lists as available on the free plan.
 ### Beta access code
 
 The private beta at `/wishwell/beta/` sends its access code with every AI
-request. To make the AI answer only beta testers, save the code as a secret on
-this Worker: Cloudflare dashboard > Workers & Pages > wishwell-ai-ideas >
-Settings > Variables and Secrets > Add > Type: Secret, Name: `BETA_CODE`,
-Value: the beta code > Deploy. While `BETA_CODE` is not set, the Worker answers
-everyone the site allows. Codes match in any letter case, with or without
-dashes.
+request, and the Worker always requires it. Requests without the right code
+get a 429, so the app shows starter ideas instead. The Worker checks the code
+against a salted fingerprint (`BETA_HASH` in `worker.js`); the code itself is
+not in this repo. If a `BETA_CODE` secret is set on the Worker (Cloudflare
+dashboard > Workers & Pages > wishwell-ai-ideas > Settings > Variables and
+Secrets), the secret is used instead of the fingerprint. Codes match in any
+letter case, with or without dashes.
+
+To change the code: update the `BETA_CODE` secret (or `BETA_HASH`), then
+rebuild the beta page with the new code (below).
 
 To rebuild the beta from this branch (for example after app changes):
 `BETA_CODE="THE-CODE" python3 tools/build_beta.py /tmp/beta`, then copy that

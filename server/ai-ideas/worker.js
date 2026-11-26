@@ -21,6 +21,9 @@ const CATS = ["Tech", "Gaming", "Making", "Art", "Music", "Sports", "Outdoors", 
 const BUDGETS = { "25": "up to $25", "75": "up to $75", "200": "up to $200", "9999": "$200 and up", "any": "any" };
 const MAX_IDEAS = 10;
 const MAX_BODY = 20000;
+// Fingerprint of the beta access code (salted PBKDF2-SHA256), used when no BETA_CODE secret is set.
+// The code itself is not in this file. Rebuild with tools/build_beta.py's method if the code changes.
+const BETA_HASH = { salt: "135ccf22dcbc131791216eebafa26aa4", iter: 10000, hash: "6f386043cbd30800549dd17c69501641b3f506ceff34c33637e9c8680a89217f" };
 
 /* ---------- input ---------- */
 const clean = (v, max) => String(v == null ? "" : v)
@@ -153,6 +156,21 @@ function sameText(a, b) {
   return diff === 0;
 }
 
+const goodCodes = new Set();
+async function codeOk(header, env) {
+  const got = codeOf(header);
+  if (got.length < 8 || got.length > 40) return false;
+  if (env.BETA_CODE) return sameText(got, codeOf(env.BETA_CODE));
+  if (goodCodes.has(got)) return true;
+  const salt = new Uint8Array(BETA_HASH.salt.match(/../g).map(x => parseInt(x, 16)));
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(got), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: BETA_HASH.iter }, key, 256);
+  const hex = [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2, "0")).join("");
+  const ok = sameText(hex, BETA_HASH.hash);
+  if (ok) goodCodes.add(got);
+  return ok;
+}
+
 /* ---------- limits ---------- */
 async function overLimit(env, ip) {
   if (env.PER_MINUTE && typeof env.PER_MINUTE.limit === "function") {
@@ -205,13 +223,11 @@ export default {
     } catch (e) { return reply({ error: "bad_json" }, 400); }
     const q = readPayload(raw);
 
-    // Beta access code. Set BETA_CODE as a secret to require it; leave it unset to allow everyone.
-    if (env.BETA_CODE && !sameText(codeOf(request.headers.get("x-beta-code")), codeOf(env.BETA_CODE))) {
-      return reply({ error: "beta_code_required" }, 403);
-    }
-
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
     if (await overLimit(env, ip)) return reply({ error: "rate_limited" }, 429);
+
+    // Beta access code, always required. 429 so the app falls back to starter ideas.
+    if (!(await codeOk(request.headers.get("x-beta-code"), env))) return reply({ error: "beta_code_required" }, 429);
 
     if (!env.AI) return reply({ error: "ai_not_set_up" }, 429);
     let out;
@@ -231,6 +247,9 @@ export default {
 
     const ideas = parseIdeas(out, q);
     if (!ideas.length) return reply({ error: "no_usable_ideas", detail: describe(out) }, 429);
-    return reply(ideas, 200);
+    const res = reply(ideas, 200);
+    const u = out && out.usage;
+    if (u) res.headers.set("x-ai-usage", "in=" + (u.prompt_tokens || 0) + "; out=" + (u.completion_tokens || 0) + "; neurons=" + (u.neurons != null ? u.neurons : "?"));
+    return res;
   }
 };
