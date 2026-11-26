@@ -225,7 +225,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <div class="field"><span>Who's in? (<span id="gCount">0</span>)</span>
     <div class="row"><input type="text" id="gAdd" maxlength="30" placeholder="Add a name" aria-label="Add a name"><button class="btn" type="button" id="gAddBtn">Add</button></div>
     <div class="cutlist" id="gPeople"></div></div>
-  <p class="small muted">Free for up to 4 people. Groups of 5 or more use the $2.99 Exchange Pass (a preview; nothing is charged).</p>
+  <p class="small muted">Free for up to 4 people. Groups of 5 or more will use the $2.99 Exchange Pass, coming soon. For now, any size group is free.</p>
   <button class="btn primary wide" type="button" id="gDraw">Draw names</button>
   <div id="gResult"></div>
   </div>
@@ -241,15 +241,15 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
 
 <div class="modal" id="plans" hidden role="dialog" aria-modal="true" aria-labelledby="plansT">
   <div class="box">
-    <div class="bar"><h2 id="plansT" style="font-size:clamp(24px,5vw,34px)">Plans (preview)</h2><button class="btn" type="button" id="closePlans">Close</button></div>
+    <div class="bar"><h2 id="plansT" style="font-size:clamp(24px,5vw,34px)">Plans (coming soon)</h2><button class="btn" type="button" id="closePlans">Close</button></div>
     <p class="muted" id="plansWhy"></p>
     <div class="tiers">
       <div class="tier" data-t="free"><h3>Free</h3><div class="amt">$0</div><ul><li>Taste quiz, lists, ranking and share links</li><li>3 rounds of AI ideas per list</li><li>Group exchange for up to 4 people</li></ul></div>
-      <div class="tier best" data-t="holiday"><h3>Holiday Pass</h3><div class="amt">$4.99</div><div class="small muted">one time, this season</div><ul><li>Unlimited AI ideas and lists</li><li>Price drop alerts on your picks</li><li>No subscription</li></ul><button class="btn pay" type="button" data-pay="holiday">I'd pay $4.99</button></div>
-      <div class="tier" data-t="exchange"><h3>Exchange Pass</h3><div class="amt">$2.99</div><div class="small muted">per group, one time</div><ul><li>Groups of 5 or more</li><li>Everyone's list in one place</li><li>Reminders before the swap</li></ul><button class="btn pay" type="button" data-pay="exchange">I'd pay $2.99</button></div>
+      <div class="tier best" data-t="holiday"><h3>Holiday Pass</h3><div class="amt">$4.99</div><div class="small muted">one time, this season</div><ul><li>Unlimited AI ideas and lists</li><li>Price drop alerts on your picks</li><li>No subscription</li></ul><button class="btn pay" type="button" data-pay="holiday">Coming soon</button></div>
+      <div class="tier" data-t="exchange"><h3>Exchange Pass</h3><div class="amt">$2.99</div><div class="small muted">per group, one time</div><ul><li>Groups of 5 or more</li><li>Everyone's list in one place</li><li>Reminders before the swap</li></ul><button class="btn pay" type="button" data-pay="exchange">Coming soon</button></div>
     </div>
     <p class="later">Later, in 2027: Plus at $19.99 a year and Family at $34.99 a year. <button class="btn pay" type="button" data-pay="plus" style="min-height:40px;padding:4px 10px;margin-left:4px">I'd want Plus</button></p>
-    <p class="small muted" id="payNote">Nothing is charged. Tapping just goes in your test report.</p>
+    <p class="small muted" id="payNote">The passes are coming soon. Tap Coming soon on any pass you'd want, and it goes in your test report.</p>
     <div class="row"><button class="btn reportBtn" type="button">Copy my test report</button></div>
     <p class="note">How Free stays free: at launch, buy links may earn Wishwell a small commission from the store. The price you pay stays the same.</p>
   </div>
@@ -485,7 +485,7 @@ async function getIdeas(){
   if(sample){
     mb.textContent="Thinking...";msg.innerHTML=`<p class="note">Asking AI for ideas that fit. This takes a few seconds.</p>`;
     try{got=await aiIdeas(8);S.aiRounds++;S.m.ai++;
-      if(S.aiRounds===3)setTimeout(()=>openPlans("That's the 3 rounds of AI ideas a Free list gets. The Holiday Pass would unlock more; in this test you can keep going.","holiday"),900);
+      if(S.aiRounds===3)setTimeout(()=>openPlans("That's the 3 rounds of AI ideas a Free list gets. The Holiday Pass, coming soon, will unlock more. In this test you can keep going.","holiday"),900);
     }catch(e){msg.innerHTML=`<p class="note err">AI ideas didn't load${e&&e.code==="rate_limited"?" (too many asks, try again in a minute)":""}. Showing starter ideas instead.</p>`;if(e&&e.code==="not_granted")sample=null}
   }
   if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
@@ -632,7 +632,7 @@ $("#gName").addEventListener("input",e=>{S.g.name=e.target.value;save()});
 $("#gLimit").addEventListener("change",e=>{S.g.limit=e.target.value;save();renderGroup()});
 $("#gDraw").addEventListener("click",()=>{
   const p=S.g.people;if(p.length<3){toast("Add at least 3 people");return}
-  if(p.length>4&&!S.g.unlocked){S.g.unlocked=true;save();openPlans(`Groups of 5 or more use the $2.99 Exchange Pass. Nothing is charged in this test; close this to draw names for ${p.length} people.`,"exchange");return}
+  if(p.length>4&&!S.g.unlocked){S.g.unlocked=true;save();openPlans(`Groups of 5 or more will use the $2.99 Exchange Pass, coming soon. For now it's free, so close this to draw names for ${p.length} people.`,"exchange");return}
   const sh=p.slice();for(let i=sh.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[sh[i],sh[j]]=[sh[j],sh[i]]}
   S.g.pairs=sh.map((a,i)=>[a,sh[(i+1)%sh.length]]);S.m.draws++;S.m.biggest=Math.max(S.m.biggest,p.length);save();renderGroup();toast("Names drawn");
 });
@@ -646,7 +646,7 @@ $("#gResult").addEventListener("click",e=>{
 
 /* plans and what testers would pay for */
 function openPlans(why,tier){
-  $("#plansWhy").textContent=why||"Nothing here charges you. It shows the plan for launch so you can say what you'd pay for.";
+  $("#plansWhy").textContent=why||"The passes are coming soon. Nothing here charges you. Tap Coming soon on any pass you'd want.";
   document.querySelectorAll(".tier").forEach(t=>t.classList.toggle("hl",!!tier&&t.dataset.t===tier));
   $("#plans").hidden=false;$("#closePlans").focus();
 }
@@ -655,7 +655,7 @@ $("#openPlans").addEventListener("click",()=>openPlans());
 $("#closePlans").addEventListener("click",closePlans);
 $("#plans").addEventListener("click",e=>{if(e.target.id==="plans")closePlans()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("#plans").hidden)closePlans();$("#copyM").hidden=true}});
-$("#plans").addEventListener("click",e=>{const b=e.target.closest("button[data-pay]");if(!b)return;S.m.pay[b.dataset.pay]=1;save();b.textContent="Noted, thanks";$("#payNote").textContent="Noted in your test report. Nothing was charged.";});
+$("#plans").addEventListener("click",e=>{const b=e.target.closest("button[data-pay]");if(!b)return;S.m.pay[b.dataset.pay]=1;save();b.textContent="Noted, thanks";$("#payNote").textContent="Thanks! The passes are coming soon. Your tap is in your test report.";});
 
 /* tester report: counts only, no list contents */
 function report(){
@@ -713,7 +713,7 @@ window.addEventListener("hashchange",openShared);
 renderQuiz();
 if(!openShared())show(S.view||"start");
 const aiLine=$("#aiState");
-const setAi=()=>aiLine.textContent=sample?"AI ideas are on.":"Using starter ideas. AI picks turn on once the Wishwell AI service is set up.";
+const setAi=()=>aiLine.textContent=sample?"AI ideas are on.":"Using starter ideas. AI ideas coming soon.";
 if(CFG.aiUrl){sample={json:async(_p,o)=>{
   const r=await fetch(CFG.aiUrl,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(o.payload)});
   if(r.status===429){const e=new Error("busy");e.code="rate_limited";throw e}
