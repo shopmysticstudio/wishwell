@@ -20,11 +20,18 @@ blank, the app looks and works exactly like the live site: the passes say
 Follow `server/README.md` (about 5 minutes, free). At the end you have a Worker
 address like `https://wishwell-license-check.YOUR-NAME.workers.dev`.
 
-## 3. Paste into `app/config.js`
+## 3. Optional: turn on AI ideas
+
+Follow the "ai-ideas" part of `server/README.md`: open a terminal in
+`server/ai-ideas`, run `npx wrangler login`, then `npx wrangler deploy`, and
+copy the address it prints. Skip this and the app keeps using its built-in
+starter ideas, and the pass cards leave out the AI lines.
+
+## 4. Paste into `app/config.js`
 
 ```js
 window.WISHWELL_CONFIG = {
-  aiUrl: "",
+  aiUrl: "PASTE THE AI WORKER ADDRESS, OR LEAVE BLANK",
   shareBase: "https://shopmysticstudio.github.io/wishwell/app/",
   gumroadUrl: "PASTE THE PRODUCT LINK",
   gumroadProductId: "PASTE THE PRODUCT ID",
@@ -32,15 +39,16 @@ window.WISHWELL_CONFIG = {
 };
 ```
 
-## 4. Before you publish
+## 5. Before you publish
 
 - Buy the pass yourself once (Gumroad lets you test with a 100% off discount
   code), paste the key in the app under Plans, and check it unlocks.
 - Change the landing page line "Coming soon: AI gift ideas and the Holiday Pass"
   in `index.html` if the pass is no longer coming soon.
-- The Holiday Pass card promises "Unlimited AI ideas" and "Price drop alerts".
-  Price drop alerts are not built, and AI ideas only work once `aiUrl` is set.
-  Change that list before taking money, so buyers get what the card says.
+- The Holiday Pass card lists "Unlimited AI ideas" only when `aiUrl` is set.
+  Without it, the pass covers groups of any size. The AI Worker also has a
+  fair use limit (5 rounds a minute, and an optional daily cap), so consider
+  wording like "Unlimited AI ideas (fair use)" if you turn the daily cap on.
 - Then merge the `payments` branch into `main`. The live site updates in a
   minute or two.
 
@@ -51,5 +59,5 @@ window.WISHWELL_CONFIG = {
   turns the pass on, and it is saved on that device.
 - With payments on and no pass: AI ideas stop after 3 rounds (starter ideas
   keep working), and groups of 5 or more need the pass to draw names.
-- With the pass: unlimited AI rounds and any size group.
+- With the pass: unlimited AI rounds (when `aiUrl` is set) and any size group.
 - The Exchange Pass still says "Coming soon".

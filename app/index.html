@@ -246,8 +246,8 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
     <div class="bar"><h2 id="plansT" style="font-size:clamp(24px,5vw,34px)">Plans (coming soon)</h2><button class="btn" type="button" id="closePlans">Close</button></div>
     <p class="muted" id="plansWhy"></p>
     <div class="tiers">
-      <div class="tier" data-t="free"><h3>Free</h3><div class="amt">$0</div><ul><li>Taste quiz, lists, ranking and share links</li><li>3 rounds of AI ideas per list</li><li>Group exchange for up to 4 people</li></ul></div>
-      <div class="tier best" data-t="holiday"><h3>Holiday Pass</h3><div class="amt">$4.99</div><div class="small muted">one time, this season</div><ul><li>Unlimited AI ideas and lists</li><li>Price drop alerts on your picks</li><li>No subscription</li></ul><button class="btn pay" type="button" data-pay="holiday">Coming soon</button></div>
+      <div class="tier" data-t="free"><h3>Free</h3><div class="amt">$0</div><ul><li>Taste quiz, lists, ranking and share links</li><li id="perkFreeAi">3 rounds of AI ideas per list</li><li>Group exchange for up to 4 people</li></ul></div>
+      <div class="tier best" data-t="holiday"><h3>Holiday Pass</h3><div class="amt">$4.99</div><div class="small muted">one time, this season</div><ul><li id="perkAi">Unlimited AI ideas</li><li>Draw names for groups of any size</li><li>No subscription</li></ul><button class="btn pay" type="button" data-pay="holiday">Coming soon</button></div>
       <div class="tier" data-t="exchange"><h3>Exchange Pass</h3><div class="amt">$2.99</div><div class="small muted">per group, one time</div><ul><li>Groups of 5 or more</li><li>Everyone's list in one place</li><li>Reminders before the swap</li></ul><button class="btn pay" type="button" data-pay="exchange">Coming soon</button></div>
     </div>
     <p class="later">Later, in 2027: Plus at $19.99 a year and Family at $34.99 a year. <button class="btn pay" type="button" data-pay="plus" style="min-height:40px;padding:4px 10px;margin-left:4px">I'd want Plus</button></p>
@@ -269,6 +269,7 @@ const CFG=window.WISHWELL_CONFIG||{};
 const PAY=!!String(CFG.gumroadUrl||"").trim();
 let PASS=null;try{PASS=JSON.parse(localStorage.getItem("wishwell-pass")||"null")}catch(e){}
 const hasPass=()=>PAY&&!!(PASS&&PASS.ok);
+const AI_ON=!!String(CFG.aiUrl||"").trim();
 const APP_URL=CFG.shareBase||(location.origin+location.pathname);
 const CATS={Tech:"#2563eb",Gaming:"#7c3aed",Making:"#ea580c",Art:"#db2777",Music:"#0891b2",Sports:"#16a34a",Outdoors:"#4d7c0f",Science:"#1e3a8a",Books:"#92400e",Food:"#b91c1c",Style:"#334155",Room:"#0f766e",Experiences:"#c2410c",Other:"#525252"};
 const INTS=[["Tech","tech electronics gadgets phone computer"],["Gaming","gaming games controller"],["Making","maker build tools 3dprinting electronics"],["Art","art drawing painting"],["Music","music audio instrument"],["Sports","sports fitness running"],["Outdoors","outdoors camping hiking"],["Space and science","space science astronomy rockets"],["Books","books reading"],["Cooking","cooking food"],["Style","fashion style clothes"],["Room setup","room decor desk"],["Cars","cars driving"],["Pets","pets dog cat"],["Puzzles","puzzles"]];
@@ -861,7 +862,7 @@ async function checkKey(key){
 }
 function renderPass(){
   const box=$("#passBox");box.hidden=!PAY;if(!PAY)return;
-  if(hasPass()){box.innerHTML=`<strong>Holiday Pass is on for this device.</strong> Unlimited AI ideas and any size group.`;return}
+  if(hasPass()){box.innerHTML=`<strong>Holiday Pass is on for this device.</strong> ${AI_ON?"Unlimited AI ideas and any size group.":"Any size group."}`;return}
   box.innerHTML=`<div class="field" style="margin:0"><span>I have a license key</span><div class="row"><input type="text" id="keyBox" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="License key" placeholder="Paste your key"><button class="btn" type="button" id="keyBtn">Unlock</button></div></div><p class="small muted" id="keyMsg" style="margin:6px 0 0">After you buy, your key is on the Gumroad receipt and in your email.</p>`;
 }
 async function unlock(){
@@ -878,6 +879,8 @@ async function unlock(){
 $("#passBox").addEventListener("click",e=>{if(e.target.closest("#keyBtn"))unlock()});
 $("#passBox").addEventListener("keydown",e=>{if(e.target.id==="keyBox"&&e.key==="Enter"){e.preventDefault();unlock()}});
 document.addEventListener("click",e=>{if(e.target.closest("#capPlans"))openPlans("","holiday")});
+/* only promise AI perks when the AI service is set up */
+if(!AI_ON){$("#perkAi").remove();$("#perkFreeAi").remove()}
 if(PAY){
   $("#plansT").textContent="Plans";
   const hb=document.querySelector('button[data-pay="holiday"]');
