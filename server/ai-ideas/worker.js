@@ -83,6 +83,23 @@ function modelText(out) {
   return "";
 }
 
+function describe(out) {
+  if (out == null) return "empty";
+  if (typeof out === "string") return "string " + out.length;
+  const c = out.choices && out.choices[0];
+  const parts = ["keys " + Object.keys(out).join(",")];
+  if (out.response != null) parts.push("response " + (typeof out.response === "string" ? out.response.length : typeof out.response));
+  if (c) {
+    const m = c.message || {};
+    parts.push("message keys " + Object.keys(m).join(","));
+    if (m.content != null) parts.push("content " + String(m.content).length);
+    for (const k of ["reasoning_content", "reasoning"]) if (m[k] != null) parts.push(k + " " + String(m[k]).length);
+    if (c.finish_reason) parts.push("finish " + c.finish_reason);
+  }
+  if (out.usage) parts.push("usage " + JSON.stringify(out.usage));
+  return parts.join("; ");
+}
+
 function findArray(text) {
   const t = text.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:json)?/gi, "");
   for (let s = t.indexOf("["); s !== -1; s = t.indexOf("[", s + 1)) {
@@ -126,6 +143,14 @@ function parseIdeas(out, q) {
   return ideas;
 }
 
+/* ---------- access ---------- */
+function sameText(a, b) {
+  const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] || 0) ^ (y[i] || 0);
+  return diff === 0;
+}
+
 /* ---------- limits ---------- */
 async function overLimit(env, ip) {
   if (env.PER_MINUTE && typeof env.PER_MINUTE.limit === "function") {
@@ -156,7 +181,7 @@ export default {
     const cors = okOrigin ? {
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "content-type",
+      "Access-Control-Allow-Headers": "content-type, x-beta-code",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin"
     } : { "Vary": "Origin" };
@@ -178,6 +203,11 @@ export default {
     } catch (e) { return reply({ error: "bad_json" }, 400); }
     const q = readPayload(raw);
 
+    // Beta access code. Set BETA_CODE as a secret to require it; leave it unset to allow everyone.
+    if (env.BETA_CODE && !sameText(request.headers.get("x-beta-code") || "", String(env.BETA_CODE))) {
+      return reply({ error: "beta_code_required" }, 403);
+    }
+
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
     if (await overLimit(env, ip)) return reply({ error: "rate_limited" }, 429);
 
@@ -191,11 +221,11 @@ export default {
       });
     } catch (e) {
       // Includes the daily free amount running out.
-      return reply({ error: "ai_unavailable" }, 429);
+      return reply({ error: "ai_unavailable", detail: String(e && e.message || e).slice(0, 200) }, 429);
     }
 
     const ideas = parseIdeas(out, q);
-    if (!ideas.length) return reply({ error: "no_usable_ideas" }, 429);
+    if (!ideas.length) return reply({ error: "no_usable_ideas", detail: describe(out) }, 429);
     return reply(ideas, 200);
   }
 };
