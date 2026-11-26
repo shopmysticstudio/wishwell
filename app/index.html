@@ -948,7 +948,8 @@ if(!openShared())show(S.view||"start");
 const aiLine=$("#aiState");
 const setAi=()=>aiLine.textContent=sample?"AI ideas are on.":"Using starter ideas. AI ideas coming soon.";
 if(CFG.aiUrl){sample={json:async(_p,o)=>{
-  const r=await fetch(CFG.aiUrl,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(o.payload)});
+  const h={"content-type":"application/json"};if(window.WISHWELL_ACCESS_CODE)h["x-beta-code"]=window.WISHWELL_ACCESS_CODE;
+  const r=await fetch(CFG.aiUrl,{method:"POST",headers:h,body:JSON.stringify(o.payload)});
   if(r.status===429){const e=new Error("busy");e.code="rate_limited";throw e}
   if(!r.ok)throw new Error("AI service "+r.status);return r.json()}}}
 setAi();

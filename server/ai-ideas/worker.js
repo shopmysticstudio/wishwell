@@ -144,6 +144,8 @@ function parseIdeas(out, q) {
 }
 
 /* ---------- access ---------- */
+// Codes match in any letter case, with or without spaces and dashes.
+const codeOf = v => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 function sameText(a, b) {
   const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
   let diff = x.length ^ y.length;
@@ -204,7 +206,7 @@ export default {
     const q = readPayload(raw);
 
     // Beta access code. Set BETA_CODE as a secret to require it; leave it unset to allow everyone.
-    if (env.BETA_CODE && !sameText(request.headers.get("x-beta-code") || "", String(env.BETA_CODE))) {
+    if (env.BETA_CODE && !sameText(codeOf(request.headers.get("x-beta-code")), codeOf(env.BETA_CODE))) {
       return reply({ error: "beta_code_required" }, 403);
     }
 

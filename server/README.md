@@ -65,3 +65,17 @@ Set up (from a computer with Node.js installed):
 
 To try a different model, change `MODEL` in `wrangler.toml` and deploy again.
 Pick one Cloudflare lists as available on the free plan.
+
+### Beta access code
+
+The private beta at `/wishwell/beta/` sends its access code with every AI
+request. To make the AI answer only beta testers, save the code as a secret on
+this Worker: Cloudflare dashboard > Workers & Pages > wishwell-ai-ideas >
+Settings > Variables and Secrets > Add > Type: Secret, Name: `BETA_CODE`,
+Value: the beta code > Deploy. While `BETA_CODE` is not set, the Worker answers
+everyone the site allows. Codes match in any letter case, with or without
+dashes.
+
+To rebuild the beta from this branch (for example after app changes):
+`BETA_CODE="THE-CODE" python3 tools/build_beta.py /tmp/beta`, then copy that
+folder to `beta/` on `main`. The code is never written into the page.
