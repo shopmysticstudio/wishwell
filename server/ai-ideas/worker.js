@@ -213,12 +213,15 @@ export default {
 
     if (!env.AI) return reply({ error: "ai_not_set_up" }, 429);
     let out;
+    const input = { messages: buildMessages(q), max_tokens: 1500, temperature: 0.8 };
     try {
-      out = await env.AI.run(env.MODEL || DEFAULT_MODEL, {
-        messages: buildMessages(q),
-        max_tokens: 1500,
-        temperature: 0.8
-      });
+      try {
+        // Ask thinking models to answer directly; a model that rejects this option gets the plain request.
+        out = await env.AI.run(env.MODEL || DEFAULT_MODEL, { ...input, chat_template_kwargs: { enable_thinking: false } });
+      } catch (first) {
+        if (/4006|allocation|5035|paid/i.test(String(first && first.message))) throw first;
+        out = await env.AI.run(env.MODEL || DEFAULT_MODEL, input);
+      }
     } catch (e) {
       // Includes the daily free amount running out.
       return reply({ error: "ai_unavailable", detail: String(e && e.message || e).slice(0, 200) }, 429);
