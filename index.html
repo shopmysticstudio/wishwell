@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wishwell: want it, list it, get it.</title>
+<meta name="description" content="Take a quick taste quiz, circle the gift ideas you like, rank them, and send one link to family. Free test this Christmas.">
+<meta name="theme-color" content="#23284d">
+<meta property="og:title" content="Wishwell">
+<meta property="og:description" content="Want it, list it, get it. A quick taste quiz, then a ranked wishlist to share.">
+<meta property="og:image" content="https://shopmysticstudio.github.io/wishwell/img/mark.png">
+<meta property="og:url" content="https://shopmysticstudio.github.io/wishwell/">
+<link rel="canonical" href="https://shopmysticstudio.github.io/wishwell/">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{--navy:#23284d;--deep:#161a36;--gold:#ffc94a;--red:#e0453a;--cream:#fff8ec}
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:Nunito,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--cream);
+    background:radial-gradient(ellipse 70% 55% at 50% 30%,rgba(255,201,74,.22),transparent 70%),linear-gradient(var(--navy),var(--deep));
+    min-height:100vh;min-height:100dvh}
+  main{max-width:1040px;margin:0 auto;padding:32px 22px 28px;display:grid;gap:36px;align-items:center;grid-template-columns:1fr}
+  @media (min-width:820px){main{grid-template-columns:1.05fr .95fr;padding-top:64px}}
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand img{width:84px;height:84px;filter:drop-shadow(0 6px 18px rgba(255,201,74,.35))}
+  h1{font-size:clamp(44px,8vw,72px);line-height:1;margin:0;font-weight:900;letter-spacing:-.5px}
+  .slogan{font-size:clamp(22px,3.6vw,30px);font-weight:800;color:var(--gold);margin:18px 0 10px}
+  .what{font-size:18px;line-height:1.5;max-width:30em;margin:0 0 26px;color:#e9e6f5}
+  .cta{display:inline-block;background:var(--red);color:#fff;text-decoration:none;font-weight:900;font-size:20px;
+    padding:16px 34px;border-radius:999px;box-shadow:0 10px 26px rgba(224,69,58,.45);transition:transform .15s}
+  .cta:hover,.cta:focus-visible{transform:translateY(-2px)}
+  .cta:focus-visible{outline:3px solid var(--gold);outline-offset:4px}
+  .small{font-size:14px;color:#c9c6dd;margin:14px 0 0}
+  .steps{list-style:none;padding:0;margin:28px 0 0;display:grid;gap:10px;font-size:16px}
+  .steps li{display:flex;gap:10px;align-items:center}
+  .steps b{background:var(--gold);color:var(--navy);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none;font-weight:900}
+  .phone{justify-self:center;width:min(300px,78vw);aspect-ratio:9/16;border-radius:34px;overflow:hidden;
+    border:6px solid #0d1026;box-shadow:0 24px 60px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.08);background:#000}
+  .phone video{width:100%;height:100%;object-fit:cover;display:block}
+  footer{max-width:1040px;margin:0 auto;padding:10px 22px 34px;font-size:13px;color:#a9a6c2;line-height:1.6}
+  @media (prefers-reduced-motion:reduce){.cta{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <div class="brand"><img src="img/mark.png" alt="Wishwell logo: someone fishing gifts out of a glowing well" width="84" height="84"><h1>Wishwell</h1></div>
+    <p class="slogan">Want it, list it, get it.</p>
+    <p class="what">Take a quick taste quiz, circle the gift ideas you actually want, rank them, and send family one link so nobody guesses.</p>
+    <a class="cta" href="app/">Try it free</a>
+    <p class="small">Free test this Christmas. Works in your phone's browser, no download or sign up. For ages 13 and up.</p>
+    <ul class="steps">
+      <li><b>1</b>Tap through the taste quiz</li>
+      <li><b>2</b>Circle the good ideas, cut the rest</li>
+      <li><b>3</b>Rank them and share one link</li>
+    </ul>
+  </section>
+  <div class="phone">
+    <video src="media/in-this-town.mp4" poster="media/in-this-town-poster.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Short animated clip of the Wishwell app in a snowy town"></video>
+  </div>
+</main>
+<footer>
+  Made by Galileo Solis. Wishwell is an early test: your lists stay on your own device, and nothing here asks for your email or payment.
+</footer>
+</body>
+</html>
