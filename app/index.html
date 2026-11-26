@@ -119,6 +119,8 @@ ol.rank{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .fam .row .btn,.fam .row .buy{flex:0 1 auto}
 .claim[aria-pressed=true]{background:var(--ink);color:var(--bg)}
 .tier .btn{margin-top:8px}
+a.btn{display:inline-flex;align-items:center;justify-content:center;text-align:center;text-decoration:none;color:inherit}
+a.btn.primary{color:#fff}
 .tier.hl{outline:4px solid var(--tag);outline-offset:2px}
 .later{font-size:14px;color:var(--muted);margin:4px 0 12px}
 .reveal{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border:2px solid var(--line);border-radius:4px;padding:10px 12px;margin:8px 0}
@@ -225,7 +227,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <div class="field"><span>Who's in? (<span id="gCount">0</span>)</span>
     <div class="row"><input type="text" id="gAdd" maxlength="30" placeholder="Add a name" aria-label="Add a name"><button class="btn" type="button" id="gAddBtn">Add</button></div>
     <div class="cutlist" id="gPeople"></div></div>
-  <p class="small muted">Free for up to 4 people. Groups of 5 or more will use the $2.99 Exchange Pass, coming soon. For now, any size group is free.</p>
+  <p class="small muted" id="gNote">Free for up to 4 people. Groups of 5 or more will use the $2.99 Exchange Pass, coming soon. For now, any size group is free.</p>
   <button class="btn primary wide" type="button" id="gDraw">Draw names</button>
   <div id="gResult"></div>
   </div>
@@ -237,7 +239,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <div class="row" style="max-width:640px"><button class="btn primary" type="button" id="makeOwn">Make your own Wishwell list</button><button class="btn" type="button" id="famBack" hidden>Back to my list</button></div>
 </section>
 </main>
-<footer>Test draft. No accounts and no payments. Your lists save in this browser only. Prices are rough estimates, not live prices. Buy links are plain store searches for now; at launch they'd be paid links that may earn Wishwell a small commission at no extra cost to you.</footer>
+<footer id="foot">Test draft. No accounts and no payments. Your lists save in this browser only. Prices are rough estimates, not live prices. Buy links are plain store searches for now; at launch they'd be paid links that may earn Wishwell a small commission at no extra cost to you.</footer>
 
 <div class="modal" id="plans" hidden role="dialog" aria-modal="true" aria-labelledby="plansT">
   <div class="box">
@@ -249,6 +251,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
       <div class="tier" data-t="exchange"><h3>Exchange Pass</h3><div class="amt">$2.99</div><div class="small muted">per group, one time</div><ul><li>Groups of 5 or more</li><li>Everyone's list in one place</li><li>Reminders before the swap</li></ul><button class="btn pay" type="button" data-pay="exchange">Coming soon</button></div>
     </div>
     <p class="later">Later, in 2027: Plus at $19.99 a year and Family at $34.99 a year. <button class="btn pay" type="button" data-pay="plus" style="min-height:40px;padding:4px 10px;margin-left:4px">I'd want Plus</button></p>
+    <div class="note" id="passBox" hidden></div>
     <p class="small muted" id="payNote">The passes are coming soon. Tap Coming soon on any pass you'd want, and it goes in your test report.</p>
     <div class="row"><button class="btn reportBtn" type="button">Copy my test report</button></div>
     <p class="note">How Free stays free: at launch, buy links may earn Wishwell a small commission from the store. The price you pay stays the same.</p>
@@ -262,6 +265,10 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
 <script>
 {
 const CFG=window.WISHWELL_CONFIG||{};
+/* payments: off until gumroadUrl is set in config.js */
+const PAY=!!String(CFG.gumroadUrl||"").trim();
+let PASS=null;try{PASS=JSON.parse(localStorage.getItem("wishwell-pass")||"null")}catch(e){}
+const hasPass=()=>PAY&&!!(PASS&&PASS.ok);
 const APP_URL=CFG.shareBase||(location.origin+location.pathname);
 const CATS={Tech:"#2563eb",Gaming:"#7c3aed",Making:"#ea580c",Art:"#db2777",Music:"#0891b2",Sports:"#16a34a",Outdoors:"#4d7c0f",Science:"#1e3a8a",Books:"#92400e",Food:"#b91c1c",Style:"#334155",Room:"#0f766e",Experiences:"#c2410c",Other:"#525252"};
 const INTS=[["Tech","tech electronics gadgets phone computer"],["Gaming","gaming games controller"],["Making","maker build tools 3dprinting electronics"],["Art","art drawing painting"],["Music","music audio instrument"],["Sports","sports fitness running"],["Outdoors","outdoors camping hiking"],["Space and science","space science astronomy rockets"],["Books","books reading"],["Cooking","cooking food"],["Style","fashion style clothes"],["Room setup","room decor desk"],["Cars","cars driving"],["Pets","pets dog cat"],["Puzzles","puzzles"]];
@@ -482,14 +489,16 @@ Reply with only a JSON array. Each element: {"title": short name under 50 charac
 async function getIdeas(){
   if(busy)return;busy=true;S.round=(S.round||0)+1;const mb=$("#moreBtn");mb.disabled=true;
   const msg=$("#msg");msg.innerHTML="";let got=0;
-  if(sample){
+  const capped=PAY&&!hasPass()&&S.aiRounds>=3;
+  if(sample&&!capped){
     mb.textContent="Thinking...";msg.innerHTML=`<p class="note">Asking AI for ideas that fit. This takes a few seconds.</p>`;
     try{got=await aiIdeas(8);S.aiRounds++;S.m.ai++;
-      if(S.aiRounds===3)setTimeout(()=>openPlans("That's the 3 rounds of AI ideas a Free list gets. The Holiday Pass, coming soon, will unlock more. In this test you can keep going.","holiday"),900);
+      if(S.aiRounds===3&&!hasPass())setTimeout(()=>openPlans(PAY?"That's the 3 rounds of AI ideas a Free list gets. The Holiday Pass unlocks unlimited AI ideas.":"That's the 3 rounds of AI ideas a Free list gets. The Holiday Pass, coming soon, will unlock more. In this test you can keep going.","holiday"),900);
     }catch(e){msg.innerHTML=`<p class="note err">AI ideas didn't load${e&&e.code==="rate_limited"?" (too many asks, try again in a minute)":""}. Showing starter ideas instead.</p>`;if(e&&e.code==="not_granted")sample=null}
   }
   if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
   if(got&&!msg.querySelector(".err"))msg.innerHTML="";
+  if(sample&&capped)msg.innerHTML=`<p class="note">You've used the 3 free rounds of AI ideas, so these are starter ideas. <button class="btn" type="button" id="capPlans" style="min-height:40px;padding:4px 10px">Get unlimited AI ideas</button></p>`;
   busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
 }
 $("#moreBtn").addEventListener("click",getIdeas);
@@ -616,6 +625,7 @@ document.addEventListener("click",e=>{const a=e.target.closest("a.buy");if(!a)re
 /* group gift exchange */
 function renderGroup(){
   $("#gName").value=S.g.name;$("#gLimit").value=S.g.limit;$("#gCount").textContent=S.g.people.length;
+  if(PAY)$("#gNote").textContent=hasPass()?"Your Holiday Pass is on, so any size group is free.":"Free for up to 4 people. Groups of 5 or more need the Holiday Pass.";
   $("#gPeople").innerHTML=S.g.people.map((p,i)=>`<button type="button" class="chip" data-p="${i}" aria-label="Remove ${esc(p)}">${esc(p)} &#215;</button>`).join("");
   const r=$("#gResult");
   if(!S.g.pairs.length){r.innerHTML="";return}
@@ -632,7 +642,8 @@ $("#gName").addEventListener("input",e=>{S.g.name=e.target.value;save()});
 $("#gLimit").addEventListener("change",e=>{S.g.limit=e.target.value;save();renderGroup()});
 $("#gDraw").addEventListener("click",()=>{
   const p=S.g.people;if(p.length<3){toast("Add at least 3 people");return}
-  if(p.length>4&&!S.g.unlocked){S.g.unlocked=true;save();openPlans(`Groups of 5 or more will use the $2.99 Exchange Pass, coming soon. For now it's free, so close this to draw names for ${p.length} people.`,"exchange");return}
+  if(p.length>4&&PAY&&!hasPass()){openPlans(`Groups of 5 or more need the Holiday Pass. Get it, or enter your license key below, then draw names for ${p.length} people.`,"holiday");return}
+  if(p.length>4&&!PAY&&!S.g.unlocked){S.g.unlocked=true;save();openPlans(`Groups of 5 or more will use the $2.99 Exchange Pass, coming soon. For now it's free, so close this to draw names for ${p.length} people.`,"exchange");return}
   const sh=p.slice();for(let i=sh.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[sh[i],sh[j]]=[sh[j],sh[i]]}
   S.g.pairs=sh.map((a,i)=>[a,sh[(i+1)%sh.length]]);S.m.draws++;S.m.biggest=Math.max(S.m.biggest,p.length);save();renderGroup();toast("Names drawn");
 });
@@ -646,7 +657,8 @@ $("#gResult").addEventListener("click",e=>{
 
 /* plans and what testers would pay for */
 function openPlans(why,tier){
-  $("#plansWhy").textContent=why||"The passes are coming soon. Nothing here charges you. Tap Coming soon on any pass you'd want.";
+  $("#plansWhy").textContent=why||(PAY?(hasPass()?"Your Holiday Pass is on for this device.":"Pick a pass. Checkout is handled by Gumroad."):"The passes are coming soon. Nothing here charges you. Tap Coming soon on any pass you'd want.");
+  renderPass();
   document.querySelectorAll(".tier").forEach(t=>t.classList.toggle("hl",!!tier&&t.dataset.t===tier));
   $("#plans").hidden=false;$("#closePlans").focus();
 }
@@ -655,7 +667,45 @@ $("#openPlans").addEventListener("click",()=>openPlans());
 $("#closePlans").addEventListener("click",closePlans);
 $("#plans").addEventListener("click",e=>{if(e.target.id==="plans")closePlans()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("#plans").hidden)closePlans();$("#copyM").hidden=true}});
-$("#plans").addEventListener("click",e=>{const b=e.target.closest("button[data-pay]");if(!b)return;S.m.pay[b.dataset.pay]=1;save();b.textContent="Noted, thanks";$("#payNote").textContent="Thanks! The passes are coming soon. Your tap is in your test report.";});
+$("#plans").addEventListener("click",e=>{const b=e.target.closest("[data-pay]");if(!b)return;S.m.pay[b.dataset.pay]=1;save();if(b.tagName==="A")return;b.textContent="Noted, thanks";$("#payNote").textContent=PAY?"Thanks! The Exchange Pass is coming soon. Your tap is in your test report.":"Thanks! The passes are coming soon. Your tap is in your test report.";});
+
+/* Holiday Pass checkout and license key (only when gumroadUrl is set) */
+const okPurchase=d=>!!(d&&d.success&&d.purchase&&!d.purchase.refunded&&!d.purchase.chargebacked&&!d.purchase.disputed);
+async function checkKey(key){
+  if(String(CFG.licenseCheckUrl||"").trim()){
+    const r=await fetch(CFG.licenseCheckUrl.trim(),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({license_key:key})});
+    const d=await r.json().catch(()=>({}));return !!d.valid;
+  }
+  const r=await fetch("https://api.gumroad.com/v2/licenses/verify",{method:"POST",body:new URLSearchParams({product_id:String(CFG.gumroadProductId||"").trim(),license_key:key})});
+  const d=await r.json().catch(()=>({}));return okPurchase(d);
+}
+function renderPass(){
+  const box=$("#passBox");box.hidden=!PAY;if(!PAY)return;
+  if(hasPass()){box.innerHTML=`<strong>Holiday Pass is on for this device.</strong> Unlimited AI ideas and any size group.`;return}
+  box.innerHTML=`<div class="field" style="margin:0"><span>I have a license key</span><div class="row"><input type="text" id="keyBox" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="License key" placeholder="Paste your key"><button class="btn" type="button" id="keyBtn">Unlock</button></div></div><p class="small muted" id="keyMsg" style="margin:6px 0 0">After you buy, your key is on the Gumroad receipt and in your email.</p>`;
+}
+async function unlock(){
+  const kb=$("#keyBox"),btn=$("#keyBtn"),m=$("#keyMsg");if(!kb)return;const key=kb.value.trim();
+  if(!key){m.textContent="Paste your license key first.";return}
+  btn.disabled=true;btn.textContent="Checking...";
+  try{
+    if(await checkKey(key)){PASS={ok:true,key,at:Date.now()};try{localStorage.setItem("wishwell-pass",JSON.stringify(PASS))}catch(e){}
+      $("#plansWhy").textContent="Your Holiday Pass is on for this device.";renderPass();render();toast("Holiday Pass unlocked");return}
+    m.textContent="That key didn't work for the Holiday Pass. Check it against your Gumroad receipt and try again.";
+  }catch(e){m.textContent="Couldn't check the key right now. Check your connection and try again in a minute."}
+  btn.disabled=false;btn.textContent="Unlock";
+}
+$("#passBox").addEventListener("click",e=>{if(e.target.closest("#keyBtn"))unlock()});
+$("#passBox").addEventListener("keydown",e=>{if(e.target.id==="keyBox"&&e.key==="Enter"){e.preventDefault();unlock()}});
+document.addEventListener("click",e=>{if(e.target.closest("#capPlans"))openPlans("","holiday")});
+if(PAY){
+  $("#plansT").textContent="Plans";
+  const hb=document.querySelector('button[data-pay="holiday"]');
+  const a=document.createElement("a");a.className="btn primary";a.dataset.pay="holiday";a.href=String(CFG.gumroadUrl).trim();a.target="_blank";a.rel="noopener";a.textContent="Get the Holiday Pass $4.99";
+  hb.replaceWith(a);
+  $("#payNote").textContent="Checkout is on Gumroad. After you pay, paste the license key from your receipt above.";
+  const f=$("#foot");f.textContent=f.textContent.replace("No accounts and no payments.","No accounts. The Holiday Pass is paid through Gumroad.");
+}
 
 /* tester report: counts only, no list contents */
 function report(){
