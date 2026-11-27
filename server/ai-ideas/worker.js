@@ -148,6 +148,15 @@ function describe(out) {
   return parts.join("; ");
 }
 
+// Fixes common small JSON mistakes: curly quotes, "$" before numbers, trailing commas, bare keys.
+function repair(seg) {
+  return seg.replace(/[\u201c\u201d]/g, '"').replace(/[\u2018\u2019]/g, "'")
+    .replace(/:\s*\$\s*(\d)/g, ": $1")
+    .replace(/,\s*([}\]])/g, "$1")
+    .replace(/([{,]\s*)([A-Za-z_]+)\s*:/g, '$1"$2":');
+}
+const tryParse = seg => { try { return JSON.parse(seg); } catch (e) {} try { return JSON.parse(repair(seg)); } catch (e) {} return undefined; };
+
 // Collects every idea object in the reply: one JSON array, several arrays, or loose objects.
 function findArray(text) {
   const t = text.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:json)?/gi, "");
@@ -168,11 +177,13 @@ function findArray(text) {
     if (ch !== "[" && ch !== "{") continue;
     const end = closeOf(i);
     const seg = end === -1 ? t.slice(i) : t.slice(i, end + 1);
-    let v;
-    try { v = JSON.parse(seg); } catch (e) { v = undefined; }
+    const v = tryParse(seg);
     if (Array.isArray(v)) items.push(...v);
-    else if (v && typeof v === "object") items.push(Array.isArray(v.ideas) ? v.ideas : v);
-    else for (const m of seg.matchAll(/\{[^{}]*\}/g)) { try { items.push(JSON.parse(m[0])); } catch (e) {} }
+    else if (v && typeof v === "object") {
+      const inner = Object.values(v).find(x => Array.isArray(x));
+      items.push(v.title ? v : (inner || v));
+    }
+    else for (const m of seg.matchAll(/\{[^{}]*\}/g)) { const o = tryParse(m[0]); if (o) items.push(o); }
     if (end === -1) break;
     i = end;
   }
@@ -399,6 +410,7 @@ export default {
 
     const u = out && out.usage;
     const extra = { [left[0]]: String(Math.max(0, left[1])) };
+    if (ideas.raw < q.n) extra["x-ai-sample"] = modelText(out).replace(/\s+/g, " ").slice(0, 300).replace(/[^\x20-\x7e]/g, "?");
     if (u) extra["x-ai-usage"] = "in=" + (u.prompt_tokens || 0) + "; out=" + (u.completion_tokens || 0) + "; neurons=" + (u.neurons != null ? u.neurons : "?") + "; raw=" + ideas.raw + "; dropped=" + JSON.stringify(ideas.dropped);
     return reply(ideas.slice(), 200, extra);
   }
