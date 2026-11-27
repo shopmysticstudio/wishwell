@@ -230,6 +230,48 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
 }
 
 .unwrap .wm{font-weight:900;font-size:30px;margin:14px 0 0}
+/* colorful buttons: candy fills with a press-down shadow, like the quiz tiles */
+:root{--c-red:#d13a2f;--c-teal:#1f7a6f;--c-purple:#6d3fd1;--c-blue:#2160c4;--c-orange:#c2410c;--c-pink:#be185d;--c-green:#15803d}
+.btn,a.btn{--b:var(--c-teal);--f:#fff;--s:#13544c;background:var(--b);color:var(--f);border:2px solid var(--s);border-radius:12px;box-shadow:0 4px 0 var(--s);transition:transform .08s,box-shadow .08s,filter .15s}
+.btn:hover{filter:brightness(1.06)}
+.btn:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 var(--s)}
+.btn.primary,a.btn.primary{--b:var(--c-red);--f:#fff;--s:#962419}
+.btn.quiet{--b:light-dark(#dcf3ef,#10302c);--f:light-dark(#14655b,#6fd6c8);--s:light-dark(#2a9d8f,#2a9d8f)}
+.btn[data-a=cut],.btn[data-ca=del],.btn[data-ca=no]{--b:light-dark(#fde4e1,#3a1714);--f:light-dark(#b3271d,#ff8f84);--s:light-dark(#e0453a,#c9362c)}
+.btn[data-cmp],.btn.cmpBtn,#capPlans{--b:var(--tag);--f:#141414;--s:#b8860b}
+.btn[data-ca=copy],.btn[data-cp]{--b:light-dark(#e6eeff,#142240);--f:light-dark(#1d4fa8,#9ec0ff);--s:light-dark(#2160c4,#3b78d8)}
+.btn.keep{--b:light-dark(#fde4e1,#3a1714);--f:light-dark(#b3271d,#ff8f84);--s:light-dark(#e0453a,#c9362c)}
+.btn.keep[aria-pressed=true]{--b:var(--c-red);--f:#fff;--s:#962419;background:var(--b);color:var(--f);border-color:var(--s)}
+.btn.pay,#keyBtn,.btn[data-rv]{--b:var(--c-purple);--s:#4a24a3}
+.btn.claim{--b:var(--c-green);--s:#0f5c2c}
+.btn.claim[aria-pressed=true]{--b:var(--navy);--f:#fff;--s:#11142b;background:var(--b);color:var(--f)}
+#retake{--b:var(--c-purple);--s:#4a24a3}
+.btn[data-go=rank],#photoBtn{--b:var(--c-orange);--s:#8a2e08}
+#famBtn,#copyBtn,#groupBtn{--b:var(--c-blue);--s:#16438a}
+#groupBtn[aria-pressed=true]{--b:var(--navy);--s:#11142b}
+#qBack,#famBack,#closePlans,#cmpClose,#copyClose,.reportBtn{--b:var(--navy);--s:#11142b}
+.btn[data-ca=ok]{--b:var(--c-green);--s:#0f5c2c}
+.cstore .links a.btn:nth-child(4n+1){--b:var(--c-blue);--s:#16438a}
+.cstore .links a.btn:nth-child(4n+2){--b:var(--c-purple);--s:#4a24a3}
+.cstore .links a.btn:nth-child(4n+3){--b:var(--c-orange);--s:#8a2e08}
+.cstore .links a.btn:nth-child(4n+4){--b:var(--c-pink);--s:#8a1043}
+.btn.soundBtn{--b:#fff;--f:#141414;--s:#b9bde3}
+.buy{background:var(--tag);color:#141414;border-color:#b8860b;border-radius:12px;box-shadow:0 4px 0 #b8860b;transition:transform .08s,box-shadow .08s}
+.buy .pl{color:#5a4300}
+.buy:active{transform:translateY(3px);box-shadow:0 1px 0 #b8860b}
+/* chips and quiz tiles: a rotating rainbow, tinted at rest, solid when picked */
+.chip,.tiles .tile{--cb:var(--c-teal);--ct:light-dark(#dcf3ef,#10302c);--cf:light-dark(#14655b,#6fd6c8);background:var(--ct);color:var(--cf);border:2px solid var(--cb);font-weight:700;transition:transform .08s,box-shadow .08s}
+.chip:nth-child(6n+2),.tiles .tile:nth-child(6n+2){--cb:var(--c-purple);--ct:light-dark(#efeafd,#24193f);--cf:light-dark(#5a2fc0,#c4b1ff)}
+.chip:nth-child(6n+3),.tiles .tile:nth-child(6n+3){--cb:var(--c-orange);--ct:light-dark(#fff3cf,#332a0b);--cf:light-dark(#8a2e08,#ffd76e)}
+.chip:nth-child(6n+4),.tiles .tile:nth-child(6n+4){--cb:var(--c-blue);--ct:light-dark(#e6eeff,#142240);--cf:light-dark(#1d4fa8,#9ec0ff)}
+.chip:nth-child(6n+5),.tiles .tile:nth-child(6n+5){--cb:var(--c-pink);--ct:light-dark(#fde7f1,#3a1226);--cf:light-dark(#9d174d,#ff9cc6)}
+.chip:nth-child(6n+6),.tiles .tile:nth-child(6n+6){--cb:var(--c-red);--ct:light-dark(#fde4e1,#3a1714);--cf:light-dark(#b3271d,#ff8f84)}
+.tiles .tile small{color:inherit;opacity:.85}
+.chip[aria-pressed=true],.tiles .tile[aria-pressed=true]{background:var(--cb);color:#fff;border-color:var(--cb);box-shadow:0 3px 0 rgba(0,0,0,.25)}
+.tiles .tile[aria-pressed=true] small{color:#fff}
+.chip[aria-pressed=true]::before{content:"\2713\00a0"}
+.chip:active,.tiles .tile:active{transform:translateY(2px)}
+@media(prefers-reduced-motion:reduce){.btn,.buy,.chip,.tile{transition:none}}
 </style>
 <style>
 html.locked body>*:not(#gate){display:none!important}
@@ -248,7 +290,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"feb56e15c77ed0d91300f59b011a6cca",hash:"178057999f76bb6b7e609aae839e9b072c64fc0f15c8135c5964a334d33db880",iter:200000};
+window.WISHWELL_BETA={salt:"af49c25beb23b9f61f3f007b5900fea3",hash:"4300ffb81ff20a50e8cff27969406d084b1262b4a96c9be6c113047457149151",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
