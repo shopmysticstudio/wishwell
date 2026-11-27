@@ -164,7 +164,7 @@ function readPayload(raw) {
     age: Object.prototype.hasOwnProperty.call(AGES, String(p.age)) ? String(p.age) : "",
     lean: Object.prototype.hasOwnProperty.call(LEANS, String(p.lean)) ? String(p.lean) : "",
     ints: list(p.ints, 15, 30),
-    quiz: list(p.quiz, 10, 120),
+    quiz: list(p.quiz, 12, 120),
     style: clean(p.style, 30),
     notes: clean(p.notes, 400),
     budget: Object.prototype.hasOwnProperty.call(BUDGETS, String(p.budget)) ? String(p.budget) : "any",
