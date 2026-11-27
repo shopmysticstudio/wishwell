@@ -63,20 +63,27 @@ textarea{min-height:84px;resize:vertical}
 .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin:4px 0 14px}
 .who{font-size:14px;color:var(--muted)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:14px}
-.card{position:relative;border:2px solid var(--line);border-radius:4px;padding:14px;display:grid;grid-template-columns:56px minmax(0,1fr);gap:4px 12px;background:var(--bg)}
+.card{position:relative;border:2px solid var(--line);border-radius:4px;padding:14px;display:grid;grid-template-columns:56px minmax(0,1fr);gap:4px 12px;background:var(--bg);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .18s,transform .18s,border-color .15s,background-color .15s}
+.card:active{transform:scale(.99)}
+.card.on{border-color:var(--redink);box-shadow:inset 0 0 0 2px var(--redink);background:light-dark(#fff4f2,#2a1716)}
+.card.out{opacity:0;transform:scale(.96)}
 .mono{grid-row:span 3;width:56px;height:56px;border-radius:4px;display:grid;place-items:center;font-family:Nunito;font-weight:900;font-size:24px;color:#fff;position:relative}
 .no{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.02em}
 .card h3{font-size:19px;font-family:Nunito;font-weight:700;line-height:1.2}
 .price{justify-self:start;background:var(--tag);color:var(--tagink);font-weight:700;font-size:14px;padding:1px 8px;border-radius:3px;white-space:nowrap}
 .why{grid-column:1/-1;margin:6px 0 0;font-size:15px}
 .acts{grid-column:1/-1;display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-.acts .btn{flex:1 1 90px;padding:8px 10px}
-.acts a{flex:1 1 90px;text-align:center;align-content:center;min-height:48px;color:var(--ink);font-weight:700;font-size:14px}
-.keep[aria-pressed=true]{background:var(--redink);border-color:var(--redink);color:#fff}
-.circle{position:absolute;inset:-10px -8px;pointer-events:none;overflow:visible}
-.circle path{fill:none;stroke:var(--redink);stroke-width:3.5;stroke-linecap:round;stroke-dasharray:1200;stroke-dashoffset:0;animation:draw .5s ease-out}
-@keyframes draw{from{stroke-dashoffset:1200}}
-@media(prefers-reduced-motion:reduce){.circle path{animation:none}}
+.acts .btn{flex:1 1 70px;padding:8px 10px;min-height:48px}
+.acts .keep{flex:2 1 150px;display:flex;align-items:center;justify-content:center;gap:8px}
+.acts a{flex:1 1 70px;text-align:center;align-content:center;min-height:48px;color:var(--ink);font-weight:700;font-size:14px}
+.keep svg{width:20px;height:20px;flex:none}
+.keep[aria-pressed=true]{background:var(--redink);border-color:var(--redink);color:light-dark(#fff,#1d0d0b)}
+.acts .quiet{font-size:14px;font-weight:700}
+.ring{position:absolute;inset:-9px;width:calc(100% + 18px);height:calc(100% + 18px);pointer-events:none;overflow:visible}
+.ring path{fill:none;stroke:var(--redink);stroke-width:3.5;stroke-linecap:round}
+.fresh .ring path{stroke-dasharray:300;animation:draw .45s ease-out}
+@keyframes draw{from{stroke-dashoffset:300}}
+@media(prefers-reduced-motion:reduce){.fresh .ring path{animation:none}.card,.card:active{transition:none;transform:none}}
 .src{font-size:12px;color:var(--muted);grid-column:1/-1}
 .empty{border:2px dashed var(--line);border-radius:6px;padding:22px;text-align:center;color:var(--muted)}
 .note{background:var(--soft);border-radius:8px;padding:12px 14px;font-size:14px;margin:14px 0}
@@ -197,6 +204,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <div class="grid" id="ideaGrid"></div>
   <div class="row" style="margin:18px 0"><button class="btn primary" type="button" id="moreBtn">More ideas</button><button class="btn" type="button" data-go="rank">Rank my keepers</button></div>
   <details id="cutBox"><summary>Cut items (<span id="cutN">0</span>)</summary><div class="cutlist" id="cutList"></div></details>
+  <details id="haveBox"><summary>Already have (<span id="haveN">0</span>)</summary><div class="cutlist" id="haveList"></div></details>
 </section>
 
 <section class="view" id="v-rank" hidden>
@@ -544,8 +552,8 @@ const BANK=[
 
 const $=s=>document.querySelector(s);
 const esc=v=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const metrics=()=>({quizDone:0,quizTaps:0,ideas:0,circled:0,cut:0,ai:0,linkCopies:0,textCopies:0,previews:0,buy:0,famBuy:0,famOpens:0,claims:0,makeOwn:0,draws:0,biggest:0,pay:{holiday:0,exchange:0,plus:0}});
-const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],seq:0,round:0,aiRounds:0,view:"start",listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
+const metrics=()=>({quizDone:0,quizTaps:0,ideas:0,circled:0,cut:0,have:0,ai:0,linkCopies:0,textCopies:0,previews:0,buy:0,famBuy:0,famOpens:0,claims:0,makeOwn:0,draws:0,biggest:0,pay:{holiday:0,exchange:0,plus:0}});
+const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],have:[],seq:0,round:0,aiRounds:0,view:"start",listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
 let S=fresh(),sample=null,busy=false,FAM=null;
 try{const raw=localStorage.getItem("wishbook-v1");if(raw){const o=JSON.parse(raw);S=Object.assign(fresh(),o);S.m=Object.assign(metrics(),o.m||{});S.m.pay=Object.assign(metrics().pay,(o.m||{}).pay||{});S.g=Object.assign(fresh().g,o.g||{});S.opt=Object.assign(fresh().opt,o.opt||{})}}catch(e){}
 const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}};
@@ -629,7 +637,7 @@ $("#qBack").addEventListener("click",()=>{if(qi>0){qi--;renderQuiz()}});
 function finishQuiz(){
   seedInts();if(!S.ints.length&&!S.notes)S.ints=["Tech","Making"];
   S.m.quizDone=(S.m.quizDone||0)+1;
-  S.items=S.items.filter(i=>i.status==="kept"||i.mine);
+  S.items=S.items.filter(i=>i.status==="kept"||i.status==="have"||i.mine);
   $("#qbar").style.width="100%";const tags=tasteTags();
   show("ideas");if(tags.length)toast("Taste: "+tags.slice(0,3).join(", "));getIdeas();
 }
@@ -685,7 +693,7 @@ function addItem(o){
   if(it.hi<it.lo)it.hi=it.lo;S.items.push(it);if(!it.mine)S.m.ideas++;return it;
 }
 function bankIdeas(n){
-  const seen=new Set(S.items.map(i=>i.title.toLowerCase()));const sig=signals();const mb=maxB();
+  const seen=new Set([...S.items.map(i=>i.title.toLowerCase()),...S.have]);const sig=signals();const mb=maxB();
   const pool=BANK.filter(b=>!seen.has(b[0].toLowerCase())&&b[2]<=mb&&(S.budget!=="9999"||b[3]>=150));
   const SB={Practical:["Making","Food","Sports","Tech"],"Wow factor":["Tech","Experiences"],Cozy:["Room","Food","Books"],"Surprise me":["Experiences","Other","Art"]}[S.style]||[];
   let noteHit=false;
@@ -704,7 +712,7 @@ function bankIdeas(n){
 async function aiIdeas(n){
   const kept=S.items.filter(i=>i.status==="kept").map(i=>i.title);
   const cut=S.items.filter(i=>i.status==="cut").map(i=>i.title);
-  const seen=S.items.map(i=>i.title);
+  const seen=[...S.items.map(i=>i.title),...S.have];
   const who=S.forWho==="me"?"the person making the list (a teen or adult)":"someone the user is shopping for";
   const prompt=`You suggest gift ideas for a wishlist app. Suggest ${n} specific, buyable gifts for ${who}.
 Interests: ${S.ints.join(", ")||"none picked"}.
@@ -762,13 +770,19 @@ $("#addBox").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault
 
 /* keep and cut */
 const syncKept=()=>{S.kept=S.kept.filter(id=>{const i=byId(id);return i&&i.status==="kept"});S.items.forEach(i=>{if(i.status==="kept"&&!S.kept.includes(i.id))S.kept.push(i.id)})};
+let freshId="";
 $("#ideaGrid").addEventListener("click",e=>{
-  const b=e.target.closest("button[data-a]");if(!b)return;const it=byId(b.dataset.id);if(!it)return;
-  if(b.dataset.a==="keep"){it.status=it.status==="kept"?"new":"kept";if(it.status==="kept")S.m.circled++}
-  if(b.dataset.a==="cut"){it.status="cut";S.m.cut++;toast("Cut. Undo below the page.")}
-  syncKept();save();render();
+  if(e.target.closest("a"))return;
+  const b=e.target.closest("button[data-a]");const card=e.target.closest(".card[data-id]");
+  const it=byId(b?b.dataset.id:card?card.dataset.id:"");if(!it)return;const a=b?b.dataset.a:"keep";
+  if(a==="keep"){it.status=it.status==="kept"?"new":"kept";if(it.status==="kept"){S.m.circled++;freshId=it.id}syncKept();save();render();freshId="";return}
+  const gone=()=>{syncKept();save();render()};
+  if(a==="cut"){it.status="cut";S.m.cut++;toast("Cut. Undo at the bottom of the page.")}
+  if(a==="have"){it.status="have";S.m.have=(S.m.have||0)+1;const t=it.title.toLowerCase();if(!S.have.includes(t))S.have.push(t);toast("Got it. It won't come back. Undo at the bottom.")}
+  if(card&&!matchMedia("(prefers-reduced-motion: reduce)").matches){card.classList.add("out");setTimeout(gone,170)}else gone();
 });
 $("#cutList").addEventListener("click",e=>{const b=e.target.closest("button[data-id]");if(!b)return;const it=byId(b.dataset.id);if(it){it.status="new";save();render()}});
+$("#haveList").addEventListener("click",e=>{const b=e.target.closest("button[data-id]");if(!b)return;const it=byId(b.dataset.id);if(it){it.status="new";S.have=S.have.filter(t=>t!==it.title.toLowerCase());save();render()}});
 
 /* ranking */
 const handleSvg=`<svg viewBox="0 0 20 20" aria-hidden="true"><g fill="currentColor"><circle cx="7" cy="5" r="1.6"/><circle cx="13" cy="5" r="1.6"/><circle cx="7" cy="10" r="1.6"/><circle cx="13" cy="10" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="13" cy="15" r="1.6"/></g></svg>`;
@@ -910,7 +924,7 @@ function report(){
   const m=S.m,y=v=>v?"yes":"no";
   return ["Wishwell test report",
   `Taste quiz finished ${m.quizDone} time(s)`,
-  `Ideas seen ${m.ideas}, circled ${m.circled}, cut ${m.cut}, AI rounds ${m.ai}`,
+  `Ideas seen ${m.ideas}, circled ${m.circled}, cut ${m.cut}, already have ${m.have||0}, AI rounds ${m.ai}`,
   `Items on my list ${S.kept.length}`,
   `Share link copied ${m.linkCopies}, text copied ${m.textCopies}, family preview ${m.previews}`,
   `Buy taps ${m.buy} (on shared lists ${m.famBuy})`,
@@ -921,22 +935,26 @@ function report(){
 document.addEventListener("click",e=>{if(e.target.closest(".reportBtn"))copy(report(),"Report copied. Send it back, thanks!")});
 
 /* render */
+const ringSvg=`<svg class="ring" viewBox="0 0 74 74" aria-hidden="true"><path d="M14 18 C 26 2, 60 4, 69 26 C 76 46, 62 70, 36 70 C 12 70, 2 52, 5 34 C 7 24, 12 18, 22 12"/></svg>`;
+const keepIcon=on=>`<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="${on?"currentColor":"none"}" stroke="currentColor" stroke-width="2"/>${on?'<path d="M6 10.5l2.6 2.6L14.2 7.4" fill="none" stroke="var(--redink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>':""}</svg>`;
 function card(it){
   const c=CATS[it.cat]||CATS.Other;const k=it.status==="kept";
-  return `<article class="card">${k?`<svg class="circle" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path vector-effect="non-scaling-stroke" d="M8 30 C 4 8, 70 2, 92 14 C 100 22, 99 78, 86 92 C 70 100, 14 98, 6 80 C 1 62, 4 40, 14 24"/></svg>`:""}
-<div class="mono" style="background:${c}" aria-hidden="true">${esc(it.cat.charAt(0))}</div>
+  return `<article class="card${k?" on":""}${it.id===freshId?" fresh":""}" data-id="${esc(it.id)}">
+<div class="mono" style="background:${c}" aria-hidden="true">${esc(it.cat.charAt(0))}${k?ringSvg:""}</div>
 <div class="no">No. ${String(it.no).padStart(3,"0")} · ${esc(it.cat)}</div><h3>${esc(it.title)}</h3>
 ${it.hi?`<span class="price">${esc(est(it))}</span>`:`<span class="small muted">Price not set</span>`}
 ${it.why?`<p class="why">${esc(it.why)}</p>`:""}
-<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="${esc(it.id)}" aria-pressed="${k}">${k?"Circled":"Circle it"}</button><button type="button" class="btn" data-a="cut" data-id="${esc(it.id)}">Cut</button>${buyLink(it)}</div>
+<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="${esc(it.id)}" aria-pressed="${k}">${keepIcon(k)}${k?"Circled":"Circle it"}</button><button type="button" class="btn quiet" data-a="have" data-id="${esc(it.id)}">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="${esc(it.id)}">Cut</button>${buyLink(it)}</div>
 <div class="src">${esc(it.src)}</div></article>`;
 }
 function render(){
   syncKept();
-  const vis=S.items.filter(i=>i.status!=="cut").sort((a,b)=>(b.round||0)-(a.round||0)||a.no-b.no);
+  const vis=S.items.filter(i=>i.status!=="cut"&&i.status!=="have").sort((a,b)=>(b.round||0)-(a.round||0)||a.no-b.no);
   $("#ideaGrid").innerHTML=vis.length?vis.map(card).join(""):`<div class="empty">No ideas yet. Tap More ideas.</div>`;
   const cut=S.items.filter(i=>i.status==="cut");$("#cutN").textContent=cut.length;$("#cutBox").hidden=!cut.length;
   $("#cutList").innerHTML=cut.map(i=>`<button type="button" class="chip" data-id="${esc(i.id)}">Bring back ${esc(i.title)}</button>`).join("");
+  const have=S.items.filter(i=>i.status==="have");$("#haveN").textContent=have.length;$("#haveBox").hidden=!have.length;
+  $("#haveList").innerHTML=have.map(i=>`<button type="button" class="chip" data-id="${esc(i.id)}">I don't have ${esc(i.title)}</button>`).join("");
   $("#c-ideas").textContent=S.items.filter(i=>i.status==="new").length;$("#c-rank").textContent=S.kept.length;
   const bits=[S.forWho==="me"?"For "+(S.name||"you"):"For "+(S.name||"someone else")];if(S.ints.length)bits.push(S.ints.join(", "));
   const tg=tasteTags();if(tg.length)bits[1]=tg.join(", ");bits.push((BUDGETS.find(b=>b[0]===S.budget)||["","Any price"])[1]);$("#whoLine").textContent=bits.join(" · ");
