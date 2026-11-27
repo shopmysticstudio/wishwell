@@ -163,7 +163,7 @@ ol.rank{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .reveal{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border:2px solid var(--line);border-radius:4px;padding:10px 12px;margin:8px 0}
 .reveal strong{font-size:17px}
 .prog{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;flex:1}
-.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--tag),var(--red));transition:width .25s}
+.prog i{display:block;height:100%;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,var(--tag),var(--red));transition:transform .25s}
 .qtop{display:flex;gap:12px;align-items:center;max-width:720px;margin-bottom:6px}
 .qq{font-size:clamp(28px,6vw,42px);margin:14px 0 6px}
 .qsub{color:var(--muted);margin:0 0 16px}
@@ -1095,7 +1095,7 @@ let qi=0;
 const tasteTags=()=>{const t=[];PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k])t.push(p.o[k][1])});return t};
 function seedInts(){const set=new Set(S.ints);PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k]){const n=CAT2INT[p.o[k][3]];if(n)set.add(n)}});S.ints=[...set]}
 function renderQuiz(){
-  const id=STEPS[qi];$("#qbar").style.width=Math.round(qi/STEPS.length*100)+"%";$("#qstep").textContent=(qi+1)+" of "+STEPS.length;
+  const id=STEPS[qi];$("#qbar").style.transform=`scaleX(${qi/STEPS.length})`;$("#qstep").textContent=(qi+1)+" of "+STEPS.length;
   $("#qBack").hidden=qi===0;let h="";
   if(id==="who"){h=`<h2 class="qq">Who's this list for?</h2><p class="qsub">A few quick taps and Wishwell learns their taste.</p>
    <div class="pair"><button type="button" class="opt" style="background:var(--teal)" data-who="me" aria-pressed="${S.forWho==="me"}">Me<small>Make my own wishlist</small></button><button type="button" class="opt" style="background:var(--navy)" data-who="them" aria-pressed="${S.forWho==="them"}">Someone else<small>Find gifts for them</small></button></div>
@@ -1130,7 +1130,7 @@ function finishQuiz(){
   seedInts();
   S.m.quizDone=(S.m.quizDone||0)+1;
   S.items=S.items.filter(i=>i.status==="kept"||i.status==="have"||i.mine);
-  $("#qbar").style.width="100%";const tags=tasteTags();
+  $("#qbar").style.transform="scaleX(1)";const tags=tasteTags();
   show("ideas");if(tags.length)toast("Taste: "+tags.slice(0,3).join(", "));getIdeas();
 }
 
@@ -1187,7 +1187,9 @@ function signals(){
   nt.split(/[^a-z0-9]+/).filter(x=>x.length>2&&!STOP.has(x)&&!NOTE_MAP.some(([re])=>re.test(" "+x+" "))).forEach(x=>add("word:"+stem(x),4,x,1));
   return sig;
 }
-const ideaWords=b=>new Set((b[4]+" "+b[1]+" "+b[0]).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(stem));
+// Word sets are built once per idea and reused (read only; copy before changing one).
+const WORDS=new WeakMap(),TASTE=new WeakMap();
+const ideaWords=b=>{let w=WORDS.get(b);if(!w){w=new Set((b[4]+" "+b[1]+" "+b[0]).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(stem));WORDS.set(b,w)}return w};
 const maxB=()=>S.budget==="any"?99999:+S.budget;
 function addItem(o){
   S.seq++;const it={id:"i"+S.seq+"_"+Date.now().toString(36),no:S.seq,title:String(o.title).slice(0,80),cat:CATS[o.cat]?o.cat:"Other",lo:Math.max(0,Math.round(+o.lo||0)),hi:Math.max(0,Math.round(+o.hi||+o.lo||0)),why:String(o.why||"").slice(0,140),search:String(o.search||o.title).slice(0,80),url:o.url||"",src:o.src||"",status:o.status||"new",mine:!!o.mine,round:S.round||0};
@@ -1206,7 +1208,7 @@ const BANK_BY=new Map(BANK.map(b=>[b[0].toLowerCase(),b]));
 const IDF=(()=>{const df={};BANK.forEach(b=>ideaWords(b).forEach(x=>df[x]=(df[x]||0)+1));const o={};for(const x in df)o[x]=Math.log(BANK.length/df[x]);return o})();
 const band=v=>v<25?0:v<75?1:v<200?2:3;
 const GENERIC=new Set("set kit box pack starter gift card beginner pair collection bundle".split(" "));
-const tasteWords=b=>{const s=ideaWords(b);s.delete(b[1].toLowerCase());[...s].forEach(x=>{if(x.length<3||STOP.has(x)||GENERIC.has(x))s.delete(x)});return s};
+const tasteWords=b=>{let s=TASTE.get(b);if(!s){s=new Set(ideaWords(b));s.delete(b[1].toLowerCase());[...s].forEach(x=>{if(x.length<3||STOP.has(x)||GENERIC.has(x))s.delete(x)});TASTE.set(b,s)}return s};
 const itemBank=i=>BANK_BY.get(i.title.toLowerCase())||[i.title,i.cat,i.lo,i.hi,"",i.why];
 function tasteProfile(){
   const P={cat:{},word:{},band:{},n:0};
@@ -1358,9 +1360,11 @@ let freshId="";
 $("#ideaGrid").addEventListener("click",e=>{
   if(e.target.closest("a"))return;
   const b=e.target.closest("button[data-a]");const card=e.target.closest(".card[data-id]");
+  if(card&&card.classList.contains("out"))return; // already on its way out (double tap)
   const it=byId(b?b.dataset.id:card?card.dataset.id:"");if(!it)return;const a=b?b.dataset.a:"keep";
-  if(a==="keep"){it.status=it.status==="kept"?"new":"kept";if(it.status==="kept"){S.m.circled++;freshId=it.id;circleFx()}syncKept();save();render();freshId="";return}
-  const gone=()=>{syncKept();save();render()};
+  if(a==="keep"){it.status=it.status==="kept"?"new":"kept";if(it.status==="kept"){S.m.circled++;freshId=it.id;circleFx()}syncKept();save();
+    if(card)card.outerHTML=cardHtml(it);else render();freshId="";renderCounts();return}
+  const gone=()=>{syncKept();save();if(card){card.remove();if(!$("#ideaGrid .card"))$("#ideaGrid").innerHTML=EMPTY_IDEAS;renderBins();renderCounts()}else render()};
   if(a==="cut"){it.status="cut";S.m.cut++;cutFx();toast("Cut. Undo at the bottom of the page.")}
   if(a==="have"){it.status="have";S.m.have=(S.m.have||0)+1;const t=it.title.toLowerCase();if(!S.have.includes(t))S.have.push(t);toast("Got it. It won't come back. Undo at the bottom.")}
   if(card&&!matchMedia("(prefers-reduced-motion: reduce)").matches){card.classList.add("out");setTimeout(gone,170)}else gone();
@@ -1524,7 +1528,7 @@ document.addEventListener("click",e=>{if(e.target.closest(".reportBtn"))copy(rep
 /* render */
 const ringSvg=`<svg class="ring" viewBox="0 0 74 74" aria-hidden="true"><path d="M14 18 C 26 2, 60 4, 69 26 C 76 46, 62 70, 36 70 C 12 70, 2 52, 5 34 C 7 24, 12 18, 22 12"/></svg>`;
 const keepIcon=on=>`<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="${on?"currentColor":"none"}" stroke="currentColor" stroke-width="2"/>${on?'<path d="M6 10.5l2.6 2.6L14.2 7.4" fill="none" stroke="var(--redink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>':""}</svg>`;
-function card(it){
+function cardHtml(it){
   const c=CATS[it.cat]||CATS.Other;const k=it.status==="kept";
   return `<article class="card${k?" on":""}${it.id===freshId?" fresh":""}" data-id="${esc(it.id)}">
 <div class="mono" style="background:${c}" aria-hidden="true">${esc(it.cat.charAt(0))}${k?ringSvg:""}</div>
@@ -1534,19 +1538,30 @@ ${it.why?`<p class="why">${esc(it.why)}</p>`:""}
 <div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="${esc(it.id)}" aria-pressed="${k}">${keepIcon(k)}${k?"Circled":"Circle it"}</button><button type="button" class="btn quiet" data-a="have" data-id="${esc(it.id)}">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="${esc(it.id)}">Cut</button>${buyLink(it)}</div>${dealLinks(it)}
 <div class="src">${esc(it.src)}</div></article>`;
 }
-function render(){
-  syncKept();
-  const vis=S.items.filter(i=>i.status!=="cut"&&i.status!=="have").sort((a,b)=>(b.round||0)-(a.round||0)||a.no-b.no);
-  $("#ideaGrid").innerHTML=vis.length?vis.map(card).join(""):`<div class="empty">No ideas yet. Tap More ideas.</div>`;
+const EMPTY_IDEAS=`<div class="empty">No ideas yet. Tap More ideas.</div>`;
+const onScreen=v=>!$("#v-"+v).hidden;
+function renderBins(){
   const cut=S.items.filter(i=>i.status==="cut");$("#cutN").textContent=cut.length;$("#cutBox").hidden=!cut.length;
   $("#cutList").innerHTML=cut.map(i=>`<button type="button" class="chip" data-id="${esc(i.id)}">Bring back ${esc(i.title)}</button>`).join("");
   const have=S.items.filter(i=>i.status==="have");$("#haveN").textContent=have.length;$("#haveBox").hidden=!have.length;
   $("#haveList").innerHTML=have.map(i=>`<button type="button" class="chip" data-id="${esc(i.id)}">I don't have ${esc(i.title)}</button>`).join("");
-  $("#c-ideas").textContent=S.items.filter(i=>i.status==="new").length;$("#c-rank").textContent=S.kept.length;
-  const bits=[S.forWho==="me"?"For "+(S.name||"you"):"For "+(S.name||"someone else")];if(S.ints.length)bits.push(S.ints.join(", "));
+}
+function renderCounts(){$("#c-ideas").textContent=S.items.filter(i=>i.status==="new").length;$("#c-rank").textContent=S.kept.length}
+// Only the view on screen is drawn. show() calls render() after it opens a view, so a hidden view is never stale when it appears.
+function render(){
+  syncKept();renderCounts();
+  if(onScreen("ideas")){
+    const vis=S.items.filter(i=>i.status!=="cut"&&i.status!=="have").sort((a,b)=>(b.round||0)-(a.round||0)||a.no-b.no);
+    $("#ideaGrid").innerHTML=vis.length?vis.map(cardHtml).join(""):EMPTY_IDEAS;
+    renderBins();
+    const bits=[S.forWho==="me"?"For "+(S.name||"you"):"For "+(S.name||"someone else")];if(S.ints.length)bits.push(S.ints.join(", "));
   const tg=tasteTags();if(tg.length)bits[1]=tg.join(", ");bits.push((BUDGETS.find(b=>b[0]===S.budget)||["","Any price"])[1]);$("#whoLine").textContent=bits.join(" · ");
-  $("#groupBtn").setAttribute("aria-pressed",S.group);$("#groupBtn").textContent=S.group?"Show one list":"Group by kind";
-  renderRank();renderShare();renderGroup();renderFamily();renderAge();
+  }
+  if(onScreen("rank")){$("#groupBtn").setAttribute("aria-pressed",S.group);$("#groupBtn").textContent=S.group?"Show one list":"Group by kind";renderRank()}
+  if(onScreen("share"))renderShare();
+  if(onScreen("group"))renderGroup();
+  if(onScreen("family"))renderFamily();
+  if(onScreen("age"))renderAge();
 }
 function show(v){
   if(v!=="family"&&v!=="age"&&!S.ageOk)v="age";

@@ -39,6 +39,10 @@ public class SoundCheckPlugin extends Plugin {
         final int effect = "cut".equals(call.getString("kind", "tick"))
             ? HapticFeedbackConstants.LONG_PRESS
             : HapticFeedbackConstants.VIRTUAL_KEY;
+        if (getActivity() == null) { // app closing: nothing to buzz
+            call.resolve();
+            return;
+        }
         getActivity().runOnUiThread(() -> {
             View v = getBridge().getWebView();
             if (v != null) v.performHapticFeedback(effect);

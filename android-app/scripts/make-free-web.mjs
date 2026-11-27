@@ -14,7 +14,9 @@ const out = join(root, "www");
 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
-for (const d of ["img", "icons"]) cpSync(join(src, d), join(out, d), { recursive: true });
+// Only img/ is needed. The icons/ folder and manifest are for the website's home-screen install;
+// the Play app has its own launcher icons, so they'd only add about 400 KB.
+cpSync(join(src, "img"), join(out, "img"), { recursive: true });
 
 let html = readFileSync(join(src, "index.html"), "utf8");
 const swap = (from, to, label) => {
@@ -25,6 +27,9 @@ const swapRe = (re, to, label) => {
   if (!re.test(html)) throw new Error(`Free app build: could not find "${label}" in app/index.html. Update make-free-web.mjs.`);
   html = html.replace(re, to);
 };
+
+// Website install links: the free app doesn't ship the manifest or web icons (the manifest link was a missing file).
+swapRe(/<link rel="manifest" href="manifest\.webmanifest">\s*<link rel="icon"[^>]*>\s*<link rel="apple-touch-icon"[^>]*>\s*/, "", "web app manifest and icon links");
 
 // Settings: AI is always off in the free app.
 swap('<script src="config.js"></script>', '<script>window.WISHWELL_CONFIG={aiUrl:"",shareBase:"https://shopmysticstudio.github.io/wishwell/app/",shortLinks:true};</script>', "config.js script tag");

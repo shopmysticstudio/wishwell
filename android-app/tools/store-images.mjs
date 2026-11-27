@@ -54,7 +54,7 @@ await page.click("#gDraw");
 await shot("7-group.png");
 
 // Feature graphic
-const logo = "data:image/png;base64," + readFileSync(join(root, "www", "icons", "icon-maskable-512.png")).toString("base64");
+const logo = "data:image/png;base64," + readFileSync(join(root, "..", "app", "icons", "icon-maskable-512.png")).toString("base64");
 const fonts = readFileSync(join(root, "www", "fonts", "fonts.css"), "utf8").replace(/url\(([^)]+)\)/g, (_, f) =>
   `url(data:font/woff2;base64,${readFileSync(join(root, "www", "fonts", f)).toString("base64")})`);
 const fg = await browser.newPage({ viewport: { width: 1024, height: 500 }, deviceScaleFactor: 1 });
