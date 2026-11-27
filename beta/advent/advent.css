@@ -37,7 +37,7 @@
   border-bottom:6px solid #e8f2fb;border-radius:0 0 50% 50%/0 0 6px 6px}
 
 /* Drawers */
-.adv-d{position:relative;width:var(--dw);height:calc(var(--dw)*.84);border:2.5px solid var(--ink);border-radius:10px;padding:0;
+.adv .adv-d{position:relative;width:var(--dw);height:calc(var(--dw)*.84);border:2.5px solid var(--ink);border-radius:10px;padding:0;
   display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:calc(var(--dw)*.06);
   font:900 calc(var(--dw)*.36)/1 Nunito,system-ui,sans-serif;color:var(--navy);background:linear-gradient(#fff9ef,#f2dfbd);
   box-shadow:0 3px 0 var(--ink),inset 0 0 0 3px rgba(255,255,255,.38);transition:transform .25s cubic-bezier(.2,1.4,.4,1),box-shadow .25s}
@@ -83,6 +83,7 @@
 /* Game window */
 .adv-play{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:6px;background:rgba(15,13,34,.72);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);font:16px/1.45 Nunito,system-ui,sans-serif;color:#fff}
 .adv-play[hidden]{display:none}
+.adv-play button{cursor:pointer}
 .adv-card{background:var(--navy,#23284d);border:3px solid #2b2340;border-radius:22px;padding:6px 8px 8px;box-shadow:0 22px 50px rgba(0,0,0,.55),inset 0 0 0 2px rgba(255,201,74,.35);
   transition:transform .42s cubic-bezier(.2,1.25,.4,1),opacity .3s}
 .adv-chead{display:flex;align-items:center;gap:8px;padding:0 2px 6px 6px}

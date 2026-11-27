@@ -354,7 +354,7 @@ function makeCatch(api, o) {
       }
       if (target != null) px += (target - px) * Math.min(1, dt * 16);
       if (kd) { px += kd * 440 * dt; target = null; }
-      px = clamp(px, 42, W - 42);
+      px = clamp(px, 56, W - 56);
       for (const it of items) {
         it.y += it.vy * dt; it.rot += it.vr * dt;
         if (o.wind) it.x = clamp(it.x + Math.sin(t * 1.2 + it.ph) * o.wind * dt, 18, W - 18);
@@ -443,7 +443,7 @@ function makeStack(api, o) {
 /* Flap: tap to fly up through the gaps. */
 function makeFlap(api, o) {
   const X = 92, R = 15, ground = H - 38, PW = 58;
-  let y = H * 0.42, vy = 0, pipes = [], dist = 0, ph = 0, scroll = 0, dead = false;
+  let y = H * 0.42, vy = 0, pipes = [], dist = 0, ph = 0, scroll = 0, dead = false, waiting = true, bob = 0;
   function addPipe(x) {
     const gap = Math.max(o.gapMin || 132, (o.gap || 176) - api.get() * 1.4), lo = 50 + gap / 2, hi = ground - gap / 2 - 30, prev = pipes.length ? pipes[pipes.length - 1].gy : (lo + hi) / 2;
     const gy = clamp(prev + rnd(-165, 165), lo, hi);
@@ -451,7 +451,7 @@ function makeFlap(api, o) {
   }
   addPipe(W + 60);
   function die() { if (dead) return; dead = true; api.sfx("bad"); api.shake(); api.over(); }
-  const flap = () => { vy = -(o.lift || 380); api.sfx("flap"); };
+  const flap = () => { waiting = false; vy = -(o.lift || 380); api.sfx("flap"); };
   const player = (g) => {
     g.save(); g.translate(X, y); g.rotate(clamp(vy / 650, -0.5, 0.75));
     if (o.player === "robin") D.robin(g, 0, 0, 36, ph * 1.6);
@@ -460,8 +460,9 @@ function makeFlap(api, o) {
     g.restore();
   };
   return {
-    start: flap, down: flap, key() { return false; }, hud: () => "",
+    down: flap, key() { return false; }, hud: () => waiting ? "Tap to fly!" : "",
     update(dt) {
+      if (waiting) { bob += dt; ph += dt * 10; y = H * 0.42 + Math.sin(bob * 4) * 8; vy = 0; scroll += 60 * dt; return; }
       const sp = (o.speed || 1) * (150 + Math.min(70, api.get() * 2.4));
       vy += 1250 * dt; y += vy * dt; ph += dt * 10; dist += sp * dt; scroll += sp * dt;
       if (y < R) { y = R; vy = 0; }
@@ -568,7 +569,7 @@ function makeTiming(api, o) {
         g.save(); g.translate(cx, cy); g.scale(s, s);
         if (stage === 0 && done > 0 && anim > 0) { D.present(g, 0, 0, 150, 120, ORN[(Math.floor(done / 3) + 1) % 6], C.gold); D.star(g, 0, -100, 18 * anim + 6, C.gold); }
         else if (stage === 0) { rr(g, -75, -60, 150, 120, 6); fs(g, "#c9925a"); g.strokeStyle = "#a0723f"; g.lineWidth = 3; g.beginPath(); g.moveTo(-75, -30); g.lineTo(75, -30); g.stroke(); }
-        else { rr(g, -75, -60, 150, 120, 6); fs(g, ORN[Math.floor(done / 3) % 6]); for (let i = 0; i < 8; i++) D.star(g, -55 + (i % 4) * 36, -35 + Math.floor(i / 4) * 55, 7, "rgba(255,255,255,.7)");
+        else { rr(g, -75, -60, 150, 120, 6); fs(g, ORN[Math.floor(done / 3) % 6]); for (let i = 0; i < 12; i++) dot(g, -56 + (i % 4) * 37, -38 + Math.floor(i / 4) * 38 + (i % 2) * 8, 5, "rgba(255,255,255,.55)");
           if (stage === 2) { g.fillStyle = C.gold; g.fillRect(-12, -58.5, 24, 117); g.fillRect(-73.5, -12, 147, 24); } }
         g.restore();
         for (let i = 0; i < Math.min(9, Math.floor(done / 3)); i++) D.present(g, 30 + i * 37, H - 76, 30, 26, ORN[i % 6], i % 2 ? "#fff" : C.gold);
@@ -637,16 +638,18 @@ function makeWhack(api, o) {
         g.beginPath(); g.moveTo(-4, 116); g.quadraticCurveTo(W / 2, 96, W + 4, 116); g.lineTo(W / 2, 34); g.closePath(); fs(g, "#fff", 2);
       } else { bgDay(g); hills(g, 150, "#e3eefa", 0, 12); g.fillStyle = "#fff"; g.fillRect(0, 170, W, H); }
       for (const h of holes) {
-        const who = (g2) => { if (h.kind === "bad") D.snowman(g2, h.x, h.y + 8 - h.h * 70 + 70, 74); else if (o.good === "elf") D.elf(g2, h.x, h.y + 52 - h.h * 74, 56); else D.penguin(g2, h.x, h.y + 6 - h.h * 64 + 64, 66, Math.sin(gt * 10) * 0.3); };
+        const who = (g2) => { if (h.kind === "bad") D.snowman(g2, h.x, h.y + 8 - h.h * 70 + 70, 74); else if (o.good === "elf") D.elf(g2, h.x, h.y + 52 - h.h * 82, 56); else D.penguin(g2, h.x, h.y + 6 - h.h * 64 + 64, 66, Math.sin(gt * 10) * 0.3); };
         if (o.house) {
           rr(g, h.x - 42, h.y - 82, 84, 84, 6); fs(g, "#ffd98a", 3);
           g.save(); rr(g, h.x - 40, h.y - 80, 80, 80, 5); g.clip(); if (h.h > 0) who(g); g.restore();
           g.strokeStyle = INK; g.lineWidth = 3; rr(g, h.x - 42, h.y - 82, 84, 84, 6); g.stroke();
           rr(g, h.x - 48, h.y - 2, 96, 12, 4); fs(g, "#fff", 2.5);
         } else {
-          g.beginPath(); g.ellipse(h.x, h.y, 50, 20, 0, 0, TAU); fs(g, "#5f7fa6", 2.5);
+          g.beginPath(); g.ellipse(h.x, h.y + 4, 58, 26, 0, 0, TAU); fs(g, "#eef5fc", 2.5);
+          g.beginPath(); g.ellipse(h.x, h.y, 44, 15, 0, 0, TAU); g.fillStyle = "#3e5476"; g.fill();
           g.save(); g.beginPath(); g.rect(h.x - 60, h.y - 130, 120, 130); g.clip(); if (h.h > 0) who(g); g.restore();
-          g.beginPath(); g.ellipse(h.x, h.y + 6, 58, 18, 0, 0, Math.PI); g.lineTo(h.x - 58, h.y + 6); fs(g, "#fff", 2.5);
+          g.beginPath(); g.ellipse(h.x, h.y, 44, 15, 0, 0.05, Math.PI - 0.05); g.ellipse(h.x, h.y + 4, 58, 26, 0, Math.PI, 0, true); g.closePath(); fs(g, "#fff", 0);
+          g.beginPath(); g.ellipse(h.x, h.y + 4, 58, 26, 0, 0, Math.PI); g.lineWidth = 2.5; g.strokeStyle = INK; g.stroke();
         }
         if (h.bonk > 0) for (let i = 0; i < 3; i++) { const a = gt * 6 + i * TAU / 3; D.star(g, h.x + Math.cos(a) * 26, h.y - 74 + Math.sin(a) * 8, 6, C.gold); }
       }
