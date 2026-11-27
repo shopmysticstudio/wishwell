@@ -61,6 +61,12 @@ name = "PER_MINUTE"
 namespace_id = "1101"
 simple = { limit = 5, period = 60 }
 
+# Page counter (/hit): page views and button clicks from one network, a minute. Nothing is stored for this.
+[[ratelimits]]
+name = "HITS"
+namespace_id = "1102"
+simple = { limit = 30, period = 60 }
+
 # Idea pool in D1 (anonymous idea text and counts; tables in migrations/).
 # Remove this block to go back to the KV pool.
 [[d1_databases]]

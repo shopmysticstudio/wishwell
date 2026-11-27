@@ -1371,7 +1371,7 @@ function renderPass(){
   box.innerHTML=`<div class="field" style="margin:0"><span>I have a Holiday Pass key</span>
 <input type="text" id="keyBox" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="License key" placeholder="Paste your key">
 <input type="email" id="keyEmail" autocomplete="email" autocapitalize="off" spellcheck="false" aria-label="Email you bought it with" placeholder="Email you bought it with" style="margin-top:8px">
-<div class="row" style="margin-top:8px"><button class="btn" type="button" id="keyBtn">Unlock</button></div></div><p class="small muted" id="keyMsg" style="margin:6px 0 0">Your key is on your receipt and in your email. Use the same email you bought with. One key works on up to 3 devices.</p>`;
+<div class="row" style="margin-top:8px"><button class="btn" type="button" id="keyBtn" data-count="key_unlock">Unlock</button></div></div><p class="small muted" id="keyMsg" style="margin:6px 0 0">Your key is on your receipt and in your email. Use the same email you bought with. One key works on up to 3 devices.</p>`;
 }
 async function unlock(){
   const kb=$("#keyBox"),eb=$("#keyEmail"),btn=$("#keyBtn"),m=$("#keyMsg");if(!kb)return;const key=kb.value.trim(),email=normEmail(eb&&eb.value);
@@ -1702,5 +1702,6 @@ setAi();
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
 </script>
+<script src="../count.js" defer></script>
 </body>
 </html>

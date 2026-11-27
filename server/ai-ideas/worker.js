@@ -466,6 +466,24 @@ async function passDevice(env, lic, dev) {
 
 const num = (v, d) => { const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : d; };
 const today = () => new Date().toISOString().slice(0, 10);
+
+/* ---------- page counter (/hit) ---------- */
+// Only these pages and events are counted; anything else is dropped. No ids, addresses or full URLs.
+const HIT_PAGES = ["/", "/app/", "/beta/", "/beta/home/", "/beta/advent/", "/privacy/"];
+const HIT_EVENTS = ["view", "try_free", "buy_key", "play_badge", "waitlist_signup", "key_unlock"];
+function cleanHit(raw, startHourUtc) {
+  if (!raw || typeof raw !== "object") return null;
+  const event = String(raw.e || "view");
+  if (!HIT_EVENTS.includes(event)) return null;
+  const p = String(raw.p || "");
+  const page = HIT_PAGES.includes(p) ? p : "other";
+  let ref = event === "view" ? String(raw.r || "").toLowerCase().replace(/^www\./, "") : "";
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(ref) || ref.length > 80) ref = "";
+  const dev = raw.d === "phone" ? "phone" : "desktop";
+  // Day in US Eastern, same as the free rounds (starts at 5 AM UTC).
+  const day = new Date(Date.now() - startHourUtc * 3600000).toISOString().slice(0, 10);
+  return { day, page, event, ref, dev };
+}
 const kvNum = async (env, key) => Number(await env.KV.get(key, { cacheTtl: 30 }).catch(() => 0)) || 0;
 
 /* ---------- free round counts (D1) ---------- */
@@ -531,7 +549,7 @@ async function unreserve(db, keys) {
 /* ---------- handler ---------- */
 export default {
   // For tests only; not used by Cloudflare.
-  _test: { readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
+  _test: { cleanHit, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
 
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
@@ -562,7 +580,7 @@ export default {
     }
     if (request.method !== "POST") return reply({ error: "use_post" }, 405);
     if (appOrigin && !(path === "/verify" || path === "/signal" || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
-    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist") return reply({ error: "not_found" }, 404);
+    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist" && path !== "/hit") return reply({ error: "not_found" }, 404);
 
     const maxBody = path === "/photo" ? MAX_PHOTO_BODY : MAX_BODY;
     const len = Number(request.headers.get("content-length") || 0);
@@ -575,6 +593,24 @@ export default {
     } catch (e) { return reply({ error: "bad_json" }, 400); }
 
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+    /* /hit: website page views and a few button clicks, counted per day. Has its own per-network
+       limit (HITS) so page views never use up the 5 a minute that AI rounds get. Website only. */
+    if (path === "/hit") {
+      const done = new Response(null, { status: 204, headers: cors });
+      if (!webOrigin || !env.DB) return done;
+      if (env.HITS && typeof env.HITS.limit === "function") {
+        try { const { success } = await env.HITS.limit({ key: network(ip) }); if (!success) return done; } catch (e) {}
+      }
+      const h = cleanHit(raw, num(env.TRIAL_DAY_START_HOUR_UTC, 5));
+      if (!h) return done;
+      const up = () => env.DB.prepare("INSERT INTO analytics (day, page, event, ref, dev, n) VALUES (?1, ?2, ?3, ?4, ?5, 1) ON CONFLICT(day, page, event, ref, dev) DO UPDATE SET n = n + 1")
+        .bind(h.day, h.page, h.event, h.ref, h.dev).run();
+      later(up().catch(async () => {
+        await env.DB.prepare("CREATE TABLE IF NOT EXISTS analytics (day TEXT NOT NULL, page TEXT NOT NULL, event TEXT NOT NULL, ref TEXT NOT NULL, dev TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, page, event, ref, dev))").run();
+        await up();
+      }));
+      return done;
+    }
     if (env.PER_MINUTE && typeof env.PER_MINUTE.limit === "function") {
       try { const { success } = await env.PER_MINUTE.limit({ key: ip }); if (!success) return reply({ error: "rate_limited" }, 429); } catch (e) {}
     }
