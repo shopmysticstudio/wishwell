@@ -412,7 +412,9 @@ const CFG=window.WISHWELL_CONFIG||{};
 /* payments: off until gumroadUrl is set in config.js */
 const PAY=!!String(CFG.gumroadUrl||"").trim();
 let PASS=null;try{PASS=JSON.parse(localStorage.getItem("wishwell-pass")||"null")}catch(e){}
-const hasPass=()=>PAY&&!!(PASS&&PASS.ok);
+/* the key and email box shows when payments are on, or with keyEntry (beta) while Buy is still coming soon */
+const KEYS=PAY||!!CFG.keyEntry;
+const hasPass=()=>KEYS&&!!(PASS&&PASS.ok&&PASS.key&&PASS.email);
 const AI_ON=!!String(CFG.aiUrl||"").trim();
 const SHOP=!!CFG.shopTools;
 const reduced=()=>!!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -436,7 +438,7 @@ const trialHdr=r=>{const tl=r.headers.get("x-trial-left");if(tl==null)return;con
 const trialSpent=(lim,reset)=>{S.trialUsed=true;S.trialFree=FREE;S.trialLim=lim||"";S.trialUntil=reset?reset*1000:0;S.aiLeft=null};
 /* random id for this browser, so the AI service can count free trial rounds per device */
 let DEV="";try{DEV=localStorage.getItem("wishwell-device")||"";if(!/^[A-Za-z0-9_-]{16,64}$/.test(DEV)){DEV=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9]/g,"");localStorage.setItem("wishwell-device",DEV)}}catch(e){}
-const aiHeaders=withPass=>{const h={"content-type":"application/json"};if(window.WISHWELL_ACCESS_CODE)h["x-beta-code"]=window.WISHWELL_ACCESS_CODE;if(DEV)h["x-device-id"]=DEV;if(withPass&&hasPass())h["x-pass-key"]=PASS.key;return h};
+const aiHeaders=withPass=>{const h={"content-type":"application/json"};if(window.WISHWELL_ACCESS_CODE)h["x-beta-code"]=window.WISHWELL_ACCESS_CODE;if(DEV)h["x-device-id"]=DEV;if(withPass&&hasPass()){h["x-pass-key"]=PASS.key;h["x-pass-email"]=PASS.email}return h};
 const APP_URL=CFG.shareBase||(location.origin+location.pathname);
 const CATS={Tech:"#2563eb",Gaming:"#7c3aed",Making:"#ea580c",Art:"#db2777",Music:"#0891b2",Sports:"#16a34a",Outdoors:"#4d7c0f",Science:"#1e3a8a",Books:"#92400e",Food:"#b91c1c",Style:"#334155",Room:"#0f766e",Experiences:"#c2410c",Beauty:"#be185d",Other:"#525252"};
 const INTS=[["Cooking","cooking food"],["Music","music audio instrument"],["Movies and shows","movies tv"],["Sports","sports fitness running"],["Outdoors","outdoors camping hiking"],["Art","art drawing painting"],["Crafts","crafts sewing knit diy"],["Books","books reading"],["Style","fashion style clothes"],["Room setup","room decor desk"],["Coffee and tea","coffee tea"],["Gaming","gaming games controller"],["Travel","travel"],["Pets","pets dog cat"],["Self-care","selfcare spa bath"],["Beauty","beauty makeup skincare"],["Jewelry","jewelry"],["Puzzles","puzzles"],["Friends and parties","party friends games"],["Tech","tech electronics gadgets phone computer"],["Making","maker build tools 3dprinting electronics"],["Cars","cars driving"],["Space and science","space science astronomy rockets"]];
@@ -1155,6 +1157,9 @@ async function getIdeas(){
       if(c==="trial_used"){trialSpent(e.limit,e.reset);note=`${usedMsg()} These are starter ideas for now. ${passBtn}`;
         setTimeout(()=>openPlans(PAY?`${usedMsg()} The Holiday Pass gives you 25 AI rounds a day, plus gift exchanges of any size.`:`${usedMsg()} The Holiday Pass, coming soon, will give you 25 AI rounds a day.`,"holiday"),600)}
       else if(c==="pass_daily_limit"){note="You've used today's 25 AI rounds. More tomorrow! These are starter ideas."}
+      else if(c==="pass_weekly_limit"){note="You've used this week's 100 AI rounds. More on Monday! These are starter ideas."}
+      else if(c==="pass_device_limit"){note="Your Holiday Pass key is already on 3 devices, so these are starter ideas here."}
+      else if(c==="too_many_tries"){note="Too many wrong key tries from this network today. Try again tomorrow. These are starter ideas."}
       else if(c==="pass_invalid"){PASS=null;try{localStorage.removeItem("wishwell-pass")}catch(x){}note=`Your Holiday Pass key didn't check out (it may have been refunded), so these are starter ideas. ${passBtn}`}
       else msg.innerHTML=`<p class="note err">AI ideas didn't load${c==="rate_limited"?" (too many asks, try again in a minute)":c==="slow"?" (the AI was too slow just now)":""}. Showing starter ideas instead.</p>`;
       if(c==="not_granted")sample=null}
@@ -1345,35 +1350,48 @@ $("#plans").addEventListener("click",e=>{if(e.target.id==="plans")closePlans()})
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("#plans").hidden)closePlans();$("#copyM").hidden=true}});
 $("#plans").addEventListener("click",e=>{const b=e.target.closest("[data-pay]");if(!b)return;S.m.pay[b.dataset.pay]=1;save();if(b.tagName==="A")return;b.textContent="Noted, thanks";$("#payNote").textContent=PAY?"Thanks! The Exchange Pass is coming soon. Your tap is in your test report.":"Thanks! The passes are coming soon. Your tap is in your test report.";});
 
-/* Holiday Pass checkout and license key (only when gumroadUrl is set) */
+/* Holiday Pass checkout and license key. The key box asks for the key and the email it was bought with. */
+const normEmail=e=>String(e||"").trim().toLowerCase();
 const okPurchase=d=>!!(d&&d.success&&d.purchase&&!d.purchase.refunded&&!d.purchase.chargebacked&&!d.purchase.disputed);
-async function checkKey(key){
+async function checkKey(key,email){
   const url=String(CFG.licenseCheckUrl||"").trim()||(AI_ON?String(CFG.aiUrl).trim().replace(/\/+$/,"")+"/verify":"");
   if(url){
-    const r=await fetch(url,{method:"POST",headers:aiHeaders(false),body:JSON.stringify({license_key:key})});
-    const d=await r.json().catch(()=>({}));return !!d.valid;
+    const r=await fetch(url,{method:"POST",headers:aiHeaders(false),body:JSON.stringify({license_key:key,email})});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===429)return{ok:false,reason:d.error==="too_many_tries"?"too_many_tries":"busy"};
+    return{ok:!!d.valid,reason:d.reason||""};
   }
   const r=await fetch("https://api.gumroad.com/v2/licenses/verify",{method:"POST",body:new URLSearchParams({product_id:String(CFG.gumroadProductId||"").trim(),license_key:key})});
-  const d=await r.json().catch(()=>({}));return okPurchase(d);
+  const d=await r.json().catch(()=>({}));
+  return{ok:okPurchase(d)&&normEmail(d.purchase.email)===normEmail(email),reason:""};
 }
 function renderPass(){
-  const box=$("#passBox");box.hidden=!PAY;if(!PAY)return;
-  if(hasPass()){box.innerHTML=`<strong>Holiday Pass is on for this device.</strong> ${AI_ON?"25 AI rounds a day and any size group.":"Any size group."}`;return}
-  box.innerHTML=`<div class="field" style="margin:0"><span>I have a license key</span><div class="row"><input type="text" id="keyBox" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="License key" placeholder="Paste your key"><button class="btn" type="button" id="keyBtn">Unlock</button></div></div><p class="small muted" id="keyMsg" style="margin:6px 0 0">After you buy, your key is on the Gumroad receipt and in your email.</p>`;
+  const box=$("#passBox");box.hidden=!KEYS;if(!KEYS)return;
+  if(hasPass()){box.innerHTML=`<strong>Holiday Pass is on for this device.</strong> ${AI_ON?"25 AI rounds a day, up to 100 a week, and any size group.":"Any size group."}`;return}
+  box.innerHTML=`<div class="field" style="margin:0"><span>I have a Holiday Pass key</span>
+<input type="text" id="keyBox" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="License key" placeholder="Paste your key">
+<input type="email" id="keyEmail" autocomplete="email" autocapitalize="off" spellcheck="false" aria-label="Email you bought it with" placeholder="Email you bought it with" style="margin-top:8px">
+<div class="row" style="margin-top:8px"><button class="btn" type="button" id="keyBtn">Unlock</button></div></div><p class="small muted" id="keyMsg" style="margin:6px 0 0">Your key is on your receipt and in your email. Use the same email you bought with. One key works on up to 3 devices.</p>`;
 }
 async function unlock(){
-  const kb=$("#keyBox"),btn=$("#keyBtn"),m=$("#keyMsg");if(!kb)return;const key=kb.value.trim();
-  if(!key){m.textContent="Paste your license key first.";return}
+  const kb=$("#keyBox"),eb=$("#keyEmail"),btn=$("#keyBtn"),m=$("#keyMsg");if(!kb)return;const key=kb.value.trim(),email=normEmail(eb&&eb.value);
+  if(!key){m.textContent="Paste your key first.";kb.focus();return}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){m.textContent="Type the email you bought the pass with.";eb&&eb.focus();return}
   btn.disabled=true;btn.textContent="Checking...";
   try{
-    if(await checkKey(key)){PASS={ok:true,key,at:Date.now()};try{localStorage.setItem("wishwell-pass",JSON.stringify(PASS))}catch(e){}
+    const r=await checkKey(key,email);
+    if(r.ok){PASS={ok:true,key,email,at:Date.now()};try{localStorage.setItem("wishwell-pass",JSON.stringify(PASS))}catch(e){}
       $("#plansWhy").textContent="Your Holiday Pass is on for this device.";renderPass();render();toast("Holiday Pass unlocked");return}
-    m.textContent="That key didn't work for the Holiday Pass. Check it against your Gumroad receipt and try again.";
+    m.textContent=r.reason==="device_limit"?"This key is already on 3 devices, so it can't be added here."
+      :r.reason==="too_many_tries"?"Too many wrong tries from this network today. Try again tomorrow."
+      :r.reason==="refunded"?"This pass was refunded, so the key doesn't work anymore."
+      :r.reason==="busy"||r.reason==="not_set_up"?"Couldn't check the key right now. Try again in a minute."
+      :"That key and email don't match a Holiday Pass. Check both against your receipt.";
   }catch(e){m.textContent="Couldn't check the key right now. Check your connection and try again in a minute."}
   btn.disabled=false;btn.textContent="Unlock";
 }
 $("#passBox").addEventListener("click",e=>{if(e.target.closest("#keyBtn"))unlock()});
-$("#passBox").addEventListener("keydown",e=>{if(e.target.id==="keyBox"&&e.key==="Enter"){e.preventDefault();unlock()}});
+$("#passBox").addEventListener("keydown",e=>{if((e.target.id==="keyBox"||e.target.id==="keyEmail")&&e.key==="Enter"){e.preventDefault();unlock()}});
 document.addEventListener("click",e=>{if(e.target.closest("#capPlans"))openPlans("","holiday")});
 /* only promise AI perks when the AI service is set up */
 if(!AI_ON){$("#perkAi").remove();$("#perkFreeAi").remove()}else $("#perkFreeAi").textContent=WIN?`${DAILY} free AI rounds a day, up to ${WEEKLY} a week`:FREE+" free AI rounds to try";

@@ -7,9 +7,10 @@ Plan only. Nothing here is built yet, and no payment is live.
 1. On the website, tap **Buy the Holiday Pass key, $4.99** (Gumroad checkout).
 2. Gumroad emails the receipt with a license key.
 3. Install Wishwell from Google Play (US only).
-4. Paste the key into the app's key box. AI gift ideas unlock.
+4. Paste the key into the app's key box, and type the email used to buy it. AI
+   gift ideas unlock.
 
-The app shows only a key box. It never links to the website, never names Gumroad
+The app shows only a key box and an email box. It never links to the website, never names Gumroad
 or a price, and never says where to buy (Google Play's rule on steering buyers).
 
 ## How keys are issued
@@ -22,12 +23,17 @@ or a price, and never says where to buy (Google Play's rule on steering buyers).
   `WW-7KQ4-M2XP`) for each sale from Gumroad's sale notification (Ping), tied to
   the Gumroad sale. Only worth it if testers struggle with paste.
 
-## How the Worker checks a key
+## How the Worker checks a key (built Nov 27)
 
 - Same Worker, `wishwell-ai-ideas`. The app sends:
-  - `POST /verify` with `{"license_key": "..."}` once, when the key is entered;
-  - every AI round: headers `x-pass-key` (the key) and `x-device-id` (a random id
-    the app makes once and keeps).
+  - `POST /verify` with `{"license_key": "...", "email": "..."}` and the
+    `x-device-id` header once, when the key is entered. Answers `{"valid": true}`,
+    or `{"valid": false, "reason": "not_found" | "refunded" | "device_limit"}`, or
+    429 `{"error": "too_many_tries"}`;
+  - every AI round: headers `x-pass-key` (the key), `x-pass-email` (the email) and
+    `x-device-id` (a random id the app makes once and keeps).
+- The email must match the Gumroad purchase email (trimmed, any case). A wrong
+  email gets the same answer as an unknown key, so it gives nothing away.
 - The Worker asks Gumroad's license API, then caches the answer in KV
   (6 hours when valid, 10 minutes when not). A refunded, charged-back or disputed
   sale stops working within 6 hours.
@@ -36,7 +42,7 @@ or a price, and never says where to buy (Google Play's rule on steering buyers).
 ## One key per buyer, with a device limit
 
 - One sale, one key. Gumroad counts uses on `/verify`.
-- The Worker keeps a list (in D1) of hashed device ids per key. **Limit: 3
+- The Worker keeps a list (in KV, `passdev:`) of hashed device ids per key. **Limit: 3
   devices.** A 4th device gets `key_device_limit`, and the app says "This key is
   already on 3 devices."
 - Leo can clear a key's devices by hand (a D1 row) when someone gets a new phone.
@@ -48,6 +54,15 @@ or a price, and never says where to buy (Google Play's rule on steering buyers).
   **100** so one key can't eat the whole AI budget. Counted per key, across all
   its devices, app and website together. Same day start (midnight US Eastern).
 - The app reads `x-pass-left` to show rounds left today.
+
+## App side (Android thread, later)
+
+- Unlock screen: a key box and an email box, an Unlock button, and nothing else:
+  no link, no store or website name, no price.
+- Keep the key and email on the phone; send them as `x-pass-key` and
+  `x-pass-email` with `x-device-id` on each AI round.
+- Messages for `device_limit` / `pass_device_limit` ("already on 3 devices"),
+  `too_many_tries`, `pass_daily_limit`, `pass_weekly_limit` and `pass_invalid`.
 
 ## What the app needs from the Worker (small changes, later)
 
@@ -61,9 +76,11 @@ or a price, and never says where to buy (Google Play's rule on steering buyers).
 ## Abuse risks and answers
 
 - **Sharing a key:** 3-device cap and the per-key daily and weekly caps.
-- **Guessing keys:** keys are long and random; `/verify` already has the
-  5-a-minute limit per network. Add a stricter cap on failed checks (say 10 a day
-  per network).
+- **Sharing keys:** a key needs the buyer's email too, so passing on the key
+  alone doesn't work.
+- **Guessing keys:** keys are long and random; besides the 5-a-minute limit per
+  network, 10 wrong key or email tries per network per day (PASS_BAD_TRIES), then
+  429 `too_many_tries` until the next day.
 - **Refund, then keep using:** the 6-hour cache ends access after a refund.
 - **Scripts calling the Worker:** a key is needed outside the website; Play
   Integrity later.

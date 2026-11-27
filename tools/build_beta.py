@@ -63,6 +63,9 @@ def main():
     c = re.sub(r"shopTools: (true|false)", "shopTools: true", c)
     c = re.sub(r"unwrap: (true|false)", "unwrap: true", c)
     assert "shopTools: true" in c and "unwrap: true" in c
+    # Beta only: the Holiday Pass key and email box (Buy stays Coming soon until GUMROAD_URL is set).
+    c = re.sub(r"keyEntry: (true|false)", "keyEntry: true", c)
+    assert "keyEntry: true" in c
     for k in ("gumroadProductId", "licenseCheckUrl"):
         c = re.sub(k + r': "[^"]*"', k + ': ""', c)
     with open(cfg, "w", encoding="utf-8") as f:

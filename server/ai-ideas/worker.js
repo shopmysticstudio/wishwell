@@ -4,7 +4,9 @@
    Routes (all POST, JSON):
      /        gift ideas. Body: the app's payload (n, forWho, ints, quiz, style, notes, budget,
               kept, keptAi, cut, seen). Answers a JSON array of {title, category, lo, hi, why, search}.
-     /verify  Holiday Pass license check. Body: {"license_key": "..."}. Answers {"valid": true|false}.
+     /verify  Holiday Pass check. Body: {"license_key": "...", "email": "..."} plus the x-device-id
+              header. Answers {"valid": true|false, "reason": ""|"not_found"|"device_limit"|...}.
+              Too many wrong tries from one network in a day: 429 {"error":"too_many_tries"}.
      /photo   beta only. Body: {"image": "data:image/jpeg;base64,..."} (a photo or screenshot, under
               about 500 KB). Answers {"items": [{title, category, lo, hi, search}]} for the giftable
               things in it. Counts as one AI round, the same way as /.
@@ -25,9 +27,13 @@
                  can't slip past the limit) and handed back if the round fails.
      Beta code   a valid beta code (x-beta-code header) gets BETA_ROUNDS free rounds instead, counted
                  the same way but separately (BETA_PER_NETWORK per network).
-     Holiday     a valid Gumroad license key in the x-pass-key header gets PASS_DAILY rounds a
-     Pass        day (UTC). Then 429 {"error":"pass_daily_limit"}. A refunded or unknown key gets
-                 402 {"error":"pass_invalid"}.
+     Holiday     a Gumroad license key (x-pass-key) plus the email it was bought with
+     Pass        (x-pass-email, compared trimmed and lowercased) gets PASS_DAILY rounds a day and
+                 PASS_WEEKLY a week, per key across all its devices (same day and week start as
+                 the public site). Then 429 {"error":"pass_daily_limit"|"pass_weekly_limit"}. A key
+                 works on PASS_DEVICES devices (x-device-id); another gets 403
+                 {"error":"pass_device_limit"}. A refunded, unknown or wrong-email key gets 402
+                 {"error":"pass_invalid"}. Wrong tries count per network per day (PASS_BAD_TRIES).
      Beta        while BETA_ONLY is not "false", every request also needs the beta code
                  (x-beta-code header).
    Only rounds that return ideas are counted. Every other failure answers 429, so the app quietly
@@ -41,7 +47,8 @@
 
    Settings ([vars] in wrangler.toml, or the dashboard):
      MODEL, BACKUP_MODEL, AI_TIMEOUT_MS, BACKUP_TIMEOUT_MS, ALLOWED_ORIGINS, BETA_ONLY, TRIAL_ROUNDS,
-     TRIAL_PER_NETWORK, TRIAL_NETWORK_DAYS, BETA_ROUNDS, BETA_PER_NETWORK, TRIAL_PER_IP (KV fallback), PASS_DAILY, POOL
+     TRIAL_PER_NETWORK, TRIAL_NETWORK_DAYS, BETA_ROUNDS, BETA_PER_NETWORK, TRIAL_PER_IP (KV fallback), PASS_DAILY,
+     PASS_WEEKLY, PASS_DEVICES, PASS_BAD_TRIES, POOL
    Secrets (dashboard > Settings > Variables and Secrets > Type: Secret):
      GUMROAD_PRODUCT_ID  the Holiday Pass product ID (passes can't be checked without it)
      BETA_CODE           optional; overrides the beta code fingerprint below
@@ -396,27 +403,60 @@ async function codeOk(header, env) {
   return ok;
 }
 
-// Checks a Holiday Pass key with Gumroad. Results are cached in KV for a while.
-async function checkLicense(key, env, countUse) {
-  const k = clean(key, 100);
+// Checks a Holiday Pass key and the email it was bought with, with Gumroad. Results are cached in
+// KV for a while (only a fingerprint of the key and of the buyer's email, never either one).
+// The email must match the purchase (trimmed, any case). id is the key's fingerprint, used for
+// counting rounds and devices whichever email is typed.
+const normEmail = e => String(e || "").trim().toLowerCase().slice(0, 254);
+async function checkLicense(key, email, env, countUse) {
+  const k = clean(key, 100), e = normEmail(email);
   if (k.length < 8) return { valid: false, reason: "missing_key" };
+  if (!e.includes("@")) return { valid: false, reason: "missing_email" };
   if (!env.GUMROAD_PRODUCT_ID) return { valid: false, reason: "not_set_up" };
   const id = "lic:" + await sha("wishwell-license:" + k);
+  const eh = await sha("wishwell-email:" + e);
   if (!countUse && env.KV) {
     const c = await env.KV.get(id, { cacheTtl: 300 }).catch(() => null);
-    if (c === "1") return { valid: true, id };
     if (c === "0") return { valid: false, reason: "not_found", id };
+    if (c && c.startsWith("1:")) return c.slice(2) === eh ? { valid: true, id } : { valid: false, reason: "not_found", id };
   }
   let data;
   try {
     const res = await fetch(GUMROAD, { method: "POST", body: new URLSearchParams({
       product_id: env.GUMROAD_PRODUCT_ID, license_key: k, increment_uses_count: countUse ? "true" : "false" }) });
     data = await res.json();
-  } catch (e) { return { valid: false, reason: "gumroad_unreachable" }; }
+  } catch (err) { return { valid: false, reason: "gumroad_unreachable" }; }
   const p = (data && data.purchase) || {};
-  const valid = !!(data && data.success && !p.refunded && !p.chargebacked && !p.disputed);
-  if (env.KV) await env.KV.put(id, valid ? "1" : "0", { expirationTtl: valid ? 21600 : 600 }).catch(() => {});
-  return { valid, reason: valid ? "" : (data && data.success ? "refunded" : "not_found"), id };
+  const sold = !!(data && data.success && !p.refunded && !p.chargebacked && !p.disputed);
+  const buyer = sold ? await sha("wishwell-email:" + normEmail(p.email)) : "";
+  if (env.KV) await env.KV.put(id, sold ? "1:" + buyer : "0", { expirationTtl: sold ? 21600 : 600 }).catch(() => {});
+  const valid = sold && !!p.email && buyer === eh;
+  // A wrong email reads the same as an unknown key, so the answer gives nothing away.
+  return { valid, reason: valid ? "" : (data && data.success && !sold ? "refunded" : "not_found"), id };
+}
+
+// Wrong key or email tries, per network per day. Returns true once the network is over the cap.
+async function tooManyTries(env, ip, add) {
+  if (!env.KV) return false;
+  const k = "badkey:" + today() + ":" + await sha("wishwell-net:" + network(ip));
+  const n = await kvNum(env, k);
+  if (add) await env.KV.put(k, String(n + 1), { expirationTtl: 172800 }).catch(() => {});
+  return n + (add ? 1 : 0) >= num(env.PASS_BAD_TRIES, 10);
+}
+
+// A key works on PASS_DEVICES devices. The list holds device fingerprints, not ids.
+async function passDevice(env, lic, dev) {
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(dev)) return false;
+  if (!env.KV) return true;
+  const k = "passdev:" + lic.id.slice(4), h = (await sha("wishwell-dev:" + dev)).slice(0, 24);
+  let list = [];
+  try { list = JSON.parse(await env.KV.get(k) || "[]"); } catch (e) {}
+  if (!Array.isArray(list)) list = [];
+  if (list.includes(h)) return true;
+  if (list.length >= num(env.PASS_DEVICES, 3)) return false;
+  list.push(h);
+  await env.KV.put(k, JSON.stringify(list)).catch(() => {});
+  return true;
 }
 
 const num = (v, d) => { const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : d; };
@@ -496,7 +536,7 @@ export default {
     const cors = okOrigin ? {
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "content-type, x-beta-code, x-device-id, x-pass-key",
+      "Access-Control-Allow-Headers": "content-type, x-beta-code, x-device-id, x-pass-key, x-pass-email",
       "Access-Control-Expose-Headers": "x-trial-left, x-trial-limit, x-trial-reset, x-pass-left",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin"
@@ -534,8 +574,14 @@ export default {
 
     /* /verify: the app's "I have a license key" box */
     if (path === "/verify") {
-      const r = await checkLicense(raw && raw.license_key, env, true);
-      return reply({ valid: r.valid, reason: r.reason || "" }, 200);
+      if (await tooManyTries(env, ip, false)) return reply({ error: "too_many_tries" }, 429);
+      const r = await checkLicense(raw && raw.license_key, raw && raw.email, env, true);
+      if (!r.valid) {
+        if (r.reason === "not_found" || r.reason === "refunded") await tooManyTries(env, ip, true);
+        return reply({ valid: false, reason: r.reason || "" }, 200);
+      }
+      if (!await passDevice(env, r, String(request.headers.get("x-device-id") || ""))) return reply({ valid: false, reason: "device_limit" }, 200);
+      return reply({ valid: true, reason: "" }, 200);
     }
 
     /* /signal: which AI ideas were circled, ranked top 3 or cut */
@@ -563,13 +609,22 @@ export default {
 
     const passKey = request.headers.get("x-pass-key");
     if (passKey) {
-      const lic = await checkLicense(passKey, env, false);
-      if (!lic.valid) return reply({ error: lic.reason === "gumroad_unreachable" ? "pass_check_failed" : "pass_invalid" }, lic.reason === "gumroad_unreachable" ? 429 : 402);
-      const cap = num(env.PASS_DAILY, 25);
-      const key = "passday:" + lic.id.slice(4) + ":" + day;
-      const used = await kvNum(env, key);
-      if (used >= cap) return reply({ error: "pass_daily_limit" }, 429, { "x-pass-left": "0" });
-      mode = "pass"; counterKeys = [[key, used, 172800]]; left = ["x-pass-left", cap - used - 1];
+      if (await tooManyTries(env, ip, false)) return reply({ error: "too_many_tries" }, 429);
+      const lic = await checkLicense(passKey, request.headers.get("x-pass-email"), env, false);
+      if (!lic.valid) {
+        if (lic.reason === "gumroad_unreachable" || lic.reason === "not_set_up") return reply({ error: "pass_check_failed" }, 429);
+        if (lic.reason === "not_found" || lic.reason === "refunded") await tooManyTries(env, ip, true);
+        return reply({ error: "pass_invalid" }, 402);
+      }
+      if (!await passDevice(env, lic, String(request.headers.get("x-device-id") || ""))) return reply({ error: "pass_device_limit" }, 403);
+      const w = windows(num(env.TRIAL_DAY_START_HOUR_UTC, 5));
+      const cap = num(env.PASS_DAILY, 25), capWk = num(env.PASS_WEEKLY, 100), id = lic.id.slice(4);
+      const key = "passday:" + id + ":" + w.day, wkKey = "passweek:" + id + ":" + w.week;
+      const used = await kvNum(env, key), usedWk = await kvNum(env, wkKey);
+      if (usedWk >= capWk) return reply({ error: "pass_weekly_limit", reset: w.weekEnd }, 429, { "x-pass-left": "0" });
+      if (used >= cap) return reply({ error: "pass_daily_limit", reset: w.dayEnd }, 429, { "x-pass-left": "0" });
+      mode = "pass"; counterKeys = [[key, used, 172800], [wkKey, usedWk, 8 * 86400]];
+      left = ["x-pass-left", Math.min(cap - used, capWk - usedWk) - 1];
     } else {
       const dev = String(request.headers.get("x-device-id") || "");
       const devOk = /^[A-Za-z0-9_-]{16,64}$/.test(dev);

@@ -35,8 +35,13 @@ BETA_ROUNDS = "15"
 BETA_PER_NETWORK = "30"
 # Only used if the DB binding is removed (KV fallback): trial rounds per IP per day.
 TRIAL_PER_IP = "6"
-# Holiday Pass: AI rounds per pass per day (UTC).
+# Holiday Pass: AI rounds per key a day and a week (same day and week start as above), shared
+# by all of a key's devices; how many devices one key works on; wrong key or email tries allowed
+# per network per day.
 PASS_DAILY = "25"
+PASS_WEEKLY = "100"
+PASS_DEVICES = "3"
+PASS_BAD_TRIES = "10"
 # "off" stops saving ideas to the pool.
 POOL = "on"
 # GUMROAD_PRODUCT_ID is set as a Secret in the Cloudflare dashboard, not here.
