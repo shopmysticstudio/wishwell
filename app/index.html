@@ -148,6 +148,7 @@ a.btn.primary{color:#fff}
 .tile small{display:block;font-weight:500;font-size:13px;color:var(--muted)}
 .tile[aria-pressed=true]{background:var(--navy);color:#fff;border-color:var(--navy)}
 .tile[aria-pressed=true] small{color:#dfe3ff}
+.opt.both{width:100%;max-width:720px;min-height:72px;margin-top:12px;text-align:center;align-content:center}
 .neither{background:none;border:0;color:var(--muted);text-decoration:underline;min-height:44px;margin-top:6px}
 .taste{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}
 .taste span{background:var(--tag);color:#141414;border-radius:99px;padding:2px 10px;font-weight:800;font-size:13px}
@@ -992,8 +993,10 @@ const AGES=[["teen","13 to 17","Gen Z or Gen Alpha"],["young","18 to 29","Gen Z"
 const LEANS=[["fem","Lean feminine","Jewelry, makeup and the like can show up"],["masc","Lean masculine","Beard care, cologne and the like can show up"],["neutral","Keep it neutral","Everyday ideas for anyone"]];
 const STEPS=["who","age","lean",...PAIRS.map(p=>p.id),"ints","style","budget","notes"];
 let qi=0;
-const tasteTags=()=>{const t=[];PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k])t.push(p.o[k][1])});return t};
-function seedInts(){const set=new Set(S.ints);PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k]){const n=CAT2INT[p.o[k][3]];if(n)set.add(n)}});S.ints=[...set]}
+/* a quiz answer: 0 or 1 is one side, 2 is Both (counts for both sides) */
+const picks=p=>{const k=S.quiz[p.id];return k===2?p.o:k!=null&&p.o[k]?[p.o[k]]:[]};
+const tasteTags=()=>{const t=[];PAIRS.forEach(p=>picks(p).forEach(o=>t.push(o[1])));return t};
+function seedInts(){const set=new Set(S.ints);PAIRS.forEach(p=>picks(p).forEach(o=>{const n=CAT2INT[o[3]];if(n)set.add(n)}));S.ints=[...set]}
 function renderQuiz(){
   const id=STEPS[qi];$("#qbar").style.width=Math.round(qi/STEPS.length*100)+"%";$("#qstep").textContent=(qi+1)+" of "+STEPS.length;
   $("#qBack").hidden=qi===0;let h="";
@@ -1003,7 +1006,7 @@ function renderQuiz(){
   else if(id==="age"){const me=S.forWho==="me";h=`<h2 class="qq">${me?"How old are you?":"About how old are they?"}</h2><p class="qsub">Optional. It helps the first ideas fit the stage of life.</p><div class="tiles">${AGES.map(([v,n,d])=>`<button type="button" class="tile" data-age="${v}" aria-pressed="${S.age===v}">${esc(n)}<small>${esc(d)}</small></button>`).join("")}</div><button type="button" class="neither" data-age="">Skip</button>`}
   else if(id==="lean"){h=`<h2 class="qq">Lean any ideas by gender?</h2><p class="qsub">Optional. Most ideas are for anyone either way.</p><div class="tiles">${LEANS.map(([v,n,d])=>`<button type="button" class="tile" data-lean="${v}" aria-pressed="${S.lean===v}">${esc(n)}<small>${esc(d)}</small></button>`).join("")}</div><button type="button" class="neither" data-lean="">Skip</button>`}
   else if(PAIRS.some(p=>p.id===id)){const p=PAIRS.find(p=>p.id===id);const cur=S.quiz[id];
-   h=`<h2 class="qq">${esc(p.q)}</h2><p class="qsub">Go with your gut.</p><div class="pair">${p.o.map((o,k)=>`<button type="button" class="opt" style="background:${CATS[o[3]]}" data-k="${k}" aria-pressed="${cur===k}">${esc(o[0])}<small>${esc(o[1])}</small></button>`).join("")}</div><button type="button" class="neither" data-k="-1">Neither, skip</button>`}
+   h=`<h2 class="qq">${esc(p.q)}</h2><p class="qsub">Go with your gut.</p><div class="pair">${p.o.map((o,k)=>`<button type="button" class="opt" style="background:${CATS[o[3]]}" data-k="${k}" aria-pressed="${cur===k}">${esc(o[0])}<small>${esc(o[1])}</small></button>`).join("")}</div><button type="button" class="opt both" style="background:linear-gradient(100deg,${CATS[p.o[0][3]]} 0 50%,${CATS[p.o[1][3]]} 50% 100%)" data-k="2" aria-pressed="${cur===2}">Both<small>${esc(p.o[0][1])} and ${esc(p.o[1][1].toLowerCase())}</small></button><button type="button" class="neither" data-k="-1">Neither, skip</button>`}
   else if(id==="ints"){seedInts();h=`<h2 class="qq">Anything else ${S.forWho==="me"?"you're":"they're"} into?</h2><p class="qsub">We picked some from your answers. Tap to add or remove.</p><div class="seg" id="ints">${INTS.map(([n])=>`<button type="button" class="chip" data-i="${esc(n)}" aria-pressed="${S.ints.includes(n)}">${esc(n)}</button>`).join("")}</div><button type="button" class="btn primary" style="margin-top:18px" data-next="1">Next</button>`}
   else if(id==="style"){h=`<h2 class="qq">What kind of gifts?</h2><div class="tiles">${STYLES.map(([n,d])=>`<button type="button" class="tile" data-style="${esc(n)}" aria-pressed="${S.style===n}">${esc(n)}<small>${esc(d)}</small></button>`).join("")}</div>`}
   else if(id==="budget"){h=`<h2 class="qq">Budget per gift?</h2><div class="tiles">${BUDGETS.map(([v,n])=>`<button type="button" class="tile" data-b="${v}" aria-pressed="${S.budget===v}">${esc(n)}</button>`).join("")}</div>`}
@@ -1080,7 +1083,7 @@ const NOTE_MAP=[
 function signals(){
   const sig=[];const add=(key,w,t,note)=>sig.push({key,w,note,set:new Set(t.split(" ").map(stem))});
   S.ints.forEach(n=>{const f=INTS.find(x=>x[0]===n);if(f)add(n,2,f[1])});
-  PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k])add(CAT2INT[p.o[k][3]]||p.o[k][1],3,p.o[k][2])});
+  PAIRS.forEach(p=>picks(p).forEach(o=>add(CAT2INT[o[3]]||o[1],3,o[2])));
   const nt=" "+S.notes.toLowerCase()+" ";
   NOTE_MAP.forEach(([re,t],i)=>{if(re.test(nt))add("note"+i,6,t,1)});
   nt.split(/[^a-z0-9]+/).filter(x=>x.length>2&&!STOP.has(x)&&!NOTE_MAP.some(([re])=>re.test(" "+x+" "))).forEach(x=>add("word:"+stem(x),4,x,1));
@@ -1133,7 +1136,7 @@ async function aiIdeas(n){
   const who=S.forWho==="me"?"the person making the list (a teen or adult)":"someone the user is shopping for";
   const prompt=`You suggest gift ideas for a wishlist app. Suggest ${n} specific, buyable gifts for ${who}.
 Interests: ${S.ints.join(", ")||"none picked"}.
-Taste quiz picks: ${PAIRS.filter(p=>S.quiz[p.id]!=null&&p.o[S.quiz[p.id]]).map(p=>p.q+" "+p.o[S.quiz[p.id]][0]).join("; ")||"none"}.
+Taste quiz picks: ${PAIRS.filter(p=>picks(p).length).map(p=>p.q+" "+picks(p).map(o=>o[0]).join(" and ")+(S.quiz[p.id]===2?" (both)":"")).join("; ")||"none"}.
 Gift style: ${S.style||"any"}${S.style==="Surprise me"?" (include a few unexpected picks)":""}.
 Details from the user: ${S.notes||"none"}.
 Budget per gift: ${S.budget==="any"?"any":S.budget==="9999"?"$200 and up":"up to $"+S.budget}.
@@ -1143,7 +1146,7 @@ Do not repeat any of: ${seen.join("; ")||"none"}.
 Mix obvious hits with a few surprising picks that fit the details. Prefer real product types; a brand is fine when it matters. Use typical US prices.
 Use American English. Never use dashes of any kind in text.
 Reply with only a JSON array. Each element: {"title": short name under 50 characters, "category": one of ${Object.keys(CATS).join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a store search phrase}.`;
-  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.filter(p=>S.quiz[p.id]!=null&&p.o[S.quiz[p.id]]).map(p=>p.o[S.quiz[p.id]][1]+" ("+p.o[S.quiz[p.id]][2]+")"),style:S.style,notes:S.notes,budget:S.budget,kept,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
+  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.flatMap(p=>picks(p).map(o=>o[1]+" ("+o[2]+")")),style:S.style,notes:S.notes,budget:S.budget,kept,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
   const arr=Array.isArray(out)?out:(out&&Array.isArray(out.ideas)?out.ideas:[]);
   const have=new Set(S.items.map(i=>i.title.toLowerCase()));let c=0;
   arr.forEach(o=>{if(c<n&&o&&o.title&&!have.has(String(o.title).toLowerCase())){have.add(String(o.title).toLowerCase());addItem({title:o.title,cat:o.category,lo:o.lo,hi:o.hi,why:o.why,search:o.search,src:"AI pick"});c++}});
