@@ -68,5 +68,6 @@ document.getElementById("gateForm").addEventListener("submit",async e=>{
 WishwellAdvent.mount(document.getElementById("advent"),{backHref:"../",backLabel:"Wishwell",showPreview:true});
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js",{scope:"./"}).catch(()=>{});
 </script>
+<script src="../../count.js" defer></script>
 </body>
 </html>
