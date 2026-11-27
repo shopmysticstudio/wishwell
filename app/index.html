@@ -128,6 +128,28 @@ ol.rank{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .spark{position:fixed;width:8px;height:8px;margin:-4px 0 0 -4px;pointer-events:none;z-index:60;background:var(--tag);clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);animation:spark .7s ease-out forwards}
 @keyframes spark{from{transform:translate(0,0) scale(.4);opacity:1}to{transform:translate(var(--dx),var(--dy)) scale(1.3) rotate(140deg);opacity:0}}
 @media(prefers-reduced-motion:reduce){.spark{display:none}}
+#intro{position:fixed;inset:0;z-index:100;background:#23284d;display:grid;place-items:center;align-content:center;gap:18px;transition:opacity .35s ease;cursor:pointer}
+#intro.done{opacity:0;pointer-events:none}
+#intro svg{width:min(50vw,220px);height:auto;overflow:visible}
+#intro .spark{z-index:101}
+#intro .wm{font-family:Nunito;font-weight:900;font-size:30px;color:#fff;opacity:0;animation:wm .4s 1s ease-out forwards}
+#intro .skip{position:absolute;bottom:max(22px,env(safe-area-inset-bottom));font-size:13px;color:#c9cbe0;opacity:.8}
+#intro .gift{animation:pop .3s ease-out}
+#intro .lp,#intro .rp,#intro .lid,#intro .rv,#intro .tl,#intro .glow{transform-box:fill-box}
+#intro .lp{transform-origin:100% 80%;animation:untieL .38s .18s ease-in forwards}
+#intro .rp{transform-origin:0 80%;animation:untieR .38s .18s ease-in forwards}
+#intro .tl{transform-origin:50% 0;animation:tails .35s .3s ease-in forwards}
+#intro .lid{transform-origin:50% 100%;animation:lid .5s .56s cubic-bezier(.3,1.3,.5,1) forwards}
+#intro .rv{transform-origin:50% 100%;animation:rib .3s .5s ease-in forwards}
+#intro .glow{transform-origin:50% 50%;opacity:0;animation:glow .8s .72s ease-out forwards}
+@keyframes pop{from{transform:scale(.92)}}
+@keyframes untieL{to{transform:rotate(-70deg) scale(.3);opacity:0}}
+@keyframes untieR{to{transform:rotate(70deg) scale(.3);opacity:0}}
+@keyframes tails{to{transform:translateY(40%) scaleY(.4);opacity:0}}
+@keyframes lid{to{transform:translate(38%,-170%) rotate(28deg);opacity:0}}
+@keyframes rib{to{transform:scaleY(0);opacity:0}}
+@keyframes glow{40%{opacity:.95;transform:scale(1.15)}to{opacity:0;transform:scale(1.5)}}
+@keyframes wm{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .fam li{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid var(--soft)}
 .fam li.got .ft{text-decoration:line-through;color:var(--muted)}
 .fam .row .btn,.fam .row .buy{flex:0 1 auto}
@@ -939,24 +961,43 @@ const shopUrl=it=>it.url||("https://www.amazon.com/s?k="+encodeURIComponent(it.s
 const dealQ=it=>encodeURIComponent(it.search||it.title);
 const dealLinks=it=>`<div class="deal"><a class="cmp" href="https://www.google.com/search?udm=28&amp;q=${dealQ(it)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h11M4 12h7M4 17h5"/><circle cx="16.5" cy="14.5" r="3.5"/><path d="m19 17 2.5 2.5"/></svg>Compare prices</a><a class="magic" href="https://slickdeals.net/search?q=${dealQ(it)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 20 11-11"/><path d="M17 3v4M15 5h4M20 9v2M19 10h2M11 3v2M10 4h2"/></svg>Magic Coupons</a></div>`;
 let chimeCtx=null;
-function magicChime(){
+const NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
+// In the Play app, ask the phone first: no sound on silent, vibrate or zero media volume.
+function soundOk(){
+  if(!NATIVE)return Promise.resolve(true);
+  return Promise.race([window.Capacitor.nativePromise("WishwellSound","canPlay",{}).then(r=>!!(r&&r.ok)).catch(()=>false),new Promise(r=>setTimeout(()=>r(false),400))]);
+}
+function audio(){
   try{
     if(navigator.audioSession)navigator.audioSession.type="ambient";
-    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
-    chimeCtx=chimeCtx||new AC();const c=chimeCtx;if(c.state==="suspended")c.resume();
-    const t0=c.currentTime+.02,out=c.createGain();out.gain.value=.05;out.connect(c.destination);
-    [1318.5,1568,1975.5,2637].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain(),t=t0+i*.07;
-      o.type="sine";o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(1,t+.01);g.gain.exponentialRampToValueAtTime(.001,t+.5);
-      o.connect(g);g.connect(out);o.start(t);o.stop(t+.55)});
-  }catch(e){}
+    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+    chimeCtx=chimeCtx||new AC();if(chimeCtx.state==="suspended")chimeCtx.resume().catch(()=>{});return chimeCtx;
+  }catch(e){return null}
 }
-function sparkle(el){
+function tones(c,notes,gap,vol,start,len){
+  const t0=c.currentTime+(start||.02),out=c.createGain();out.gain.value=vol;out.connect(c.destination);
+  notes.forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain(),t=t0+i*gap;
+    o.type="sine";o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(1,t+.01);g.gain.exponentialRampToValueAtTime(.001,t+(len||.5));
+    o.connect(g);g.connect(out);o.start(t);o.stop(t+(len||.5)+.05)});
+}
+function magicChime(){soundOk().then(ok=>{if(!ok)return;const c=audio();if(c)try{tones(c,[1318.5,1568,1975.5,2637],.07,.05)}catch(e){}})}
+// Gift opening: a soft paper rustle, then a rising sparkle run with a few twinkles on top.
+function giftSound(c){
+  const t=c.currentTime+.2,n=c.createBufferSource(),len=.28,buf=c.createBuffer(1,Math.floor(c.sampleRate*len),c.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);
+  n.buffer=buf;const bp=c.createBiquadFilter();bp.type="bandpass";bp.frequency.value=2600;bp.Q.value=.8;const ng=c.createGain();ng.gain.value=.035;
+  n.connect(bp);bp.connect(ng);ng.connect(c.destination);n.start(t);
+  tones(c,[1046.5,1318.5,1568,1760,2093,2637,3136],.055,.045,.62,.6);
+  tones(c,[3520,2960,3951],.13,.02,1.05,.35);
+}
+function introSound(){soundOk().then(ok=>{if(!ok)return;const c=audio();if(c&&c.state==="running")try{giftSound(c)}catch(e){}})}
+function sparkle(el,n,fx,fy,host,far){
   if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
-  const r=el.getBoundingClientRect(),x=r.left+r.width*.25,y=r.top+r.height/2;
-  for(let i=0;i<10;i++){const s=document.createElement("i");s.className="spark";const a=Math.PI*2*i/10+Math.random()*.5,d=26+Math.random()*24;
+  n=n||10;const r=el.getBoundingClientRect(),x=r.left+r.width*(fx==null?.25:fx),y=r.top+r.height*(fy==null?.5:fy);
+  for(let i=0;i<n;i++){const s=document.createElement("i");s.className="spark";const a=Math.PI*2*i/n+Math.random()*.5,d=(far||26)+Math.random()*(far||24);
     s.style.left=x+"px";s.style.top=y+"px";s.style.setProperty("--dx",Math.cos(a)*d+"px");s.style.setProperty("--dy",Math.sin(a)*d+"px");
     if(i%3===1)s.style.background="var(--teal)";if(i%3===2)s.style.background="var(--red)";
-    document.body.appendChild(s);setTimeout(()=>s.remove(),800)}
+    (host||document.body).appendChild(s);setTimeout(()=>s.remove(),800)}
 }
 document.addEventListener("click",e=>{const m=e.target.closest&&e.target.closest(".deal .magic");if(m){magicChime();sparkle(m)}});
 const buyLink=(it,extra)=>`<a class="buy" href="${esc(shopUrl(it))}" target="_blank" rel="noopener sponsored" ${extra||""}>Buy<span class="pl">Paid link</span></a>`;
@@ -1477,6 +1518,27 @@ window.addEventListener("hashchange",openShared);
 
 renderQuiz();
 if(!openShared())show(S.view||"start");
+runIntro();
+// Gift unwrapping intro: once a day, about 1.8 s, tap to skip, none with reduced motion.
+function runIntro(){
+  const key="wishwell-intro",today=new Date().toDateString();
+  try{if(localStorage.getItem(key)===today)return;localStorage.setItem(key,today)}catch(e){}
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const o=document.createElement("div");o.id="intro";o.setAttribute("aria-hidden","true");
+  o.innerHTML=`<svg viewBox="0 0 200 200"><circle class="glow" cx="100" cy="98" r="62" fill="#ffc94a" opacity="0"/><g class="gift">
+<rect x="34" y="96" width="132" height="92" rx="6" fill="#e0453a"/><rect class="rv" x="90" y="96" width="20" height="92" fill="#ffc94a"/>
+<g class="lid"><rect x="26" y="72" width="148" height="28" rx="5" fill="#c9362c"/><rect x="90" y="72" width="20" height="28" fill="#ffc94a"/></g>
+<g class="tl" fill="#f2b12f"><path d="M96 72 82 104 92 100 98 108Z"/><path d="M104 72 118 104 108 100 102 108Z"/></g>
+<path class="lp" d="M100 70C84 40 50 44 58 62 64 76 88 74 100 70Z" fill="#ffc94a" stroke="#f2b12f" stroke-width="3"/>
+<path class="rp" d="M100 70C116 40 150 44 142 62 136 76 112 74 100 70Z" fill="#ffc94a" stroke="#f2b12f" stroke-width="3"/>
+<circle class="lp" cx="100" cy="70" r="9" fill="#f2b12f"/></g></svg><div class="wm">Wishwell</div><div class="skip">Tap to skip</div>`;
+  document.body.appendChild(o);introSound();
+  const timers=[];let ended=false;
+  const end=fast=>{if(ended)return;ended=true;timers.forEach(clearTimeout);o.style.transitionDuration=fast?".15s":"";o.classList.add("done");setTimeout(()=>o.remove(),fast?200:400)};
+  timers.push(setTimeout(()=>{const g=o.querySelector(".gift");if(g)sparkle(g,18,.5,.3,o,40)},780));
+  timers.push(setTimeout(()=>end(false),1500));
+  o.addEventListener("click",()=>end(true));
+}
 const aiLine=$("#aiState");
 const setAi=()=>aiLine.textContent=sample?"AI ideas are on.":"Using starter ideas. AI ideas coming soon.";
 if(CFG.aiUrl){sample={json:async(_p,o)=>{
