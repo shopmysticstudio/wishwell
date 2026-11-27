@@ -43,6 +43,12 @@ jobs:
       - name: Count new starter ideas since the last release
         run: node scripts/count-new-ideas.mjs
 
+      - name: Read the version (release/version.json)
+        id: ver
+        run: |
+          echo "code=$(jq -r .code release/version.json)" >> "$GITHUB_OUTPUT"
+          echo "name=$(jq -r .name release/version.json)" >> "$GITHUB_OUTPUT"
+
       - name: Make the free app files and copy them into Android
         run: npm run sync
 
@@ -62,7 +68,8 @@ jobs:
       - name: Build
         working-directory: android-app/android
         env:
-          WISHWELL_VERSION_CODE: ${{ github.run_number }}
+          WISHWELL_VERSION_CODE: ${{ steps.ver.outputs.code }}
+          WISHWELL_VERSION_NAME: ${{ steps.ver.outputs.name }}
           WISHWELL_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.WISHWELL_UPLOAD_KEYSTORE_PASSWORD }}
           WISHWELL_UPLOAD_KEY_ALIAS: ${{ secrets.WISHWELL_UPLOAD_KEY_ALIAS }}
           WISHWELL_UPLOAD_KEY_PASSWORD: ${{ secrets.WISHWELL_UPLOAD_KEY_PASSWORD }}
@@ -73,14 +80,14 @@ jobs:
       - name: Name the files
         run: |
           mkdir -p out
-          cp android/app/build/outputs/bundle/release/app-release.aab "out/wishwell-${{ github.run_number }}-$([ "$SIGNED" = yes ] && echo signed || echo UNSIGNED).aab"
-          cp android/app/build/outputs/apk/debug/app-debug.apk "out/wishwell-${{ github.run_number }}-debug.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "out/wishwell-${{ steps.ver.outputs.code }}-$([ "$SIGNED" = yes ] && echo signed || echo UNSIGNED).aab"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "out/wishwell-${{ steps.ver.outputs.code }}-debug.apk"
           rm -f "$RUNNER_TEMP/upload.jks"
           ls -l out
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wishwell-android-${{ github.run_number }}
+          name: wishwell-android-${{ steps.ver.outputs.code }}-build-${{ github.run_number }}
           path: android-app/out/
           retention-days: 30
 
