@@ -380,6 +380,7 @@ const resetWhen=ms=>{if(!ms)return "soon";const d=new Date(ms),now=new Date(),t=
   const tom=new Date(now);tom.setDate(now.getDate()+1);
   if(d.getHours()===0&&d.getMinutes()===0&&d.toDateString()===tom.toDateString())return "at midnight";
   if(d.toDateString()===now.toDateString())return "at "+t;
+  if(d.toDateString()===tom.toDateString())return "tomorrow at "+t;
   if(d.getHours()===0&&d.getMinutes()===0)return "on "+d.toLocaleDateString("en-US",{weekday:"long"});
   return "on "+d.toLocaleDateString("en-US",{weekday:"long"})+" at "+t};
 const usedMsg=()=>WIN?(S.trialLim==="week"?`You've used this week's ${WEEKLY} free AI rounds. More ${resetWhen(S.trialUntil)}.`:`You've used today's ${DAILY} free AI rounds. More ${resetWhen(S.trialUntil)}.`):`You've used your ${FREE} free AI rounds.`;
