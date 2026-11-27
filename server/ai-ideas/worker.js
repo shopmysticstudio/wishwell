@@ -128,7 +128,7 @@ ${q.notes ? "- At least half of the ideas must fit the details directly. Read th
 - If they kept items, about a third of the ideas should be close cousins of those.
 - Vary the kinds of gifts: no more than two from the same category.
 Use honest, typical current US store prices.
-Each element: {"title": generic product name under 50 characters, "category": one of ${CATS.join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words that names which of their answers it fits, "search": a generic store search phrase}.`;
+Each element uses exactly these keys: {"title": generic product name under 50 characters in sentence case, "category": one of ${CATS.join(", ")}, "lo": low price in whole US dollars as a number, "hi": high price as a number, "why": one natural reason under 14 words in sentence case that says what it fits in plain words, like "Brain teasers for a mystery novel fan" (never quote their answers), "search": a generic store search phrase}.`;
   return [{ role: "system", content: system }, { role: "user", content: user }];
 }
 
@@ -214,9 +214,16 @@ function parseIdeas(out, q) {
   const have = new Set(q.seen.map(s => s.toLowerCase()));
   const ideas = [];
   const dropped = { budget: 0, brand: 0, other: 0 };
-  for (const o of raw) {
+  // Some models rename keys ("Title", "name", "price_low"), so read them loosely.
+  const pick = (o, keys) => { for (const k of Object.keys(o)) if (keys.includes(k.toLowerCase().replace(/[^a-z]/g, ""))) return o[k]; };
+  for (let o of raw) {
     if (ideas.length >= q.n) break;
     if (!o || typeof o !== "object") { dropped.other++; continue; }
+    o = { title: pick(o, ["title", "name", "gift", "idea", "item", "product"]), category: pick(o, ["category", "cat", "type"]),
+      lo: pick(o, ["lo", "low", "pricelow", "lowprice", "min", "minprice"]), hi: pick(o, ["hi", "high", "pricehigh", "highprice", "max", "maxprice"]),
+      why: pick(o, ["why", "reason", "because"]), search: pick(o, ["search", "searchphrase", "query", "searchterm"]) };
+    if (typeof o.lo === "string") o.lo = o.lo.replace(/[^0-9.]/g, "");
+    if (typeof o.hi === "string") o.hi = o.hi.replace(/[^0-9.]/g, "");
     const title = clean(o.title, 60);
     if (title.length < 2 || have.has(title.toLowerCase())) { dropped.other++; continue; }
     if (brandRe.test(title)) { dropped.brand++; continue; }
