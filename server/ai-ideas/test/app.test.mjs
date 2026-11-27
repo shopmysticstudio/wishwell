@@ -30,7 +30,9 @@ r = await call("/", APP, PASS); assert.equal(r.status, 200); assert.equal(r.head
 // A wrong key from the app gets pass_invalid, not a free trial round.
 r = await call("/", APP, { "x-pass-key": "NOPE", "x-pass-email": "buyer@example.com" }); assert.equal(r.status, 402); assert.equal((await r.json()).error, "pass_invalid");
 // No key: no free trial, and no other routes, from the app.
-for (const p of ["/", "/photo", "/signal", "/waitlist"]) assert.equal((await call(p, APP)).status, 403, p);
+assert.equal((await call("/signal", APP, null, "OPTIONS")).status, 204);
+assert.equal((await call("/signal", APP, null, "POST", { kept: ["Cozy throw blanket"] })).status, 204);
+for (const p of ["/", "/photo", "/waitlist"]) assert.equal((await call(p, APP)).status, 403, p);
 // Other origins are still refused; the website still gets its free trial.
 assert.equal((await call("/", "https://evil.example", PASS)).status, 403);
 assert.equal((await call("/", "http://localhost", PASS)).status, 403);

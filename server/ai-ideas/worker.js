@@ -538,7 +538,7 @@ export default {
     const allowed = String(env.ALLOWED_ORIGINS || "https://shopmysticstudio.github.io")
       .split(",").map(s => s.trim()).filter(Boolean);
     const webOrigin = allowed.includes(origin);
-    // The Android app (WebView origin) may only check a Holiday Pass key and use a pass; no free trial.
+    // The Android app (WebView origin) may only check a Holiday Pass key, use a pass and send idea signals; no free trial.
     const appOrigin = !webOrigin && String(env.APP_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean).includes(origin);
     const okOrigin = webOrigin || appOrigin;
     const cors = okOrigin ? {
@@ -557,11 +557,11 @@ export default {
     if (!okOrigin) return reply({ error: "origin_not_allowed" }, 403);
     const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
     if (request.method === "OPTIONS") {
-      if (appOrigin && path !== "/verify" && path !== "/") return reply({ error: "origin_not_allowed" }, 403);
+      if (appOrigin && path !== "/verify" && path !== "/" && path !== "/signal") return reply({ error: "origin_not_allowed" }, 403);
       return new Response(null, { status: 204, headers: cors });
     }
     if (request.method !== "POST") return reply({ error: "use_post" }, 405);
-    if (appOrigin && !(path === "/verify" || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
+    if (appOrigin && !(path === "/verify" || path === "/signal" || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
     if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist") return reply({ error: "not_found" }, 404);
 
     const maxBody = path === "/photo" ? MAX_PHOTO_BODY : MAX_BODY;
