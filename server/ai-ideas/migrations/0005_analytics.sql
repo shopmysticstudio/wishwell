@@ -1,4 +1,4 @@
--- Website page counter: page views and a few button clicks per day.
+-- Website page counter: page views and a few button clicks per day (per hour since 0008).
 -- No ids, addresses or full URLs; ref is the referring site's domain only (views only).
 CREATE TABLE IF NOT EXISTS analytics (
   day   TEXT NOT NULL,    -- YYYY-MM-DD, US Eastern

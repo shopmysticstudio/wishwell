@@ -36,8 +36,11 @@ assert.deepEqual(rows, [
   { page: "/beta/home/", event: "view", ref: "", dev: "desktop", n: 1 },
   { page: "/beta/home/", event: "waitlist_signup", ref: "", dev: "desktop", n: 1 },
   { page: "other", event: "view", ref: "", dev: "desktop", n: 1 }]);
-assert.deepEqual(Object.keys(sql.prepare("SELECT * FROM analytics LIMIT 1").get()), ["day", "page", "event", "ref", "dev", "n"]);
+assert.deepEqual(Object.keys(sql.prepare("SELECT * FROM analytics LIMIT 1").get()), ["day", "hour", "page", "event", "ref", "dev", "n"]);
 assert.match(sql.prepare("SELECT day FROM analytics LIMIT 1").get().day, /^\d{4}-\d{2}-\d{2}$/);
+{ const hr = sql.prepare("SELECT DISTINCT hour FROM analytics").all().map(r => r.hour);
+  const ny = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "2-digit", hourCycle: "h23" }).format(new Date())) % 24;
+  assert.ok(hr.every(h => h >= 0 && h < 24) && hr.includes(ny), "hour is the US Eastern hour"); }
 // Page views never use the AI rounds' per-minute limit.
 assert.equal(perMinuteCalls, 0);
 // Other sites and the Android app can't count.
@@ -47,4 +50,16 @@ assert.equal(await hit({ p: "/" }, "https://localhost"), 403);
 // Past the per-network limit, hits are quietly dropped.
 hitsLeft = 0; assert.equal(await hit({ p: "/" }), 204);
 assert.equal(sql.prepare("SELECT SUM(n) s FROM analytics").get().s, before);
+// An older table without the hour column still gets counted (before migration 0008), and the
+// migration keeps those rows with hour -1.
+{ const old = new DatabaseSync(":memory:"); const real = sql;
+  old.exec("CREATE TABLE analytics (day TEXT NOT NULL, page TEXT NOT NULL, event TEXT NOT NULL, ref TEXT NOT NULL, dev TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, page, event, ref, dev))");
+  env.DB = { prepare: q => { const st = { args: [], bind(...a) { st.args = a; return st; }, async run() { return old.prepare(q).run(named(st.args)); } }; return st; } };
+  hitsLeft = 10; await hit({ p: "/", d: "phone" }); await hit({ p: "/", d: "phone" });
+  assert.equal(old.prepare("SELECT n FROM analytics").get().n, 2);
+  const fs = await import("node:fs");
+  old.exec(fs.readFileSync(dir + "/migrations/0008_analytics_hour.sql", "utf8"));
+  assert.deepEqual({ ...old.prepare("SELECT hour, page, n FROM analytics").get() }, { hour: -1, page: "/", n: 2 });
+  await hit({ p: "/", d: "phone" });
+  assert.equal(old.prepare("SELECT COUNT(*) c FROM analytics WHERE hour >= 0").get().c, 1); }
 console.log("all hit tests passed");

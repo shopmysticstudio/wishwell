@@ -540,9 +540,18 @@ function cleanHit(raw, startHourUtc) {
   let ref = event === "view" ? String(raw.r || "").toLowerCase().replace(/^www\./, "") : "";
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(ref) || ref.length > 80) ref = "";
   const dev = raw.d === "phone" ? "phone" : "desktop";
-  // Day in US Eastern, same as the free rounds (starts at 5 AM UTC).
-  const day = new Date(Date.now() - startHourUtc * 3600000).toISOString().slice(0, 10);
-  return { day, page, event, ref, dev };
+  // Day and hour (0 to 23) in US Eastern time. Counts are hourly totals, never exact times.
+  let day, hour;
+  try {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" })
+      .formatToParts(new Date()).map(x => [x.type, x.value]));
+    day = parts.year + "-" + parts.month + "-" + parts.day; hour = Number(parts.hour) % 24;
+  } catch (e) {}
+  if (!day || !(hour >= 0 && hour < 24)) {
+    const t = new Date(Date.now() - startHourUtc * 3600000);
+    day = t.toISOString().slice(0, 10); hour = t.getUTCHours();
+  }
+  return { day, hour, page, event, ref, dev };
 }
 // A per-network cap setting: a number turns it on, "off" or empty leaves it off (0).
 const netCap = v => { const t = String(v == null ? "" : v).trim(); return t && t !== "off" && Number.isFinite(Number(t)) ? Math.max(0, Number(t)) : 0; };
@@ -705,7 +714,7 @@ export default {
     } catch (e) { return reply({ error: "bad_json" }, 400); }
 
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-    /* /hit: website page views and a few button clicks, counted per day. Has its own per-network
+    /* /hit: website page views and a few button clicks, counted per hour (US Eastern). Has its own per-network
        limit (HITS) so page views never use up the 5 a minute that AI rounds get. Website only. */
     if (path === "/hit") {
       const done = new Response(null, { status: 204, headers: cors });
@@ -715,10 +724,13 @@ export default {
       }
       const h = cleanHit(raw, num(env.TRIAL_DAY_START_HOUR_UTC, 5));
       if (!h) return done;
-      const up = () => env.DB.prepare("INSERT INTO analytics (day, page, event, ref, dev, n) VALUES (?1, ?2, ?3, ?4, ?5, 1) ON CONFLICT(day, page, event, ref, dev) DO UPDATE SET n = n + 1")
+      const up = () => env.DB.prepare("INSERT INTO analytics (day, hour, page, event, ref, dev, n) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1) ON CONFLICT(day, hour, page, event, ref, dev) DO UPDATE SET n = n + 1")
+        .bind(h.day, h.hour, h.page, h.event, h.ref, h.dev).run();
+      // Before migration 0008 the table had no hour column: count into it the old way.
+      const upOld = () => env.DB.prepare("INSERT INTO analytics (day, page, event, ref, dev, n) VALUES (?1, ?2, ?3, ?4, ?5, 1) ON CONFLICT(day, page, event, ref, dev) DO UPDATE SET n = n + 1")
         .bind(h.day, h.page, h.event, h.ref, h.dev).run();
-      later(up().catch(async () => {
-        await env.DB.prepare("CREATE TABLE IF NOT EXISTS analytics (day TEXT NOT NULL, page TEXT NOT NULL, event TEXT NOT NULL, ref TEXT NOT NULL, dev TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, page, event, ref, dev))").run();
+      later(up().catch(() => upOld()).catch(async () => {
+        await env.DB.prepare("CREATE TABLE IF NOT EXISTS analytics (day TEXT NOT NULL, hour INTEGER NOT NULL DEFAULT -1, page TEXT NOT NULL, event TEXT NOT NULL, ref TEXT NOT NULL, dev TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, hour, page, event, ref, dev))").run();
         await up();
       }));
       return done;
