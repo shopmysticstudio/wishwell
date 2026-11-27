@@ -15,6 +15,13 @@
               migrations/0004_waitlist.sql) with the day. Answers {"ok": true} whether it was new or
               already there. WAITLIST_PER_NETWORK sign-ups per network a day, then 429. Nothing here
               ever sends email.
+     /codes   shared discount codes. Body: {"store": ""|"target"|...}. Answers {"codes": [{id, store,
+              code, about, expires, added, worked, failed}]}, up to 6 a store, hiding removed, expired,
+              reported (2+) and failing (3 more Didn't work than Worked) codes.
+     /codes/add   {"store", "code", "about", "expires", "website": ""}. No links allowed anywhere.
+     /codes/vote  {"id", "vote": "worked"|"failed"|"report"}, one per device per code.
+              Both need x-device-id; limited per device (CODES_ADDS_PER_DAY, CODES_VOTES_PER_DAY),
+              and per network only if CODES_NET_PER_DAY is set to a number.
      /signal  which AI ideas people liked. Body: {"kept": [titles], "top": [titles], "cut": [titles]}.
               Only bumps counts on ideas already in the pool. Answers 204.
 
@@ -598,10 +605,60 @@ async function unreserve(db, keys) {
   for (const k of keys) await db.prepare("UPDATE ai_use SET n = n - 1 WHERE k = ?1 AND n > 0").bind(k).run().catch(() => {});
 }
 
+/* ---------- shared discount codes ---------- */
+// People share codes they found for the app's stores; others tap Worked, Didn't work or Report.
+// Limits are per device (x-device-id), never per Wi-Fi network, unless CODES_NET_PER_DAY is set
+// to a number to throttle a network that abuses it. Codes can't hold links: the store is a fixed id,
+// the code is letters, digits and dashes, and "about" refuses anything that looks like a link,
+// email address or phone number.
+const CODE_STORES = ["amazon", "target", "walmart", "bestbuy", "kohls", "bn", "rei", "lego"];
+const linkish = /https?:|www\.|\.(com|net|org|io|co|us|ly|me|gg|app|shop|link|xyz|info|biz)\b|[a-z0-9-]\.[a-z]{2,}\/|@|\d{3}[\s.-]?\d{3}[\s.-]?\d{4}/i;
+function cleanCode(raw) {
+  const store = String(raw && raw.store || "");
+  const code = String(raw && raw.code || "").replace(/\s+/g, "").toUpperCase();
+  const about = clean(raw && raw.about, 60);
+  const exp = String(raw && raw.expires || "");
+  if (!CODE_STORES.includes(store)) return { error: "bad_store" };
+  if (!/^[A-Z0-9][A-Z0-9-]{2,23}$/.test(code)) return { error: "bad_code" };
+  if (about && (linkish.test(about) || !/^[A-Za-z0-9 %$&,.!'+/()-]*$/.test(about))) return { error: "bad_about" };
+  let expires = "";
+  if (exp) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(exp) || isNaN(Date.parse(exp))) return { error: "bad_expires" };
+    const max = new Date(Date.now() + 366 * 86400000).toISOString().slice(0, 10);
+    if (exp < today()) return { error: "expired" };
+    expires = exp > max ? max : exp;
+  }
+  return { store, code, about, expires };
+}
+const CODE_SHOW = "removed = 0 AND (expires = '' OR expires >= ?1) AND failed - worked < 3 AND reported < 2";
+async function listCodes(db, store) {
+  const st = CODE_STORES.includes(store) ? store : "";
+  const q = db.prepare(`SELECT id, store, code, about, expires, added, worked, failed FROM codes WHERE ${CODE_SHOW}${st ? " AND store = ?2" : ""} ORDER BY worked - failed DESC, id DESC LIMIT 60`);
+  const r = await (st ? q.bind(today(), st) : q.bind(today())).all();
+  const per = {}, out = [];
+  for (const c of (r && r.results) || []) if ((per[c.store] = (per[c.store] || 0) + 1) <= 6) out.push(c);
+  return out;
+}
+async function codeLimit(env, kind, dev, ip) {
+  const cap = kind === "add" ? num(env.CODES_ADDS_PER_DAY, 8) : num(env.CODES_VOTES_PER_DAY, 60);
+  const dk = "codes:" + kind + ":" + today() + ":" + (await sha("wishwell-dev:" + dev)).slice(0, 32);
+  const n = await kvNum(env, dk);
+  if (n >= cap) return false;
+  const netCap = Number(env.CODES_NET_PER_DAY);
+  if (kind === "add" && Number.isFinite(netCap) && netCap >= 0 && String(env.CODES_NET_PER_DAY || "off") !== "off") {
+    const nk = "codes:net:" + today() + ":" + (await sha("wishwell-net:" + network(ip))).slice(0, 32);
+    const m = await kvNum(env, nk);
+    if (m >= netCap) return false;
+    await env.KV.put(nk, String(m + 1), { expirationTtl: 172800 }).catch(() => {});
+  }
+  await env.KV.put(dk, String(n + 1), { expirationTtl: 172800 }).catch(() => {});
+  return true;
+}
+
 /* ---------- handler ---------- */
 export default {
   // For tests only; not used by Cloudflare.
-  _test: { cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
+  _test: { cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
 
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
@@ -627,12 +684,12 @@ export default {
     if (!okOrigin) return reply({ error: "origin_not_allowed" }, 403);
     const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
     if (request.method === "OPTIONS") {
-      if (appOrigin && path !== "/verify" && path !== "/" && path !== "/signal") return reply({ error: "origin_not_allowed" }, 403);
+      if (appOrigin && path !== "/verify" && path !== "/" && path !== "/signal" && !path.startsWith("/codes")) return reply({ error: "origin_not_allowed" }, 403);
       return new Response(null, { status: 204, headers: cors });
     }
     if (request.method !== "POST") return reply({ error: "use_post" }, 405);
-    if (appOrigin && !(path === "/verify" || path === "/signal" || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
-    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist" && path !== "/hit") return reply({ error: "not_found" }, 404);
+    if (appOrigin && !(path === "/verify" || path === "/signal" || path.startsWith("/codes") || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
+    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist" && path !== "/hit" && path !== "/codes" && path !== "/codes/add" && path !== "/codes/vote") return reply({ error: "not_found" }, 404);
 
     const maxBody = path === "/photo" ? MAX_PHOTO_BODY : MAX_BODY;
     const len = Number(request.headers.get("content-length") || 0);
@@ -662,6 +719,47 @@ export default {
         await up();
       }));
       return done;
+    }
+    /* /codes: shared discount codes. Before the per-minute limit, which is per network; these are
+       limited per device instead (CODES rate limit and daily caps in KV). */
+    if (path.startsWith("/codes")) {
+      if (!env.DB || !env.KV) return reply({ error: "not_set_up" }, 429);
+      const dev = String(request.headers.get("x-device-id") || "");
+      if (path !== "/codes" && !/^[A-Za-z0-9_-]{16,64}$/.test(dev)) return reply({ error: "no_device" }, 400);
+      if (env.CODES && typeof env.CODES.limit === "function") {
+        try { const { success } = await env.CODES.limit({ key: dev || network(ip) }); if (!success) return reply({ error: "rate_limited" }, 429); } catch (e) {}
+      }
+      const ensure = () => env.DB.prepare("CREATE TABLE IF NOT EXISTS codes (id INTEGER PRIMARY KEY AUTOINCREMENT, store TEXT NOT NULL, code TEXT NOT NULL, about TEXT NOT NULL DEFAULT '', expires TEXT NOT NULL DEFAULT '', added TEXT NOT NULL, worked INTEGER NOT NULL DEFAULT 0, failed INTEGER NOT NULL DEFAULT 0, reported INTEGER NOT NULL DEFAULT 0, removed INTEGER NOT NULL DEFAULT 0, UNIQUE (store, code))").run();
+      const safely = async f => { try { return await f(); } catch (e) { await ensure(); return await f(); } };
+      try {
+        if (path === "/codes") return reply({ codes: await safely(() => listCodes(env.DB, String(raw && raw.store || ""))) }, 200);
+        if (path === "/codes/add") {
+          if (raw && raw.website) return reply({ ok: true, pending: true }, 200);   // the hidden field: a bot
+          const c = cleanCode(raw);
+          if (c.error) return reply({ error: c.error }, 400);
+          if (!await codeLimit(env, "add", dev, ip)) return reply({ error: "rate_limited" }, 429);
+          const row = await safely(async () => {
+            await env.DB.prepare("INSERT OR IGNORE INTO codes (store, code, about, expires, added) VALUES (?1, ?2, ?3, ?4, ?5)").bind(c.store, c.code, c.about, c.expires, today()).run();
+            return await env.DB.prepare("SELECT id, store, code, about, expires, added, worked, failed, removed FROM codes WHERE store = ?1 AND code = ?2").bind(c.store, c.code).first();
+          });
+          if (!row || row.removed) return reply({ ok: true, pending: true }, 200);
+          delete row.removed;
+          return reply({ ok: true, code: row }, 200);
+        }
+        // /codes/vote: {"id": 12, "vote": "worked"|"failed"|"report"}. One vote per device per code;
+        // changing it moves the count.
+        const id = Math.floor(Number(raw && raw.id)), vote = String(raw && raw.vote || "");
+        const col = { worked: "worked", failed: "failed", report: "reported" }[vote];
+        if (!(id > 0) || !col) return reply({ error: "bad_vote" }, 400);
+        const vk = "cvote:" + id + ":" + (await sha("wishwell-dev:" + dev)).slice(0, 32);
+        const prev = await env.KV.get(vk).catch(() => null);
+        if (prev === col) return reply({ ok: true }, 200);
+        if (!await codeLimit(env, "vote", dev, ip)) return reply({ error: "rate_limited" }, 429);
+        const back = prev === "worked" || prev === "failed" || prev === "reported" ? `, ${prev} = MAX(0, ${prev} - 1)` : "";
+        await safely(() => env.DB.prepare(`UPDATE codes SET ${col} = ${col} + 1${back} WHERE id = ?1`).bind(id).run());
+        await env.KV.put(vk, col, { expirationTtl: 90 * 86400 }).catch(() => {});
+        return reply({ ok: true }, 200);
+      } catch (e) { return reply({ error: "save_failed" }, 429); }
     }
     if (env.PER_MINUTE && typeof env.PER_MINUTE.limit === "function") {
       try { const { success } = await env.PER_MINUTE.limit({ key: ip }); if (!success) return reply({ error: "rate_limited" }, 429); } catch (e) {}

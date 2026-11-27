@@ -187,6 +187,11 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
 .codeRow .meta{grid-column:1/-1;font-size:13px;color:var(--muted)}
 .codeRow.worked{border-style:solid;border-color:var(--teal);background:light-dark(#eefaf8,#10211f)}
 .codeRow .acts{margin-top:0}
+.codeRow.shared{border-color:var(--c-purple,#6d3bd6)}
+.codeRow .who{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.cstore .more{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.cstore .more input{flex:1 1 140px}
+.shareChk{display:flex;gap:8px;align-items:center;font-size:14px;margin-top:8px}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
 .cstore{border:2px solid var(--line);border-radius:10px;padding:14px;margin:12px 0}
 .cstore h3{display:flex;align-items:center;gap:10px;font-size:20px}
 .cstore .links{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
@@ -339,7 +344,8 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
 
 <section class="view" id="v-coupons" hidden>
   <div class="magicHead"><div class="bar" style="margin:0"><h2 style="margin:0">Magic Coupons</h2><button class="btn soundBtn soundTgl" type="button" aria-pressed="true">Sound on</button></div>
-  <p>Start with each store's own deals page, then RetailMeNot or Slickdeals. Save a code here, try it at checkout, and tap It worked! if it did. Codes are never called working until you say so.</p></div>
+  <p>Start with each store's own deals page, then RetailMeNot or Slickdeals. Save a code here, try it at checkout, and tap It worked! if it did. Codes are never called working until you say so.</p>
+  <p class="small muted">Codes you share show up for everyone, with only the store, the code, what it's for and an end date. Codes shared by other shoppers are marked, and they're hidden once more people say they don't work.</p></div>
   <div id="couponWrap"></div>
 </section>
 
@@ -1569,13 +1575,13 @@ function renderCompare(){
   const it=cmpItem;if(!it)return;const q=encodeURIComponent(it.search||it.title);
   let rows=priceRows(it);const all=rows.length;if(S.freeShip)rows=rows.filter(r=>r.free);
   const head=`<div class="cmpHead">${it.img?`<div class="mono pic"><img src="${esc(it.img)}" alt=""></div>`:`<div class="mono" style="background:${CATS[it.cat]||CATS.Other}" aria-hidden="true">${esc(it.cat.charAt(0))}</div>`}<div><h3 style="font-size:22px">${esc(it.title)}</h3><div class="small muted">${it.hi?esc(est(it))+" before shipping":"Price not set"}</div></div></div>`;
-  const list=rows.length?`<ol class="stores">${rows.map((r,i)=>`<li class="store${i===0&&it.hi?" best":""}">${slogo(r.st)}<b>${esc(r.st.name)}${r.free?'<span class="tagFree">Free shipping</span>':""}</b><span class="tot">${esc(r.tot)}</span><span class="rule">${i===0&&it.hi?"Lowest estimated total. ":""}${esc(r.note)}</span><a class="btn go" href="${esc(r.st.s+q)}" target="_blank" rel="noopener">See ${esc(poss(r.st.name))} price</a></li>`).join("")}</ol>`
+  const list=rows.length?`<ol class="stores">${rows.map((r,i)=>`<li class="store${i===0&&it.hi?" best":""}">${slogo(r.st)}<b>${esc(r.st.name)}${r.free?'<span class="tagFree">Free shipping</span>':""}</b><span class="tot">${esc(r.tot)}</span><span class="rule">${i===0&&it.hi?"Lowest estimated total. ":""}${esc(r.note)}${(()=>{const c=sharedFor(r.st.id)[0];return c?` A shopper shared the code ${esc(c.code)}${c.about?" ("+esc(c.about)+")":""}: ${esc(voteTxt(c).toLowerCase())} It's on the Coupons tab.`:""})()}</span><a class="btn go" href="${esc(r.st.s+q)}" target="_blank" rel="noopener">See ${esc(poss(r.st.name))} price</a></li>`).join("")}</ol>`
     :`<div class="empty">None of these stores ship this item free on its own${it.hi?" at "+esc(money(it.lo,it.hi)):""}. Free shipping starts at $35 at Amazon, Target, Walmart and Best Buy, so pairing it with a second gift gets there.</div>`;
   $("#cmpBody").innerHTML=head+`<label class="switch"><input type="checkbox" id="freeShip" ${S.freeShip?"checked":""}> Free shipping only${S.freeShip&&rows.length<all?` <span class="small muted">(${all-rows.length} hidden)</span>`:""}</label>`+list
     +`<a class="btn wide" style="margin-top:12px" href="https://www.google.com/search?tbm=shop&q=${q}" target="_blank" rel="noopener">Compare every store on Google Shopping</a>`
     +`<p class="small muted">Totals are estimates: this item's usual price plus each store's standard shipping rule, checked ${RULES_CHECKED}. Sales tax isn't included. Each store shows the exact total in the cart before you pay. Live prices aren't on yet.</p>`;
 }
-function openCompare(it){cmpItem=it;renderCompare();$("#cmpM").hidden=false;$("#cmpClose").focus()}
+function openCompare(it){cmpItem=it;renderCompare();loadShared();$("#cmpM").hidden=false;$("#cmpClose").focus()}
 if(SHOP){
   $("#cmpClose").addEventListener("click",()=>{$("#cmpM").hidden=true;cmpItem=null});
   $("#cmpM").addEventListener("click",e=>{if(e.target.id==="cmpM"){$("#cmpM").hidden=true;cmpItem=null}});
@@ -1621,15 +1627,27 @@ if(SHOP&&AI_ON){
 
 /* Magic Coupons: trusted places to look, plus the codes you save. A code is only called working after you say it worked. */
 const SOURCES={store:"the store's site",rmn:"RetailMeNot",sd:"Slickdeals",other:"somewhere else"};
-const day=iso=>{try{return new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric"})}catch(e){return ""}};
+const day=iso=>{try{return new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso)?iso+"T12:00:00":iso).toLocaleDateString("en-US",{month:"short",day:"numeric"})}catch(e){return ""}};
+/* codes other shoppers shared, from Wishwell's AI service: store, code, what it's for, end date and votes only */
+const CODES_URL=AI_ON?String(CFG.aiUrl).trim().replace(/\/+$/,"")+"/codes":"";
+let SHARED=null,sharedAt=0,sharedBusy=false;
+async function codesPost(path,body){try{const r=await fetch(CODES_URL+path,{method:"POST",headers:aiHeaders(false),body:JSON.stringify(body||{})});return [r.status,await r.json().catch(()=>({}))]}catch(e){return [0,{}]}}
+async function loadShared(force){
+  if(!CODES_URL||sharedBusy||(!force&&SHARED&&Date.now()-sharedAt<120000))return;sharedBusy=true;
+  const [st,b]=await codesPost("",{});sharedBusy=false;sharedAt=Date.now();
+  if(st===200&&Array.isArray(b.codes)){SHARED=b.codes;renderCoupons();if(cmpItem)renderCompare()}else if(!SHARED)SHARED=[];
+}
+const sharedFor=sid=>(SHARED||[]).filter(c=>c.store===sid);
+const voteTxt=c=>c.worked||c.failed?`Worked for ${c.worked}, didn't for ${c.failed}.`:"Not checked yet.";
 function couponStores(){
   const kept=S.kept.map(byId).filter(Boolean);const score=st=>kept.filter(it=>storeFor(st,it)&&(st.cats!=="*")).length*2+(S.codes||[]).filter(c=>c.s===st.id).length*5+(st.cats==="*"?1:0);
   return STORES.slice().sort((a,b)=>score(b)-score(a));
 }
 function renderCoupons(){
-  if(!SHOP)return;const codes=S.codes||[];
+  if(!SHOP)return;const codes=S.codes||[];loadShared();const votes=S.votes||{};
   $("#couponWrap").innerHTML=couponStores().map(st=>{
     const mine=codes.filter(c=>c.s===st.id);
+    const theirs=sharedFor(st.id).filter(x=>!mine.some(c=>c.code===x.code));
     const links=[st.deals?`<a class="btn" href="${esc(st.deals)}" target="_blank" rel="noopener">${esc(poss(st.name))} own deals</a>`:`<a class="btn" href="https://www.${esc(st.dom)}/" target="_blank" rel="noopener">${esc(poss(st.name))} site</a>`,
       `<a class="btn" href="https://www.retailmenot.com/view/${esc(st.dom)}" target="_blank" rel="noopener">RetailMeNot</a>`,
       st.sd?`<a class="btn" href="${esc(st.sd)}" target="_blank" rel="noopener">Slickdeals</a>`:""].join("");
@@ -1637,22 +1655,50 @@ function renderCoupons(){
 ${mine.map(c=>`<div class="codeRow${c.st==="ok"?" worked":""}" data-c="${esc(c.id)}"><code>${esc(c.code)}</code><button type="button" class="btn quiet" data-ca="copy">Copy</button>
 <div class="meta">From ${esc(SOURCES[c.src]||SOURCES.other)}, saved ${esc(day(c.at))}. ${c.st==="ok"?"Worked at checkout on "+esc(day(c.chk))+".":c.st==="no"?"Didn't work on "+esc(day(c.chk))+".":"Not tried yet."}</div>
 <div class="acts" style="grid-column:1/-1">${c.st==="ok"?"":`<button type="button" class="btn" data-ca="ok">It worked!</button>`}${c.st==="no"?"":`<button type="button" class="btn quiet" data-ca="no">Didn't work</button>`}<button type="button" class="btn quiet" data-ca="del">Remove</button></div></div>`).join("")}
+${theirs.map(c=>`<div class="codeRow shared" data-sh="${esc(c.id)}"><code>${esc(c.code)}</code><button type="button" class="btn quiet" data-sa="copy">Copy</button>
+<div class="meta"><span class="who">Shared by a shopper</span> ${c.about?esc(c.about)+". ":""}Added ${esc(day(c.added))}.${c.expires?" Ends "+esc(day(c.expires))+".":""} ${esc(voteTxt(c))}${votes[c.id]?" You said "+(votes[c.id]==="worked"?"it worked.":votes[c.id]==="failed"?"it didn't work.":"it's a problem."):""}</div>
+<div class="acts" style="grid-column:1/-1">${votes[c.id]==="worked"?"":`<button type="button" class="btn" data-sa="worked">It worked!</button>`}${votes[c.id]==="failed"?"":`<button type="button" class="btn quiet" data-sa="failed">Didn't work</button>`}${votes[c.id]==="report"?"":`<button type="button" class="btn quiet" data-sa="report">Report</button>`}</div></div>`).join("")}
 <div class="row" style="margin-top:10px"><input type="text" maxlength="32" placeholder="Paste a code you found" aria-label="Code for ${esc(st.name)}" data-in="code" autocomplete="off" autocapitalize="characters" spellcheck="false" style="flex:2 1 160px">
 <select data-in="src" aria-label="Where you found it" style="flex:1 1 130px"><option value="store">On ${esc(poss(st.name))} site</option><option value="rmn">RetailMeNot</option>${st.sd?'<option value="sd">Slickdeals</option>':""}<option value="other">Somewhere else</option></select>
-<button type="button" class="btn" data-ca="add">Save code</button></div></div>`}).join("");
+<button type="button" class="btn" data-ca="add">Save code</button></div>
+${CODES_URL?`<div class="more"><input type="text" maxlength="60" placeholder="What it's for (optional), like 20% off toys" aria-label="What the ${esc(st.name)} code is for" data-in="about" autocomplete="off"><input type="date" aria-label="Ends on (optional)" title="Ends on (optional)" data-in="exp"></div>
+<label class="shareChk"><input type="checkbox" data-in="share" checked> Share this code with other shoppers</label><input class="hp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" data-in="website">`:""}</div>`}).join("");
 }
 if(SHOP){
   $("#t-coupons").hidden=false;
-  $("#couponWrap").addEventListener("click",e=>{
+  $("#couponWrap").addEventListener("click",async e=>{
+    const sb=e.target.closest("button[data-sa]");
+    if(sb){const row=sb.closest(".codeRow");const c=(SHARED||[]).find(x=>String(x.id)===row.dataset.sh);if(!c)return;
+      if(sb.dataset.sa==="copy"){copy(c.code,"Copied "+c.code);chime("soft");sparkle(row,8);return}
+      const vote=sb.dataset.sa;S.votes=S.votes||{};const prev=S.votes[c.id];
+      const [st]=await codesPost("/vote",{id:c.id,vote});
+      if(st!==200){toast(st===429?"That's a lot of taps today. Try again tomorrow.":"That didn't go through. Try again in a bit.");return}
+      S.votes[c.id]=vote;save();
+      const col={worked:"worked",failed:"failed"};if(col[prev])c[col[prev]]=Math.max(0,c[col[prev]]-1);if(col[vote])c[col[vote]]++;
+      renderCoupons();
+      if(vote==="worked"){chime("magic");sparkle($(`#couponWrap .codeRow[data-sh="${c.id}"]`),16);toast("Coupon magic! Thanks for letting other shoppers know.")}
+      else toast(vote==="report"?"Thanks. Reported codes get hidden.":"Thanks. Codes that keep failing get hidden.");
+      return}
     const b=e.target.closest("button[data-ca]");if(!b)return;const box=b.closest(".cstore");const sid=box.dataset.s;S.codes=S.codes||[];
     if(b.dataset.ca==="add"){const inp=box.querySelector('[data-in="code"]');const code=inp.value.trim().replace(/\s+/g,"").toUpperCase().slice(0,32);
       if(!code){inp.focus();return}if(S.codes.some(c=>c.s===sid&&c.code===code)){toast("That code is already saved");return}
-      S.codes.push({id:"c"+Date.now().toString(36),s:sid,code,src:box.querySelector('[data-in="src"]').value,at:new Date().toISOString(),st:""});save();renderCoupons();
-      toast("Saved. Tap It worked! after you try it at checkout.");return}
+      const nc={id:"c"+Date.now().toString(36),s:sid,code,src:box.querySelector('[data-in="src"]').value,at:new Date().toISOString(),st:""};S.codes.push(nc);save();
+      const sh=box.querySelector('[data-in="share"]');
+      if(CODES_URL&&sh&&sh.checked){const v=n=>(box.querySelector(`[data-in="${n}"]`)||{}).value||"";
+        const [st,r]=await codesPost("/add",{store:sid,code,about:v("about").trim(),expires:v("exp"),website:v("website")});
+        if(st===200&&r.code){nc.sid=r.code.id;save();toast("Saved and shared. Tap It worked! after you try it at checkout.");loadShared(true)}
+        else if(r.error==="bad_about")toast("Saved for you. To share it, leave out links, emails and phone numbers.");
+        else if(r.error==="bad_code")toast("Saved for you. Shared codes can only have letters, numbers and dashes.");
+        else if(r.error==="expired")toast("Saved for you, but not shared, since that end date has passed.");
+        else if(r.error==="rate_limited")toast("Saved for you. You've shared a lot today, so try sharing again tomorrow.");
+        else toast("Saved for you. Sharing didn't go through this time.");
+        renderCoupons();return}
+      renderCoupons();toast("Saved. Tap It worked! after you try it at checkout.");return}
     const row=b.closest(".codeRow");const c=row&&S.codes.find(x=>x.id===row.dataset.c);if(!c)return;
     if(b.dataset.ca==="copy"){copy(c.code,"Copied "+c.code);chime("soft");sparkle(row,8);return}
     if(b.dataset.ca==="del"){S.codes=S.codes.filter(x=>x!==c);save();renderCoupons();return}
     c.st=b.dataset.ca==="ok"?"ok":"no";c.chk=new Date().toISOString();save();renderCoupons();
+    if(c.sid&&CODES_URL){codesPost("/vote",{id:c.sid,vote:c.st==="ok"?"worked":"failed"}).then(()=>loadShared(true))}
     if(c.st==="ok"){S.m.codeWins=(S.m.codeWins||0)+1;save();const nr=$(`#couponWrap .codeRow[data-c="${c.id}"]`);chime("magic");sparkle(nr,16);toast("Coupon magic! It's marked as working.")}
   });
   $("#couponWrap").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.matches('[data-in="code"]')){e.preventDefault();e.target.closest(".cstore").querySelector('[data-ca="add"]').click()}});
