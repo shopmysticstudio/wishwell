@@ -10,6 +10,11 @@
      /photo   beta only. Body: {"image": "data:image/jpeg;base64,..."} (a photo or screenshot, under
               about 500 KB). Answers {"items": [{title, category, lo, hi, search}]} for the giftable
               things in it. Counts as one AI round, the same way as /.
+     /waitlist  "Notify me at launch". Body: {"email": "...", "website": ""} ("website" is a hidden
+              field people never fill; bots do). Saves the email once in D1 (table waitlist, see
+              migrations/0004_waitlist.sql) with the day. Answers {"ok": true} whether it was new or
+              already there. WAITLIST_PER_NETWORK sign-ups per network a day, then 429. Nothing here
+              ever sends email.
      /signal  which AI ideas people liked. Body: {"kept": [titles], "top": [titles], "cut": [titles]}.
               Only bumps counts on ideas already in the pool. Answers 204.
 
@@ -48,7 +53,7 @@
    Settings ([vars] in wrangler.toml, or the dashboard):
      MODEL, BACKUP_MODEL, AI_TIMEOUT_MS, BACKUP_TIMEOUT_MS, ALLOWED_ORIGINS, BETA_ONLY, TRIAL_ROUNDS,
      TRIAL_PER_NETWORK, TRIAL_NETWORK_DAYS, BETA_ROUNDS, BETA_PER_NETWORK, TRIAL_PER_IP (KV fallback), PASS_DAILY,
-     PASS_WEEKLY, PASS_DEVICES, PASS_BAD_TRIES, POOL
+     PASS_WEEKLY, PASS_DEVICES, PASS_BAD_TRIES, WAITLIST_PER_NETWORK, POOL
    Secrets (dashboard > Settings > Variables and Secrets > Type: Secret):
      GUMROAD_PRODUCT_ID  the Holiday Pass product ID (passes can't be checked without it)
      BETA_CODE           optional; overrides the beta code fingerprint below
@@ -550,7 +555,7 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (request.method !== "POST") return reply({ error: "use_post" }, 405);
     const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
-    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo") return reply({ error: "not_found" }, 404);
+    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist") return reply({ error: "not_found" }, 404);
 
     const maxBody = path === "/photo" ? MAX_PHOTO_BODY : MAX_BODY;
     const len = Number(request.headers.get("content-length") || 0);
@@ -566,6 +571,23 @@ export default {
     if (env.PER_MINUTE && typeof env.PER_MINUTE.limit === "function") {
       try { const { success } = await env.PER_MINUTE.limit({ key: ip }); if (!success) return reply({ error: "rate_limited" }, 429); } catch (e) {}
     }
+    /* /waitlist: "Notify me at launch" on the website. Open even while the AI is beta only. */
+    if (path === "/waitlist") {
+      if (raw && raw.website) return reply({ ok: true }, 200);   // filled the hidden field: a bot
+      const email = String(raw && raw.email || "").trim().toLowerCase();
+      if (email.length > 254 || !/^[^@\s"<>,;]+@[^@\s"<>,;]+\.[a-z]{2,}$/.test(email)) return reply({ error: "bad_email" }, 400);
+      if (!env.DB || !env.KV) return reply({ error: "not_set_up" }, 429);
+      const k = "wait:" + today() + ":" + await sha("wishwell-net:" + network(ip));
+      const n = await kvNum(env, k);
+      if (n >= num(env.WAITLIST_PER_NETWORK, 5)) return reply({ error: "rate_limited" }, 429);
+      await env.KV.put(k, String(n + 1), { expirationTtl: 172800 }).catch(() => {});
+      try {
+        await env.DB.prepare("CREATE TABLE IF NOT EXISTS waitlist (email TEXT PRIMARY KEY, added TEXT NOT NULL)").run();
+        await env.DB.prepare("INSERT OR IGNORE INTO waitlist (email, added) VALUES (?1, ?2)").bind(email, today()).run();
+      } catch (e) { return reply({ error: "save_failed" }, 429); }
+      return reply({ ok: true }, 200);
+    }
+
     const codeHeader = request.headers.get("x-beta-code");
     const beta = !!codeHeader && await codeOk(codeHeader, env);
     if (String(env.BETA_ONLY || "true") !== "false" && !beta) {

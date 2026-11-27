@@ -42,6 +42,8 @@ PASS_DAILY = "25"
 PASS_WEEKLY = "100"
 PASS_DEVICES = "3"
 PASS_BAD_TRIES = "10"
+# "Notify me at launch" sign-ups allowed per network a day (the list is in D1, table waitlist).
+WAITLIST_PER_NETWORK = "5"
 # "off" stops saving ideas to the pool.
 POOL = "on"
 # GUMROAD_PRODUCT_ID is set as a Secret in the Cloudflare dashboard, not here.
