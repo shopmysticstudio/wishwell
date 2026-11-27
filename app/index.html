@@ -63,20 +63,27 @@ textarea{min-height:84px;resize:vertical}
 .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin:4px 0 14px}
 .who{font-size:14px;color:var(--muted)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:14px}
-.card{position:relative;border:2px solid var(--line);border-radius:4px;padding:14px;display:grid;grid-template-columns:56px minmax(0,1fr);gap:4px 12px;background:var(--bg)}
+.card{position:relative;border:2px solid var(--line);border-radius:4px;padding:14px;display:grid;grid-template-columns:56px minmax(0,1fr);gap:4px 12px;background:var(--bg);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .18s,transform .18s,border-color .15s,background-color .15s}
+.card:active{transform:scale(.99)}
+.card.on{border-color:var(--redink);box-shadow:inset 0 0 0 2px var(--redink);background:light-dark(#fff4f2,#2a1716)}
+.card.out{opacity:0;transform:scale(.96)}
 .mono{grid-row:span 3;width:56px;height:56px;border-radius:4px;display:grid;place-items:center;font-family:Nunito;font-weight:900;font-size:24px;color:#fff;position:relative}
 .no{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.02em}
 .card h3{font-size:19px;font-family:Nunito;font-weight:700;line-height:1.2}
 .price{justify-self:start;background:var(--tag);color:var(--tagink);font-weight:700;font-size:14px;padding:1px 8px;border-radius:3px;white-space:nowrap}
 .why{grid-column:1/-1;margin:6px 0 0;font-size:15px}
 .acts{grid-column:1/-1;display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-.acts .btn{flex:1 1 90px;padding:8px 10px}
-.acts a{flex:1 1 90px;text-align:center;align-content:center;min-height:48px;color:var(--ink);font-weight:700;font-size:14px}
-.keep[aria-pressed=true]{background:var(--redink);border-color:var(--redink);color:#fff}
-.circle{position:absolute;inset:-10px -8px;pointer-events:none;overflow:visible}
-.circle path{fill:none;stroke:var(--redink);stroke-width:3.5;stroke-linecap:round;stroke-dasharray:1200;stroke-dashoffset:0;animation:draw .5s ease-out}
-@keyframes draw{from{stroke-dashoffset:1200}}
-@media(prefers-reduced-motion:reduce){.circle path{animation:none}}
+.acts .btn{flex:1 1 70px;padding:8px 10px;min-height:48px}
+.acts .keep{flex:2 1 150px;display:flex;align-items:center;justify-content:center;gap:8px}
+.acts a{flex:1 1 70px;text-align:center;align-content:center;min-height:48px;color:var(--ink);font-weight:700;font-size:14px}
+.keep svg{width:20px;height:20px;flex:none}
+.keep[aria-pressed=true]{background:var(--redink);border-color:var(--redink);color:light-dark(#fff,#1d0d0b)}
+.acts .quiet{font-size:14px;font-weight:700}
+.ring{position:absolute;inset:-9px;width:calc(100% + 18px);height:calc(100% + 18px);pointer-events:none;overflow:visible}
+.ring path{fill:none;stroke:var(--redink);stroke-width:3.5;stroke-linecap:round}
+.fresh .ring path{stroke-dasharray:300;animation:draw .45s ease-out}
+@keyframes draw{from{stroke-dashoffset:300}}
+@media(prefers-reduced-motion:reduce){.fresh .ring path{animation:none}.card,.card:active{transition:none;transform:none}}
 .src{font-size:12px;color:var(--muted);grid-column:1/-1}
 .empty{border:2px dashed var(--line);border-radius:6px;padding:22px;text-align:center;color:var(--muted)}
 .note{background:var(--soft);border-radius:8px;padding:12px 14px;font-size:14px;margin:14px 0}
@@ -119,6 +126,8 @@ ol.rank{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .fam .row .btn,.fam .row .buy{flex:0 1 auto}
 .claim[aria-pressed=true]{background:var(--ink);color:var(--bg)}
 .tier .btn{margin-top:8px}
+a.btn{display:inline-flex;align-items:center;justify-content:center;text-align:center;text-decoration:none;color:inherit}
+a.btn.primary{color:#fff}
 .tier.hl{outline:4px solid var(--tag);outline-offset:2px}
 .later{font-size:14px;color:var(--muted);margin:4px 0 12px}
 .reveal{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border:2px solid var(--line);border-radius:4px;padding:10px 12px;margin:8px 0}
@@ -197,6 +206,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <div class="grid" id="ideaGrid"></div>
   <div class="row" style="margin:18px 0"><button class="btn primary" type="button" id="moreBtn">More ideas</button><button class="btn" type="button" data-go="rank">Rank my keepers</button></div>
   <details id="cutBox"><summary>Cut items (<span id="cutN">0</span>)</summary><div class="cutlist" id="cutList"></div></details>
+  <details id="haveBox"><summary>Already have (<span id="haveN">0</span>)</summary><div class="cutlist" id="haveList"></div></details>
 </section>
 
 <section class="view" id="v-rank" hidden>
@@ -225,7 +235,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <div class="field"><span>Who's in? (<span id="gCount">0</span>)</span>
     <div class="row"><input type="text" id="gAdd" maxlength="30" placeholder="Add a name" aria-label="Add a name"><button class="btn" type="button" id="gAddBtn">Add</button></div>
     <div class="cutlist" id="gPeople"></div></div>
-  <p class="small muted">Free for up to 4 people. Groups of 5 or more will use the $2.99 Exchange Pass, coming soon. For now, any size group is free.</p>
+  <p class="small muted" id="gNote">Free for up to 4 people. Groups of 5 or more will use the $2.99 Exchange Pass, coming soon. For now, any size group is free.</p>
   <button class="btn primary wide" type="button" id="gDraw">Draw names</button>
   <div id="gResult"></div>
   </div>
@@ -237,18 +247,19 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <div class="row" style="max-width:640px"><button class="btn primary" type="button" id="makeOwn">Make your own Wishwell list</button><button class="btn" type="button" id="famBack" hidden>Back to my list</button></div>
 </section>
 </main>
-<footer>Test draft. No accounts and no payments. Your lists save in this browser only. Prices are rough estimates, not live prices. Buy links are plain store searches for now; at launch they'd be paid links that may earn Wishwell a small commission at no extra cost to you.</footer>
+<footer id="foot">Test draft. No accounts and no payments. Your lists save in this browser only. Prices are rough estimates, not live prices. Buy links are plain store searches for now; at launch they'd be paid links that may earn Wishwell a small commission at no extra cost to you.</footer>
 
 <div class="modal" id="plans" hidden role="dialog" aria-modal="true" aria-labelledby="plansT">
   <div class="box">
     <div class="bar"><h2 id="plansT" style="font-size:clamp(24px,5vw,34px)">Plans (coming soon)</h2><button class="btn" type="button" id="closePlans">Close</button></div>
     <p class="muted" id="plansWhy"></p>
     <div class="tiers">
-      <div class="tier" data-t="free"><h3>Free</h3><div class="amt">$0</div><ul><li>Taste quiz, lists, ranking and share links</li><li>3 rounds of AI ideas per list</li><li>Group exchange for up to 4 people</li></ul></div>
-      <div class="tier best" data-t="holiday"><h3>Holiday Pass</h3><div class="amt">$4.99</div><div class="small muted">one time, this season</div><ul><li>Unlimited AI ideas and lists</li><li>Price drop alerts on your picks</li><li>No subscription</li></ul><button class="btn pay" type="button" data-pay="holiday">Coming soon</button></div>
+      <div class="tier" data-t="free"><h3>Free</h3><div class="amt">$0</div><ul><li>Taste quiz, lists, ranking and share links</li><li id="perkFreeAi">Free AI rounds to try</li><li>Group exchange for up to 4 people</li></ul></div>
+      <div class="tier best" data-t="holiday"><h3>Holiday Pass</h3><div class="amt">$4.99</div><div class="small muted">one time, this season</div><ul><li id="perkAi">25 AI rounds a day</li><li>Draw names for groups of any size</li><li>No subscription</li></ul><button class="btn pay" type="button" data-pay="holiday">Coming soon</button></div>
       <div class="tier" data-t="exchange"><h3>Exchange Pass</h3><div class="amt">$2.99</div><div class="small muted">per group, one time</div><ul><li>Groups of 5 or more</li><li>Everyone's list in one place</li><li>Reminders before the swap</li></ul><button class="btn pay" type="button" data-pay="exchange">Coming soon</button></div>
     </div>
     <p class="later">Later, in 2027: Plus at $19.99 a year and Family at $34.99 a year. <button class="btn pay" type="button" data-pay="plus" style="min-height:40px;padding:4px 10px;margin-left:4px">I'd want Plus</button></p>
+    <div class="note" id="passBox" hidden></div>
     <p class="small muted" id="payNote">The passes are coming soon. Tap Coming soon on any pass you'd want, and it goes in your test report.</p>
     <div class="row"><button class="btn reportBtn" type="button">Copy my test report</button></div>
     <p class="note">How Free stays free: at launch, buy links may earn Wishwell a small commission from the store. The price you pay stays the same.</p>
@@ -262,9 +273,19 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
 <script>
 {
 const CFG=window.WISHWELL_CONFIG||{};
+/* payments: off until gumroadUrl is set in config.js */
+const PAY=!!String(CFG.gumroadUrl||"").trim();
+let PASS=null;try{PASS=JSON.parse(localStorage.getItem("wishwell-pass")||"null")}catch(e){}
+const hasPass=()=>PAY&&!!(PASS&&PASS.ok);
+const AI_ON=!!String(CFG.aiUrl||"").trim();
+/* free AI rounds per person (the AI service enforces the real number) */
+const FREE=Math.max(1,Math.round(+CFG.freeRounds||3));
+/* random id for this browser, so the AI service can count free trial rounds per device */
+let DEV="";try{DEV=localStorage.getItem("wishwell-device")||"";if(!/^[A-Za-z0-9_-]{16,64}$/.test(DEV)){DEV=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9]/g,"");localStorage.setItem("wishwell-device",DEV)}}catch(e){}
+const aiHeaders=withPass=>{const h={"content-type":"application/json"};if(window.WISHWELL_ACCESS_CODE)h["x-beta-code"]=window.WISHWELL_ACCESS_CODE;if(DEV)h["x-device-id"]=DEV;if(withPass&&hasPass())h["x-pass-key"]=PASS.key;return h};
 const APP_URL=CFG.shareBase||(location.origin+location.pathname);
-const CATS={Tech:"#2563eb",Gaming:"#7c3aed",Making:"#ea580c",Art:"#db2777",Music:"#0891b2",Sports:"#16a34a",Outdoors:"#4d7c0f",Science:"#1e3a8a",Books:"#92400e",Food:"#b91c1c",Style:"#334155",Room:"#0f766e",Experiences:"#c2410c",Other:"#525252"};
-const INTS=[["Tech","tech electronics gadgets phone computer"],["Gaming","gaming games controller"],["Making","maker build tools 3dprinting electronics"],["Art","art drawing painting"],["Music","music audio instrument"],["Sports","sports fitness running"],["Outdoors","outdoors camping hiking"],["Space and science","space science astronomy rockets"],["Books","books reading"],["Cooking","cooking food"],["Style","fashion style clothes"],["Room setup","room decor desk"],["Cars","cars driving"],["Pets","pets dog cat"],["Puzzles","puzzles"]];
+const CATS={Tech:"#2563eb",Gaming:"#7c3aed",Making:"#ea580c",Art:"#db2777",Music:"#0891b2",Sports:"#16a34a",Outdoors:"#4d7c0f",Science:"#1e3a8a",Books:"#92400e",Food:"#b91c1c",Style:"#334155",Room:"#0f766e",Experiences:"#c2410c",Beauty:"#be185d",Other:"#525252"};
+const INTS=[["Cooking","cooking food"],["Music","music audio instrument"],["Movies and shows","movies tv"],["Sports","sports fitness running"],["Outdoors","outdoors camping hiking"],["Art","art drawing painting"],["Crafts","crafts sewing knit diy"],["Books","books reading"],["Style","fashion style clothes"],["Room setup","room decor desk"],["Coffee and tea","coffee tea"],["Gaming","gaming games controller"],["Travel","travel"],["Pets","pets dog cat"],["Self-care","selfcare spa bath"],["Beauty","beauty makeup skincare"],["Jewelry","jewelry"],["Puzzles","puzzles"],["Friends and parties","party friends games"],["Tech","tech electronics gadgets phone computer"],["Making","maker build tools 3dprinting electronics"],["Cars","cars driving"],["Space and science","space science astronomy rockets"]];
 const BANK=[
 ["Beginner camera drone","Tech",60,300,"drone fly camera rc aerospace","Fly it, film it, learn to land it."],
 ["Mechanical keyboard kit","Tech",60,150,"keyboard computer gaming build","Swap switches and keycaps until it sounds right."],
@@ -521,16 +542,241 @@ const BANK=[
 ["Deduction board game","Gaming",25,50,"puzzles games strategy mystery","Solve the case before anyone else."],
 ["Puzzle hunt adventure book","Books",15,30,"puzzles books mystery","Every page hides a clue."],
 ["Smart chess board","Gaming",250,500,"chess puzzles strategy games tech","Plays against them and teaches along the way."],
-["Collector mechanical puzzle set","Other",80,200,"puzzles collector mechanical","Rare puzzles that stump even puzzle fans."]
+["Collector mechanical puzzle set","Other",80,200,"puzzles collector mechanical","Rare puzzles that stump even puzzle fans."],
+["Kinetic desk sculpture","Room",25,60,"quirky desk toys fidget science","Keeps spinning long after one nudge."],
+["Newton's cradle","Room",15,40,"quirky desk toys science","Click-clack physics for the desk."],
+["Magnetic desk sculpture","Room",15,35,"quirky desk toys fidget building","A new shape every phone call."],
+["Fidget cube","Other",8,20,"fidget quirky toys desk","Buttons, switches and dials for busy hands."],
+["Infinity flip cube","Other",8,20,"fidget quirky toys","Folds over itself forever."],
+["Wooden brain teaser set","Other",15,40,"puzzles brain logic quirky","Looks easy. It is not."],
+["Daily calendar puzzle","Other",20,40,"puzzles brain logic desk quirky","A different puzzle for every date of the year."],
+["Mirror cube puzzle","Other",10,25,"puzzles cubing quirky brain","Same twists, wildly different shapes."],
+["Tangram puzzle set","Other",10,25,"puzzles brain logic","Seven pieces, hundreds of shapes."],
+["Lateral thinking puzzle cards","Gaming",10,20,"puzzles brain logic party mystery friends","Strange little stories with a twist to figure out."],
+["Pocket logic puzzle game","Gaming",10,25,"puzzles brain logic travel","Brain teasers that fit in a bag."],
+["Code-breaking cipher kit","Other",20,40,"puzzles brain mystery logic quirky","Secret messages to crack and send."],
+["Single-color jigsaw puzzle","Other",15,30,"puzzles brain quirky","No picture, all one color, pure stubbornness."],
+["Crossword and word puzzle book","Books",8,15,"puzzles brain books reading","Grids for coffee breaks."],
+["Wind-up automaton kit","Making",25,60,"quirky maker mechanical build","A little moving machine with a sense of humor."],
+["Weird science experiment kit","Science",20,45,"science experiments quirky brain chemistry","Slime, crystals and fizzing things."],
+["Desk zen sand garden","Room",15,30,"quirky desk cozy","Rake the sand between tasks."],
+["Glow-in-the-dark puzzle","Other",15,35,"puzzles quirky cozy space","Finish it, turn off the lights, see it again."],
+["Portable label printer","Tech",25,60,"tech gadgets desk crafts quirky","Labels for every drawer, cable and jar."],
+["Wireless charging stand","Tech",20,50,"tech phone desk","Set the phone down and it charges."],
+["E-ink writing tablet","Tech",250,500,"tech writing journal reading","Feels like paper and never runs out of pages."],
+["Cozy farming video game","Gaming",20,40,"gaming games cozy","Plant, fish and decorate at your own pace."],
+["Dice set and dice tray","Gaming",15,40,"games dnd fantasy tabletop quirky","Shiny dice for every roll that matters."],
+["Cooperative card game for two","Gaming",12,25,"games friends family strategy","Work together to beat the deck."],
+["Mini retro arcade cabinet","Gaming",80,250,"gaming games retro room quirky","A tiny arcade on the shelf."],
+["Knitting starter kit","Making",20,45,"crafts knit yarn cozy","Chunky yarn, big needles, a scarf by Sunday."],
+["Embroidery kit","Making",15,35,"crafts sewing art","A hoop, a pattern and a calm afternoon."],
+["Candle making kit","Making",25,50,"crafts cozy room","Pour and scent your own candles."],
+["Model railroad starter set","Making",100,300,"models maker build trains","A tiny railway on the table."],
+["Linocut printmaking kit","Art",25,60,"art crafts drawing","Carve it once, print it a hundred times."],
+["Paint by numbers kit","Art",15,40,"art painting cozy","A real painting, one number at a time."],
+["Fineliner pen set","Art",15,35,"art drawing writing journal","Crisp lines for sketches and notes."],
+["Pocket synthesizer","Music",50,150,"music audio tech beats quirky","A tiny synth for making beats anywhere."],
+["Studio monitor headphones","Music",80,200,"music audio production","Hear every detail in the mix."],
+["Guitar effects pedal","Music",40,120,"music guitar instrument","New sounds from the same guitar."],
+["Music lessons package","Experiences",80,250,"music instrument piano guitar experiences","A few lessons to get going fast."],
+["Foam roller","Sports",20,50,"fitness running gym","Loosens everything up after a long run."],
+["Disc golf starter set","Sports",25,50,"sports outdoors friends","Three discs and every park becomes a course."],
+["Soccer ball and mini goals","Sports",30,80,"sports backyard family","Pickup games anywhere."],
+["Camping lantern","Outdoors",20,50,"outdoors camping cozy","Warm light for the tent or the porch."],
+["Trekking poles","Outdoors",30,90,"outdoors hiking trails","Easier climbs and steadier descents."],
+["Field guide and nature journal","Books",15,35,"outdoors hiking nature books writing birding","Name what you see and sketch the rest."],
+["Indoor herb garden kit","Room",30,100,"plants garden cooking food room","Fresh basil on the counter all year."],
+["Pocket field microscope","Science",15,35,"science biology outdoors","Tiny worlds on every walk."],
+["DNA extraction kit","Science",20,40,"science biology experiments","Pull real DNA out of a strawberry."],
+["Programmable coding robot","Science",60,150,"robot coding tech science","Code that drives across the floor, not just the screen."],
+["Cozy mystery novel set","Books",25,50,"books reading mystery cozy","Small towns, big secrets."],
+["Cookbook from another country","Books",25,45,"books cooking food travel","A trip without leaving the kitchen."],
+["Personal book embosser","Books",30,60,"books reading quirky","Stamps their name into every book they own."],
+["Hot chocolate gift set","Food",15,35,"food cozy dessert","Rich mugs for cold nights."],
+["Baking set with silicone mats","Food",25,60,"baking cooking dessert","Cookies that never stick."],
+["Cold brew coffee maker","Food",20,40,"coffee food","Smooth coffee waiting in the fridge."],
+["Waffle maker","Food",25,70,"cooking food baking","Weekend breakfast, upgraded."],
+["Oversized cozy cardigan","Style",30,80,"fashion clothes cozy","Like wearing a blanket in public."],
+["Fun patterned socks set","Style",15,30,"fashion clothes quirky","A small rebellion at ankle level."],
+["Packable rain jacket","Style",40,150,"fashion clothes outdoors travel","Stays dry, folds into its own pocket."],
+["Custom embroidered cap","Style",20,45,"fashion style quirky","A name or an inside joke stitched on the front."],
+["Wall pegboard organizer","Room",30,80,"room desk maker tools","Every tool and cable within reach."],
+["Aroma diffuser with soft light","Room",20,50,"room cozy sleep","Calm scents and a soft glow at night."],
+["Scratch-off world map","Room",20,40,"travel room decor","Scratch off every place they've been."],
+["Glassblowing class","Experiences",60,150,"art crafts experiences","Make a real glass piece in an afternoon."],
+["Trampoline park pass","Experiences",20,40,"sports friends experiences","An hour of bouncing, any age."],
+["Stargazing night tour","Experiences",30,80,"space astronomy stars outdoors experiences","Real telescopes under a dark sky."],
+["Baking class","Experiences",50,120,"baking cooking dessert experiences","Pastry tricks from a real baker."],
+["Travel pillow and eye mask","Other",20,45,"travel sleep cozy","Actually sleep on the plane."],
+["Packing cubes set","Other",15,35,"travel","A suitcase that stays organized."],
+["Cat window perch","Other",25,50,"cats pets cozy","Sunbathing with a view."],
+["Cordless car vacuum","Other",30,70,"cars driving cleaning","Crumbs gone in a minute."],
+["Custom engraved keychain","Other",10,25,"cars quirky","A tiny custom thing that goes everywhere."],
+["Bath bomb gift set", "Beauty", 15, 35, "beauty selfcare spa bath cozy", "Fizzy, colorful and smells amazing."],
+["Spa night at home kit", "Beauty", 25, 60, "beauty selfcare spa cozy", "Masks, a scrub and a fluffy headband."],
+["Silk pillowcase", "Beauty", 25, 60, "beauty hair sleep selfcare cozy", "Smoother hair and a cool side every night."],
+["Heated eye mask", "Beauty", 15, 35, "selfcare sleep cozy spa", "Warm, dark and quiet in two minutes."],
+["Nail polish collection", "Beauty", 15, 40, "beauty nails style", "A color for every mood."],
+["Makeup brush set", "Beauty", 15, 50, "beauty makeup", "Soft brushes that make everything blend."],
+["Curling wand", "Beauty", 40, 120, "beauty hair style", "Curls or beach waves in a few minutes."],
+["Lip balm sampler", "Beauty", 8, 20, "beauty selfcare", "A flavor for every pocket and bag."],
+["Body scrub and lotion set", "Beauty", 20, 45, "beauty selfcare spa", "Soft skin that smells like dessert."],
+["Perfume sampler set", "Beauty", 25, 70, "beauty fashion style", "Try a few scents before picking a favorite."],
+["Satin scrunchie set", "Beauty", 8, 20, "beauty hair fashion", "Gentle on hair, cute on the wrist."],
+["Light-up makeup mirror", "Beauty", 25, 60, "beauty makeup room", "Even light for getting ready."],
+["Mini massage gun", "Beauty", 40, 120, "selfcare fitness gym", "Works out sore spots after a workout."],
+["Shower steamer set", "Beauty", 10, 25, "selfcare spa bath", "A spa smell in an ordinary shower."],
+["Face mask sampler", "Beauty", 10, 25, "beauty selfcare spa friends", "Sheet masks for a night in with friends."],
+["Plush bathrobe", "Style", 30, 90, "selfcare spa cozy clothes", "Feels like a hotel every morning."],
+["Birthstone necklace", "Style", 25, 80, "jewelry fashion style", "Their birth month on a delicate chain."],
+["Initial bracelet", "Style", 20, 60, "jewelry fashion style", "One small letter that means a lot."],
+["Gold hoop earrings", "Style", 20, 80, "jewelry fashion style", "The pair that goes with everything."],
+["Charm bracelet", "Style", 30, 100, "jewelry fashion style", "Add a charm for every memory."],
+["Jewelry box with mirror", "Room", 25, 70, "jewelry room style decor", "A home for every ring and earring."],
+["Silk scarf", "Style", 20, 60, "fashion style clothes", "Hair, neck or bag, it works everywhere."],
+["Leather wallet", "Style", 25, 80, "fashion style everyday", "Slim, sturdy and gets nicer with age."],
+["Canvas tote bag", "Style", 20, 60, "fashion style everyday", "Big enough for everything, cute enough for anywhere."],
+["Claw clip set", "Beauty", 8, 20, "beauty hair fashion", "Hair up in two seconds."],
+["Matching lounge set", "Style", 30, 80, "fashion clothes cozy", "Matching sweats for lazy weekends."],
+["Fuzzy socks bundle", "Style", 10, 25, "cozy clothes fashion", "Warm feet all winter."],
+["Name necklace", "Style", 25, 70, "jewelry fashion style", "Their name in pretty script."],
+["Belt bag", "Style", 20, 50, "fashion style travel", "Hands free at concerts and theme parks."],
+["Winter hat and gloves set", "Style", 20, 50, "fashion clothes winter cozy", "Matching and warm for the coldest days."],
+["Statement earrings", "Style", 15, 40, "jewelry fashion quirky", "Bold earrings that start conversations."],
+["Stackable ring set", "Style", 15, 40, "jewelry fashion style", "Mix and match a new stack every day."],
+["Scented candle set", "Room", 20, 50, "cozy room decor home", "Cozy smells for every season."],
+["Heated blanket", "Room", 40, 100, "cozy sleep home", "Warm before they even get in bed."],
+["Mini fridge for the room", "Room", 80, 180, "room snacks food", "Cold drinks and snacks without leaving the room."],
+["Faux fur throw pillows", "Room", 20, 50, "cozy room decor home", "Soft, fluffy and good for naps."],
+["Fairy light curtain", "Room", 15, 35, "room decor lights cozy", "A wall of tiny warm lights."],
+["Picture frame set", "Room", 20, 60, "room decor photos family home", "Favorite photos on the wall at last."],
+["Digital photo frame", "Room", 60, 150, "room photos family", "Every favorite photo on a slow shuffle."],
+["Hanging plant and macrame hanger", "Room", 20, 50, "plants room decor home", "A green corner that is hard to kill."],
+["Memory foam pillow", "Room", 30, 80, "sleep cozy home", "Better sleep starts with a better pillow."],
+["Wall tapestry", "Room", 15, 40, "room decor", "A whole new look for one wall."],
+["Fresh flower delivery", "Room", 40, 120, "plants flowers home decor", "A bouquet that shows up at the door."],
+["Mug warmer", "Room", 15, 35, "coffee tea cozy desk", "Coffee stays hot until the last sip."],
+["Wearable hooded blanket", "Room", 30, 60, "cozy sleep clothes", "A blanket with sleeves and a hood."],
+["Gourmet chocolate box", "Food", 20, 60, "food dessert snacks", "A box of chocolates worth sharing."],
+["Cookie decorating kit", "Food", 15, 35, "baking dessert family crafts", "Frosting, sprinkles and a messy afternoon."],
+["Gourmet popcorn sampler", "Food", 20, 45, "food snacks movies", "Five flavors for movie night."],
+["Charcuterie board set", "Food", 30, 80, "food cooking party home", "The board that makes snacks look fancy."],
+["Candy from around the world box", "Food", 20, 50, "food snacks travel quirky", "Sweets they have never tried before."],
+["Matcha whisk set", "Food", 25, 60, "tea food", "Bright green matcha the traditional way."],
+["Honey sampler", "Food", 20, 40, "food tea", "Honey that tastes different from every flower."],
+["Personal smoothie blender", "Food", 25, 60, "cooking food fitness", "Blend and go in one cup."],
+["Chocolate fondue set", "Food", 30, 70, "food dessert party family", "Dip strawberries, marshmallows, everything."],
+["Coffee bean subscription", "Food", 40, 100, "coffee food", "Fresh beans at the door every month."],
+["Engraved cutting board", "Food", 30, 70, "cooking food home", "Their name on the board they use every day."],
+["Bento lunch box set", "Food", 15, 40, "food school everyday", "Lunch that looks as good as it tastes."],
+["Insulated travel mug", "Food", 15, 40, "coffee tea travel everyday", "Hot for hours, no spills in the bag."],
+["S'mores kit", "Food", 15, 35, "food dessert camping cozy", "Campfire dessert, even indoors."],
+["Workout leggings", "Sports", 30, 80, "fitness gym clothes yoga", "Comfy enough to wear everywhere."],
+["Gym duffel bag", "Sports", 25, 60, "fitness gym sports", "Room for shoes, water and a towel."],
+["Yoga class pass", "Experiences", 40, 120, "fitness yoga experiences selfcare", "A few classes to stretch and reset."],
+["Dance class pass", "Experiences", 40, 120, "dance music fitness experiences", "Learn a style they have always wanted to try."],
+["Beach volleyball", "Sports", 20, 40, "sports beach friends", "Instant game at the beach or park."],
+["Roundnet game set", "Sports", 50, 90, "sports games friends outdoors beach", "Fast, loud and fun with four people."],
+["Golf practice net", "Sports", 40, 120, "sports golf backyard", "Swing practice in the backyard."],
+["Bike light set", "Sports", 20, 50, "biking sports safety", "Seen from far away after dark."],
+["Sports team jersey", "Sports", 60, 150, "sports fashion clothes", "Their team, their favorite player."],
+["Running belt", "Sports", 15, 30, "running fitness", "Phone and keys stay put on every run."],
+["Ice skates", "Sports", 50, 150, "sports skating winter", "Ready for the rink every winter."],
+["Badminton set", "Sports", 25, 60, "sports backyard family", "A backyard game anyone can play."],
+["Beach blanket", "Outdoors", 20, 50, "beach outdoors summer", "Sand-proof and folds into a pouch."],
+["Picnic backpack set", "Outdoors", 40, 90, "outdoors food family", "Plates, cups and a blanket in one bag."],
+["Folding camp chair", "Outdoors", 30, 80, "outdoors camping beach", "A comfy seat anywhere."],
+["Insulated cooler bag", "Outdoors", 25, 60, "outdoors beach food", "Drinks stay cold all afternoon."],
+["Garden tool set", "Outdoors", 25, 60, "garden plants outdoors", "Everything to start a little garden."],
+["Easy-flying kite", "Outdoors", 15, 40, "outdoors beach family", "Up in the air in one try."],
+["Snowshoes", "Outdoors", 60, 150, "outdoors winter hiking", "Walk on top of deep snow."],
+["Vinyl record crate", "Music", 20, 50, "music vinyl room records", "A home for the growing collection."],
+["Party speaker with lights", "Music", 60, 200, "music party friends", "Loud music and a light show."],
+["Song lyrics print", "Music", 20, 50, "music room decor", "Their favorite song, framed."],
+["Guitar strap and picks set", "Music", 15, 35, "music guitar", "A strap that shows their style."],
+["Guided journal", "Books", 15, 30, "writing journal books selfcare", "A question a day to think about."],
+["Bullet journal starter kit", "Books", 20, 45, "journal writing art crafts", "Dotted notebook, pens and ideas to start."],
+["Romance novel set", "Books", 25, 50, "books reading", "A stack of feel-good love stories."],
+["Padded book sleeve", "Books", 10, 25, "books reading cozy", "Keeps books safe in the bag."],
+["Personalized stationery set", "Books", 20, 50, "writing journal", "Notes and cards with their name on top."],
+["Adult coloring book and pencils", "Art", 10, 25, "art cozy selfcare", "Relaxing pages for quiet nights."],
+["Sticker collection", "Art", 8, 20, "journal art quirky", "Stickers for journals, laptops and water bottles."],
+["Friendship bracelet kit", "Making", 10, 25, "crafts jewelry friends", "Bracelets to make and trade."],
+["Diamond painting kit", "Making", 15, 40, "crafts art cozy", "A sparkly picture, one dot at a time."],
+["Crochet animal kit", "Making", 15, 35, "crafts knit yarn", "A tiny stuffed animal made by hand."],
+["Tie-dye kit", "Making", 15, 35, "crafts fashion friends", "Shirts nobody else has."],
+["Jewelry making kit", "Making", 20, 50, "crafts jewelry", "Beads, charms and tools for their own pieces."],
+["Soap making kit", "Making", 20, 45, "crafts selfcare", "Shape and scent their own soaps."],
+["Pressed flower art kit", "Making", 15, 35, "crafts plants art", "Turn flowers into framed art."],
+["Matching pet and owner bandanas", "Other", 15, 30, "dogs pets fashion", "Twinning on every walk."],
+["Round fluffy pet bed", "Other", 25, 60, "cats dogs pets cozy", "The nap spot pets fight over."],
+["Dog birthday treat box", "Other", 20, 40, "dogs pets treats", "A party in a box for the dog."],
+["Paw print keepsake kit", "Other", 15, 30, "pets dogs cats family", "Their pet's paw print to keep forever."],
+["Weekender bag", "Style", 40, 120, "travel fashion", "The right size for a two-night trip."],
+["Travel jewelry case", "Style", 15, 35, "travel jewelry", "No more tangled necklaces in the suitcase."],
+["Hanging toiletry bag", "Other", 15, 40, "travel selfcare", "Everything visible on the hotel hook."],
+["Luggage tag set", "Other", 10, 25, "travel quirky", "Spot their bag first on the carousel."],
+["Carry-on suitcase", "Other", 80, 250, "travel", "Rolls smoothly and fits in the overhead bin."],
+["Travel journal", "Books", 15, 30, "travel journal writing", "Tickets, notes and memories in one place."],
+["Charades party game", "Gaming", 15, 30, "games party family friends", "Acting it out gets loud fast."],
+["Giant tumbling tower game", "Gaming", 30, 70, "games party backyard family", "The tension when it starts to wobble."],
+["Trivia party game", "Gaming", 20, 40, "games trivia party friends", "Settle who knows the most, once and for all."],
+["Poker chips and playing cards set", "Gaming", 20, 50, "games friends family", "Card night with real chips."],
+["Drawing and guessing party game", "Gaming", 20, 35, "games party art family", "Bad drawings, great laughs."],
+["Cornhole set", "Gaming", 50, 150, "games backyard party family", "The backyard game at every cookout."],
+["Conversation question card game", "Gaming", 15, 30, "games friends family", "Questions that get everyone talking."],
+["Painting class night", "Experiences", 35, 70, "art friends experiences", "Paint something new with friends."],
+["Movie theater gift card", "Experiences", 25, 50, "movies experiences", "Movie nights on them."],
+["Horseback riding lesson", "Experiences", 60, 150, "outdoors animals experiences", "An hour on a horse, no experience needed."],
+["Bowling night out", "Experiences", 20, 60, "friends family experiences games", "Bumpers optional."],
+["Zoo membership", "Experiences", 60, 150, "animals family experiences", "Visit the animals all year."],
+["Nail salon gift card", "Experiences", 30, 80, "beauty nails experiences selfcare", "A fresh set whenever they want."],
+["Mini golf outing", "Experiences", 15, 40, "games friends family experiences", "Silly holes and friendly trash talk."],
+["Comedy show tickets", "Experiences", 30, 100, "friends experiences funny", "A night of laughing until it hurts."],
+["Restaurant gift card", "Experiences", 25, 100, "food experiences", "Dinner at their favorite spot."],
+["Windproof umbrella", "Other", 20, 50, "travel everyday", "Stays right side out in a storm."],
+["Phone grip and wallet", "Other", 10, 25, "phone fashion everyday", "Cards and a grip on the back of the phone."],
+["Desk organizer set", "Room", 15, 40, "desk room school", "A spot for every pen and charger."],
+["Yearly planner", "Books", 15, 35, "writing journal school", "The whole year, organized."],
+["Shower speaker", "Music", 15, 35, "music bath quirky", "Shower concerts, now with music."],
+["Rechargeable hand warmers", "Outdoors", 20, 40, "winter outdoors cozy", "Warm hands for games and bus stops."],
+["Personalized water bottle", "Sports", 20, 40, "fitness school everyday", "Their name on the bottle they carry daily."],
+["Braided charging cable set", "Other", 10, 25, "phone tech everyday", "Cables that do not fray."],
+["Cozy fleece pajama pants", "Style", 15, 35, "cozy clothes sleep", "Soft pants for every lazy morning."],
+["Puffy phone crossbody", "Style", 20, 45, "fashion style phone", "Phone, cards and lip balm, hands free."],
+["Bath caddy tray", "Room", 25, 60, "bath selfcare spa home", "Book, candle and drink, right in the tub."],
+["Pancake art kit", "Food", 15, 35, "cooking food family quirky", "Breakfast shaped like anything."],
+["Herbal tea advent box", "Food", 20, 40, "tea food cozy", "A new tea to try every day."],
+["Customized photo blanket", "Room", 35, 80, "photos family cozy", "Favorite photos on a soft blanket."],
+["Cute desk plant set", "Room", 15, 35, "plants desk room", "Little succulents that need almost nothing."]
 ];
 
 const $=s=>document.querySelector(s);
 const esc=v=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const metrics=()=>({quizDone:0,quizTaps:0,ideas:0,circled:0,cut:0,ai:0,linkCopies:0,textCopies:0,previews:0,buy:0,famBuy:0,famOpens:0,claims:0,makeOwn:0,draws:0,biggest:0,pay:{holiday:0,exchange:0,plus:0}});
-const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],seq:0,round:0,aiRounds:0,view:"start",listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
+const metrics=()=>({quizDone:0,quizTaps:0,ideas:0,circled:0,cut:0,have:0,ai:0,linkCopies:0,textCopies:0,previews:0,buy:0,famBuy:0,famOpens:0,claims:0,makeOwn:0,draws:0,biggest:0,pay:{holiday:0,exchange:0,plus:0}});
+const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",age:"",lean:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],have:[],seq:0,round:0,aiRounds:0,view:"start",listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
 let S=fresh(),sample=null,busy=false,FAM=null;
 try{const raw=localStorage.getItem("wishbook-v1");if(raw){const o=JSON.parse(raw);S=Object.assign(fresh(),o);S.m=Object.assign(metrics(),o.m||{});S.m.pay=Object.assign(metrics().pay,(o.m||{}).pay||{});S.g=Object.assign(fresh().g,o.g||{});S.opt=Object.assign(fresh().opt,o.opt||{})}}catch(e){}
-const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}};
+const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}signalLater()};
+/* tell the AI service which AI ideas were circled, ranked top 3 or cut, so the best ones can become
+   starter ideas. Sends idea titles only: no device id, names, notes or anything typed. Each title is sent once. */
+const SIG_URL=AI_ON?String(CFG.aiUrl).trim().replace(/\/+$/,"")+"/signal":"";
+let sigT=0;
+function signalLater(){if(SIG_URL){clearTimeout(sigT);sigT=setTimeout(sendSignal,3000)}}
+function sendSignal(){
+  clearTimeout(sigT);const ai=S.items.filter(i=>i.src==="AI pick");if(!SIG_URL||!ai.length)return;
+  const ks=new Set(S.keptSent||[]),ts=new Set(S.topSent||[]),cs=new Set(S.cutSent||[]),hs=new Set(S.haveSent||[]);
+  const kept=ai.filter(i=>i.status==="kept"&&!ks.has(i.title)).map(i=>i.title).slice(0,40);
+  const top=(S.view==="rank"||S.view==="share")?S.kept.slice(0,3).map(id=>S.items.find(i=>i.id===id)).filter(i=>i&&i.src==="AI pick"&&!ts.has(i.title)).map(i=>i.title):[];
+  const cut=ai.filter(i=>i.status==="cut"&&!cs.has(i.title)).map(i=>i.title).slice(0,40);
+  const have=ai.filter(i=>i.status==="have"&&!hs.has(i.title)).map(i=>i.title).slice(0,40);
+  if(!kept.length&&!top.length&&!cut.length&&!have.length)return;
+  S.keptSent=[...ks,...kept].slice(-300);S.topSent=[...ts,...top].slice(-300);S.cutSent=[...cs,...cut].slice(-300);S.haveSent=[...hs,...have].slice(-300);
+  try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}
+  const h={"content-type":"application/json"};if(window.WISHWELL_ACCESS_CODE)h["x-beta-code"]=window.WISHWELL_ACCESS_CODE;
+  fetch(SIG_URL,{method:"POST",headers:h,body:JSON.stringify({kept,top,cut,have}),keepalive:true}).catch(()=>{});
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")sendSignal()});
 const toast=t=>{const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400)};
 const money=(lo,hi)=>lo===hi?"$"+lo:"$"+lo+" to $"+hi;
 const est=it=>it.hi?"est. "+money(it.lo,it.hi):"";
@@ -565,18 +811,20 @@ function renderAge(){
 }
 
 /* taste quiz: quick taps that seed the first wishlist */
-const CAT2INT={Making:"Making",Outdoors:"Outdoors",Tech:"Tech",Art:"Art",Music:"Music",Gaming:"Gaming",Room:"Room setup",Science:"Space and science",Books:"Books",Sports:"Sports",Food:"Cooking",Style:"Style",Experiences:""};
+const CAT2INT={Making:"Making",Outdoors:"Outdoors",Tech:"Tech",Art:"Art",Music:"Music",Gaming:"Gaming",Room:"Room setup",Science:"Space and science",Books:"Books",Sports:"Sports",Food:"Cooking",Style:"Style",Experiences:"",Beauty:"Beauty",Other:""};
 const PAIRS=[
- {id:"sat",q:"Free Saturday. You'd rather...",o:[["Build or fix something","Tinkerer","maker build tools electronics repair","Making"],["Get outside","Outdoorsy","outdoors hiking camping sports","Outdoors"]]},
- {id:"desk",q:"Pick a desk buddy",o:[["A tiny robot","Techie","robot coding electronics tech","Tech"],["A fresh sketchbook","Artsy","art drawing","Art"]]},
+ {id:"sat2",q:"Free Saturday. You'd rather...",o:[["Go out with friends","Social","friends party games","Experiences"],["Stay in and get cozy","Cozy","cozy room decor sleep blanket","Room"]]},
+ {id:"aft",q:"A good afternoon is...",o:[["Outside, on the move","Outdoorsy","outdoors hiking bike beach","Outdoors"],["Making something","Creative","art crafts drawing painting diy","Art"]]},
  {id:"ears",q:"Headphones on or controller in hand?",o:[["Headphones on","Music lover","music audio","Music"],["Controller in hand","Gamer","gaming games controller","Gaming"]]},
- {id:"treat",q:"The best kind of treat is...",o:[["A gadget that does something cool","Gadget fan","tech gadgets camera drone","Tech"],["Something that makes a room cozy","Cozy","cozy room decor sleep","Room"]]},
- {id:"mind",q:"Down a rabbit hole about...",o:[["Space, rockets and science","Space nerd","space science astronomy rockets aerospace","Science"],["A great story or series","Bookworm","books reading manga comics","Books"]]},
- {id:"move",q:"Weekend energy",o:[["Sweat it out","Sporty","sports fitness running climbing","Sports"],["Cook up something good","Foodie","cooking food","Food"]]}
+ {id:"treat2",q:"Pick a treat",o:[["Something to wear","Style","clothes fashion shoes cozy","Style"],["A handy gadget","Gadgets","tech gadgets phone","Tech"]]},
+ {id:"mind2",q:"Down a rabbit hole about...",o:[["A great story or show","Story lover","books reading movies manga","Books"],["How things work","Curious","science space experiments","Science"]]},
+ {id:"move",q:"Weekend energy",o:[["Sweat it out","Sporty","sports fitness running","Sports"],["Cook up something good","Foodie","cooking food","Food"]]}
 ];
 const STYLES=[["Practical","Stuff they'll use every day"],["Wow factor","The gift they'll show off"],["Cozy","Comfort and good vibes"],["Surprise me","Mix in some wild cards"]];
 const BUDGETS=[["25","Under $25"],["75","Up to $75"],["200","Up to $200"],["9999","$200 and up"],["any","Any price"]];
-const STEPS=["who",...PAIRS.map(p=>p.id),"ints","style","budget","notes"];
+const AGES=[["teen","13 to 17","Gen Z or Gen Alpha"],["young","18 to 29","Gen Z"],["adult","30 to 44","Millennial"],["mid","45 to 59","Gen X"],["older","60 and up","Boomer or older"]];
+const LEANS=[["fem","Lean feminine","Jewelry, makeup and the like can show up"],["masc","Lean masculine","Beard care, cologne and the like can show up"],["neutral","Keep it neutral","Everyday ideas for anyone"]];
+const STEPS=["who","age","lean",...PAIRS.map(p=>p.id),"ints","style","budget","notes"];
 let qi=0;
 const tasteTags=()=>{const t=[];PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k])t.push(p.o[k][1])});return t};
 function seedInts(){const set=new Set(S.ints);PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k]){const n=CAT2INT[p.o[k][3]];if(n)set.add(n)}});S.ints=[...set]}
@@ -586,6 +834,8 @@ function renderQuiz(){
   if(id==="who"){h=`<h2 class="qq">Who's this list for?</h2><p class="qsub">A few quick taps and Wishwell learns their taste.</p>
    <div class="pair"><button type="button" class="opt" style="background:var(--teal)" data-who="me" aria-pressed="${S.forWho==="me"}">Me<small>Make my own wishlist</small></button><button type="button" class="opt" style="background:var(--navy)" data-who="them" aria-pressed="${S.forWho==="them"}">Someone else<small>Find gifts for them</small></button></div>
    <label class="field" style="max-width:720px"><span>${S.forWho==="me"?"Your":"Their"} first name <span class="muted small">(optional)</span></span><input type="text" id="qName" maxlength="30" autocomplete="off" value="${esc(S.name)}" placeholder="Sam"></label>`}
+  else if(id==="age"){const me=S.forWho==="me";h=`<h2 class="qq">${me?"How old are you?":"About how old are they?"}</h2><p class="qsub">Optional. It helps the first ideas fit the stage of life.</p><div class="tiles">${AGES.map(([v,n,d])=>`<button type="button" class="tile" data-age="${v}" aria-pressed="${S.age===v}">${esc(n)}<small>${esc(d)}</small></button>`).join("")}</div><button type="button" class="neither" data-age="">Skip</button>`}
+  else if(id==="lean"){h=`<h2 class="qq">Lean any ideas by gender?</h2><p class="qsub">Optional. Most ideas are for anyone either way.</p><div class="tiles">${LEANS.map(([v,n,d])=>`<button type="button" class="tile" data-lean="${v}" aria-pressed="${S.lean===v}">${esc(n)}<small>${esc(d)}</small></button>`).join("")}</div><button type="button" class="neither" data-lean="">Skip</button>`}
   else if(PAIRS.some(p=>p.id===id)){const p=PAIRS.find(p=>p.id===id);const cur=S.quiz[id];
    h=`<h2 class="qq">${esc(p.q)}</h2><p class="qsub">Go with your gut.</p><div class="pair">${p.o.map((o,k)=>`<button type="button" class="opt" style="background:${CATS[o[3]]}" data-k="${k}" aria-pressed="${cur===k}">${esc(o[0])}<small>${esc(o[1])}</small></button>`).join("")}</div><button type="button" class="neither" data-k="-1">Neither, skip</button>`}
   else if(id==="ints"){seedInts();h=`<h2 class="qq">Anything else ${S.forWho==="me"?"you're":"they're"} into?</h2><p class="qsub">We picked some from your answers. Tap to add or remove.</p><div class="seg" id="ints">${INTS.map(([n])=>`<button type="button" class="chip" data-i="${esc(n)}" aria-pressed="${S.ints.includes(n)}">${esc(n)}</button>`).join("")}</div><button type="button" class="btn primary" style="margin-top:18px" data-next="1">Next</button>`}
@@ -598,6 +848,8 @@ function renderQuiz(){
 const qNext=()=>{if(qi<STEPS.length-1){qi++;save();renderQuiz();window.scrollTo(0,0)}};
 $("#qbody").addEventListener("click",e=>{
   const id=STEPS[qi];const t=e.target;
+  const ag=t.closest("[data-age]");if(ag){S.age=ag.dataset.age;qNext();return}
+  const ln=t.closest("[data-lean]");if(ln){S.lean=ln.dataset.lean;qNext();return}
   const who=t.closest("[data-who]");if(who){S.forWho=who.dataset.who;const n=$("#qName");if(n)S.name=n.value.trim();qNext();return}
   const k=t.closest("[data-k]");if(k){const v=+k.dataset.k;if(v<0)delete S.quiz[id];else S.quiz[id]=v;S.m.quizTaps=(S.m.quizTaps||0)+1;qNext();return}
   const c=t.closest("#ints .chip");if(c){const n=c.dataset.i;S.ints=S.ints.includes(n)?S.ints.filter(x=>x!==n):[...S.ints,n];c.setAttribute("aria-pressed",S.ints.includes(n));save();return}
@@ -609,37 +861,109 @@ $("#qbody").addEventListener("click",e=>{
 $("#qbody").addEventListener("input",e=>{if(e.target.id==="qName"){S.name=e.target.value.trim();save()}if(e.target.id==="qNotes"){S.notes=e.target.value;save()}});
 $("#qBack").addEventListener("click",()=>{if(qi>0){qi--;renderQuiz()}});
 function finishQuiz(){
-  seedInts();if(!S.ints.length&&!S.notes)S.ints=["Tech","Making"];
+  seedInts();
   S.m.quizDone=(S.m.quizDone||0)+1;
-  S.items=S.items.filter(i=>i.status==="kept"||i.mine);
+  S.items=S.items.filter(i=>i.status==="kept"||i.status==="have"||i.mine);
   $("#qbar").style.width="100%";const tags=tasteTags();
   show("ideas");if(tags.length)toast("Taste: "+tags.slice(0,3).join(", "));getIdeas();
 }
 
-/* idea sources */
-const words=()=>{
-  let w=[];S.ints.forEach(n=>{const f=INTS.find(x=>x[0]===n);if(f)w.push(...f[1].split(" "))});
-  PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k])w.push(...p.o[k][2].split(" "),...p.o[k][2].split(" "))});
-  w.push(...S.notes.toLowerCase().split(/[^a-z0-9]+/).filter(x=>x.length>2&&!["and","the","has","already","likes","into","loves","with","for","plays","really"].includes(x)));
-  return [...new Set(w)];
-};
+/* idea sources: each starter idea is scored against every taste signal (interests,
+   quiz picks, words in Details). Ideas that hit two or more signals rise to the top, and
+   Details count most because they are the most specific thing anyone tells us. */
+const STOP=new Set("and the has have had already like likes liked love loves into with for play plays really very also some thing things stuff gift gifts them they she her his him their who what that this just lot lots kind sort keep get make makes enjoy enjoys always much more most any all are was been being from about our your you not but can want wants need needs new old one".split(" "));
+const stem=w=>w.length>4&&w.endsWith("ies")?w.slice(0,-3)+"y":w.length>3&&w.endsWith("s")&&!w.endsWith("ss")?w.slice(0,-1):w;
+const NOTE_MAP=[
+ [/puzzl|brain|riddle|logic|teaser|sudoku|crossword|wordle|think|clever|problem.?solv|escape room|mystery|detective/,"puzzles logic mystery brain"],
+ [/quirk|weird|odd\b|unusual|funny|silly|goofy|novelty|whimsic|offbeat|nerdy|geeky|\bfun\b|unique/,"quirky"],
+ [/fidget|restless/,"fidget quirky"],
+ [/\bgames?\b|board ?game|card game|tabletop|\bdnd\b|d&d|dungeon|trivia/,"games boardgames strategy party"],
+ [/craft|knit|crochet|\bsew|diy|handmade|scrapbook|yarn/,"crafts sewing"],
+ [/garden|plant|flower|succulent/,"plants"],
+ [/coffee|espresso|latte/,"coffee"],[/\btea\b|matcha/,"tea"],
+ [/travel|\btrips?\b|vacation|abroad|backpack/,"travel"],
+ [/photo|camera/,"photography camera photos"],
+ [/anime|manga|comic|cartoon/,"anime manga comics"],
+ [/lego|brick/,"lego building"],
+ [/\bcats?\b|kitten/,"cats"],[/\bdogs?\b|pupp/,"dogs"],[/\bpets?\b|animal/,"pets"],
+ [/\bbak|cake|cookie|dessert/,"baking dessert"],
+ [/\bwrit|journal|diary|poem|poet/,"writing journal"],
+ [/scien|chemist|experiment|biolog|physics/,"science experiments chemistry"],
+ [/\bspace\b|\bstars?\b|planet|astro|rocket|nasa|galax/,"space astronomy stars"],
+ [/cozy|comfy|blanket|sleep|relax|\bchill|\bcalm|\bnap/,"cozy sleep"],
+ [/\bgym\b|lifting|workout|fitness|yoga|\brun\b|running/,"fitness gym running yoga"],
+ [/guitar|piano|drum|singing|ukulele|vinyl|\brecords?\b|concert|music/,"music instrument"],
+ [/\bdraw|paint|sketch|\bart\b|artist/,"art drawing painting"],
+ [/\bhik|\bcamp|outdoor|nature|trail/,"outdoors hiking camping"],
+ [/\bcook|chef|kitchen|\bfood|spicy/,"cooking food"],
+ [/\bread|\bbooks?\b|novel|fantasy/,"books reading"],
+ [/\btech|gadget|computer|coding|program/,"tech gadgets coding"],
+ [/\bcars?\b|\bdriv|racing/,"cars driving"],
+ [/fashion|clothes|sneaker|outfit/,"fashion style clothes"],
+ [/jewel|necklace|earring|bracelet|\brings?\b/,"jewelry"],
+ [/makeup|skincare|skin care|\bnails?\b|\bhair\b|\bspa\b|self.?care|pamper|\bbath/,"beauty selfcare spa"],
+ [/beach|\bpool\b|summer/,"beach summer"],
+ [/\bdanc/,"dance"],
+ [/\bhome\b|house|decor|candle/,"home decor cozy"],
+ [/\bsnack|candy|chocolate|sweets|treats?\b/,"snacks dessert food"],
+ [/\bparty|parties|friends|hang ?out/,"party friends games"],
+ [/school|college|dorm/,"school desk"],
+ [/movie|\bfilms?\b|\btv\b|netflix/,"movies"],
+ [/robot|electronic|arduino|3d print/,"maker electronics robot"]
+];
+function signals(){
+  const sig=[];const add=(key,w,t,note)=>sig.push({key,w,note,set:new Set(t.split(" ").map(stem))});
+  S.ints.forEach(n=>{const f=INTS.find(x=>x[0]===n);if(f)add(n,2,f[1])});
+  PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k])add(CAT2INT[p.o[k][3]]||p.o[k][1],3,p.o[k][2])});
+  const nt=" "+S.notes.toLowerCase()+" ";
+  NOTE_MAP.forEach(([re,t],i)=>{if(re.test(nt))add("note"+i,6,t,1)});
+  nt.split(/[^a-z0-9]+/).filter(x=>x.length>2&&!STOP.has(x)&&!NOTE_MAP.some(([re])=>re.test(" "+x+" "))).forEach(x=>add("word:"+stem(x),4,x,1));
+  return sig;
+}
+const ideaWords=b=>new Set((b[4]+" "+b[1]+" "+b[0]).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(stem));
 const maxB=()=>S.budget==="any"?99999:+S.budget;
 function addItem(o){
   S.seq++;const it={id:"i"+S.seq+"_"+Date.now().toString(36),no:S.seq,title:String(o.title).slice(0,80),cat:CATS[o.cat]?o.cat:"Other",lo:Math.max(0,Math.round(+o.lo||0)),hi:Math.max(0,Math.round(+o.hi||+o.lo||0)),why:String(o.why||"").slice(0,140),search:String(o.search||o.title).slice(0,80),url:o.url||"",src:o.src||"",status:o.status||"new",mine:!!o.mine,round:S.round||0};
   if(it.hi<it.lo)it.hi=it.lo;S.items.push(it);if(!it.mine)S.m.ideas++;return it;
 }
+const NICHE_RE=/robot|coding|electronic(?! drum)|arduino|raspberry|solder|3d ?print|telescope|microscope|chemistr|experiment|rocket|aerospace|astronom|meteorite|mineral|circuit|\bdna\b|science|drone|caliper|machining|laser engrav|linux|engine kit|model railroad|balsa/;
+const GEN_RE=/makeup|lip gloss|nail polish|nail care|curling|straighten|hair dryer|earring|necklace|bracelet|stackable ring|jewelry|perfume|cologne|beard|shav|scrunchie|claw clip|crossbody|legging|gua sha|nail salon/;
+const FEM_RE=/makeup|lip gloss|nail polish|nail care|curling|straighten|hair dryer|earring|necklace|bracelet|stackable ring|jewelry|perfume|scrunchie|claw clip|crossbody|legging|gua sha|nail salon/;
+const MASC_RE=/beard|shav|cologne/;
+/* Optional age range: a light nudge toward what fits that stage of life, and away from what rarely does. */
+const AGE_FIT={
+ teen:["gaming games school desk room decor lights skateboard sneakers friends party phone anime manga trampoline arcade concert hoodie","kitchen cooker grilling bbq mattress car cars espresso knife skillet beard cologne golf"],
+ young:["room decor desk coffee travel concert friends party fitness gym fashion sneakers plants","kids slime"],
+ adult:["kitchen cooking coffee home travel outdoors garden plants fitness books sleep","kids slime school dorm anime manga trampoline arcade"],
+ mid:["kitchen cooking garden plants books travel outdoors coffee tea home grilling golf","kids slime school dorm anime manga controller skateboard trampoline arcade streaming"],
+ older:["garden plants books reading puzzles photos memories birds tea cozy sleep family travel","kids slime school dorm anime manga controller skateboard vr streaming trampoline arcade sneakers drone"]};
+const AGE_SETS={};for(const k in AGE_FIT)AGE_SETS[k]=AGE_FIT[k].map(t=>new Set(t.split(" ").map(stem)));
+function ageFit(b){const a=AGE_SETS[S.age];if(!a)return 0;const w=ideaWords(b);let plus=0,minus=false;w.forEach(x=>{if(a[0].has(x))plus++;if(a[1].has(x))minus=true});return minus?-4:Math.min(3,plus*1.5)}
+const ideaText=b=>(b[0]+" "+b[4]).toLowerCase();
 function bankIdeas(n){
-  const seen=new Set(S.items.map(i=>i.title.toLowerCase()));const w=words();const mb=maxB();
+  const seen=new Set([...S.items.map(i=>i.title.toLowerCase()),...S.have]);const sig=signals();const mb=maxB();
   const pool=BANK.filter(b=>!seen.has(b[0].toLowerCase())&&b[2]<=mb&&(S.budget!=="9999"||b[3]>=150));
-  const SB={Practical:["Making","Food","Sports","Tech"],"Wow factor":["Tech","Experiences"],Cozy:["Room","Food","Books"],"Surprise me":["Experiences","Other","Art"]}[S.style]||[];
-  const scored=pool.map(b=>{const hay=(b[4]+" "+b[1]+" "+b[0]).toLowerCase();let s=0;w.forEach(x=>{if(hay.includes(x))s+=x.length>4?2:1});if(SB.includes(b[1]))s+=2;if(S.style==="Wow factor"&&b[3]>=200)s+=1;return{b,s:s+Math.random()*(S.style==="Surprise me"?4:.9)}}).sort((a,b)=>b.s-a.s);
-  scored.slice(0,n).forEach(({b})=>addItem({title:b[0],cat:b[1],lo:b[2],hi:b[3],why:b[5],src:"Starter idea"}));
-  return Math.min(n,scored.length);
+  const SB={Practical:["Food","Room","Sports","Other"],"Wow factor":["Experiences","Style","Tech"],Cozy:["Room","Food","Books"],"Surprise me":["Experiences","Other","Art"]}[S.style]||[];
+  let noteHit=false;
+  const scored=pool.map(b=>{const iw=ideaWords(b);const hit=new Map();let note=false;
+    sig.forEach(g=>{for(const x of g.set)if(iw.has(x)){hit.set(g.key,Math.max(hit.get(g.key)||0,g.w));if(g.note)note=true;break}});
+    let s=0;hit.forEach(w=>s+=w);if(hit.size>1)s+=3*(hit.size-1);if(note){s+=4;noteHit=true}
+    if(SB.includes(b[1]))s+=2;s+=ageFit(b);
+    {const tx=ideaText(b),asked=note||(b[1]==="Beauty"&&S.ints.some(i=>i==="Beauty"||i==="Self-care"))||(/jewel|necklace|earring|bracelet/.test(tx)&&S.ints.includes("Jewelry"));
+     if(GEN_RE.test(tx)){if((S.lean==="fem"&&FEM_RE.test(tx))||(S.lean==="masc"&&MASC_RE.test(tx)))s+=1;else if(!asked)s-=50}
+     else if((b[1]==="Science"||NICHE_RE.test(tx))&&!note&&!S.ints.some(i=>i==="Tech"||i==="Making"||i==="Space and science"))s-=50}if(S.style==="Wow factor"&&b[3]>=200)s+=1;
+    return{b,s:s+Math.random()*(S.style==="Surprise me"?4:1.5)}}).sort((a,b)=>b.s-a.s);
+  // a little variety: each extra pick from the same category costs a bit
+  const picks=[],cats={};const left=scored.slice();
+  while(picks.length<n&&left.length){let bi=0,bv=-1e9;left.forEach((x,i)=>{const v=x.s-2*(cats[x.b[1]]||0);if(v>bv){bv=v;bi=i}});const x=left.splice(bi,1)[0];cats[x.b[1]]=(cats[x.b[1]]||0)+1;picks.push(x.b)}
+  picks.forEach(b=>addItem({title:b[0],cat:b[1],lo:b[2],hi:b[3],why:b[5],src:"Starter idea"}));
+  bankIdeas.noteMiss=!!S.notes.trim()&&!noteHit;
+  return picks.length;
 }
 async function aiIdeas(n){
   const kept=S.items.filter(i=>i.status==="kept").map(i=>i.title);
   const cut=S.items.filter(i=>i.status==="cut").map(i=>i.title);
-  const seen=S.items.map(i=>i.title);
+  const seen=[...S.items.map(i=>i.title),...S.have];
   const who=S.forWho==="me"?"the person making the list (a teen or adult)":"someone the user is shopping for";
   const prompt=`You suggest gift ideas for a wishlist app. Suggest ${n} specific, buyable gifts for ${who}.
 Interests: ${S.ints.join(", ")||"none picked"}.
@@ -653,24 +977,34 @@ Do not repeat any of: ${seen.join("; ")||"none"}.
 Mix obvious hits with a few surprising picks that fit the details. Prefer real product types; a brand is fine when it matters. Use typical US prices.
 Use American English. Never use dashes of any kind in text.
 Reply with only a JSON array. Each element: {"title": short name under 50 characters, "category": one of ${Object.keys(CATS).join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a store search phrase}.`;
-  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,ints:S.ints,quiz:PAIRS.filter(p=>S.quiz[p.id]!=null&&p.o[S.quiz[p.id]]).map(p=>p.q+" "+p.o[S.quiz[p.id]][0]),style:S.style,notes:S.notes,budget:S.budget,kept,cut,seen,cats:Object.keys(CATS)}});
+  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.filter(p=>S.quiz[p.id]!=null&&p.o[S.quiz[p.id]]).map(p=>p.q+" "+p.o[S.quiz[p.id]][0]),style:S.style,notes:S.notes,budget:S.budget,kept,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
   const arr=Array.isArray(out)?out:(out&&Array.isArray(out.ideas)?out.ideas:[]);
   const have=new Set(S.items.map(i=>i.title.toLowerCase()));let c=0;
   arr.forEach(o=>{if(c<n&&o&&o.title&&!have.has(String(o.title).toLowerCase())){have.add(String(o.title).toLowerCase());addItem({title:o.title,cat:o.category,lo:o.lo,hi:o.hi,why:o.why,search:o.search,src:"AI pick"});c++}});
   return c;
 }
+/* AI ideas kept since the last round, so the idea pool counts each keep once */
+const keptAiNew=()=>{const sent=new Set(S.keptSent||[]);return S.items.filter(i=>i.status==="kept"&&i.src==="AI pick"&&!sent.has(i.title)).map(i=>i.title).slice(0,40)};
 async function getIdeas(){
   if(busy)return;busy=true;S.round=(S.round||0)+1;const mb=$("#moreBtn");mb.disabled=true;
   const msg=$("#msg");msg.innerHTML="";let got=0;
-  if(sample){
+  const passBtn=`<button class="btn" type="button" id="capPlans" style="min-height:40px;padding:4px 10px">Get the Holiday Pass</button>`;
+  const trialOver=!!(sample&&S.trialUsed&&!hasPass());let note=trialOver?`You've used your ${FREE} free AI rounds, so these are starter ideas. ${passBtn}`:"";
+  if(sample&&!trialOver){
     mb.textContent="Thinking...";msg.innerHTML=`<p class="note">Asking AI for ideas that fit. This takes a few seconds.</p>`;
-    try{got=await aiIdeas(8);S.aiRounds++;S.m.ai++;
-      if(S.aiRounds===3)setTimeout(()=>openPlans("That's the 3 rounds of AI ideas a Free list gets. The Holiday Pass, coming soon, will unlock more. In this test you can keep going.","holiday"),900);
-    }catch(e){msg.innerHTML=`<p class="note err">AI ideas didn't load${e&&e.code==="rate_limited"?" (too many asks, try again in a minute)":""}. Showing starter ideas instead.</p>`;if(e&&e.code==="not_granted")sample=null}
+    try{const ka=keptAiNew();got=await aiIdeas(8);S.aiRounds++;S.m.ai++;S.keptSent=[...(S.keptSent||[]),...ka].slice(-300)}
+    catch(e){const c=e&&e.code;
+      if(c==="trial_used"){S.trialUsed=true;S.aiLeft=null;note=`You've used your ${FREE} free AI rounds, so these are starter ideas. ${passBtn}`;
+        setTimeout(()=>openPlans(PAY?`You've used your ${FREE} free AI rounds. The Holiday Pass gives you 25 AI rounds a day, plus gift exchanges of any size.`:`You've used your ${FREE} free AI rounds. The Holiday Pass, coming soon, will give you 25 AI rounds a day.`,"holiday"),600)}
+      else if(c==="pass_daily_limit"){note="You've used today's 25 AI rounds. More tomorrow! These are starter ideas."}
+      else if(c==="pass_invalid"){PASS=null;try{localStorage.removeItem("wishwell-pass")}catch(x){}note=`Your Holiday Pass key didn't check out (it may have been refunded), so these are starter ideas. ${passBtn}`}
+      else msg.innerHTML=`<p class="note err">AI ideas didn't load${c==="rate_limited"?" (too many asks, try again in a minute)":c==="slow"?" (the AI was too slow just now)":""}. Showing starter ideas instead.</p>`;
+      if(c==="not_granted")sample=null}
   }
   if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
-  if(got&&!msg.querySelector(".err"))msg.innerHTML="";
-  busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
+  if(got&&!msg.querySelector(".err"))msg.innerHTML=!sample&&bankIdeas.noteMiss?`<p class="note">None of the starter ideas matched the words in Details, so these come from the quiz. Words like puzzles, camping or coffee match best.</p>`:"";
+  if(note)msg.innerHTML=`<p class="note">${note}</p>`;
+  setAi();busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
 }
 $("#moreBtn").addEventListener("click",getIdeas);
 
@@ -697,13 +1031,19 @@ $("#addBox").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault
 
 /* keep and cut */
 const syncKept=()=>{S.kept=S.kept.filter(id=>{const i=byId(id);return i&&i.status==="kept"});S.items.forEach(i=>{if(i.status==="kept"&&!S.kept.includes(i.id))S.kept.push(i.id)})};
+let freshId="";
 $("#ideaGrid").addEventListener("click",e=>{
-  const b=e.target.closest("button[data-a]");if(!b)return;const it=byId(b.dataset.id);if(!it)return;
-  if(b.dataset.a==="keep"){it.status=it.status==="kept"?"new":"kept";if(it.status==="kept")S.m.circled++}
-  if(b.dataset.a==="cut"){it.status="cut";S.m.cut++;toast("Cut. Undo below the page.")}
-  syncKept();save();render();
+  if(e.target.closest("a"))return;
+  const b=e.target.closest("button[data-a]");const card=e.target.closest(".card[data-id]");
+  const it=byId(b?b.dataset.id:card?card.dataset.id:"");if(!it)return;const a=b?b.dataset.a:"keep";
+  if(a==="keep"){it.status=it.status==="kept"?"new":"kept";if(it.status==="kept"){S.m.circled++;freshId=it.id}syncKept();save();render();freshId="";return}
+  const gone=()=>{syncKept();save();render()};
+  if(a==="cut"){it.status="cut";S.m.cut++;toast("Cut. Undo at the bottom of the page.")}
+  if(a==="have"){it.status="have";S.m.have=(S.m.have||0)+1;const t=it.title.toLowerCase();if(!S.have.includes(t))S.have.push(t);toast("Got it. It won't come back. Undo at the bottom.")}
+  if(card&&!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)){card.classList.add("out");setTimeout(gone,170)}else gone();
 });
 $("#cutList").addEventListener("click",e=>{const b=e.target.closest("button[data-id]");if(!b)return;const it=byId(b.dataset.id);if(it){it.status="new";save();render()}});
+$("#haveList").addEventListener("click",e=>{const b=e.target.closest("button[data-id]");if(!b)return;const it=byId(b.dataset.id);if(it){it.status="new";S.have=S.have.filter(t=>t!==it.title.toLowerCase());save();render()}});
 
 /* ranking */
 const handleSvg=`<svg viewBox="0 0 20 20" aria-hidden="true"><g fill="currentColor"><circle cx="7" cy="5" r="1.6"/><circle cx="13" cy="5" r="1.6"/><circle cx="7" cy="10" r="1.6"/><circle cx="13" cy="10" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="13" cy="15" r="1.6"/></g></svg>`;
@@ -742,18 +1082,18 @@ const endDrag=()=>{if(!drag)return;const list=$("#rankList");if(list)S.kept=[...
 window.addEventListener("pointerup",endDrag);window.addEventListener("pointercancel",endDrag);
 $("#groupBtn").addEventListener("click",()=>{S.group=!S.group;save();render()});
 
-/* share: the list travels in the link itself, as base64url after #l- (shorter).
-   Links made before Nov 27, 2026 use hex after #list-, and those still open. */
+/* share: the list travels in the link itself, as hex after #list- */
 const hex=s=>[...new TextEncoder().encode(s)].map(b=>b.toString(16).padStart(2,"0")).join("");
 const unhex=h=>new TextDecoder().decode(new Uint8Array((h.match(/[0-9a-f]{2}/g)||[]).map(x=>parseInt(x,16))));
-const b64u=t=>{let b="";new TextEncoder().encode(t).forEach(c=>b+=String.fromCharCode(c));return btoa(b).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
-const unb64u=h=>new TextDecoder().decode(Uint8Array.from(atob(h.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0)));
 const listTitle=()=>S.listName.trim()||(nm()==="My"?"My wishlist":nm()+(nm()==="Their"?" wishlist":"'s wishlist"));
 function packList(){
   const list=S.kept.map(byId).filter(Boolean).slice(0,30);
   return{t:listTitle(),p:S.opt.price?1:0,i:list.map(it=>{const a=[it.title,it.lo,it.hi,it.url||"",it.search===it.title?"":it.search];while(a.length>3&&!a[a.length-1])a.pop();return a})};
 }
-const shareLink=()=>APP_URL+"#l-"+b64u(JSON.stringify(packList()));
+// short links (#l- and base64url) once every page that opens links can read them; #list- hex still works
+const b64u=t=>{let b="";new TextEncoder().encode(t).forEach(c=>b+=String.fromCharCode(c));return btoa(b).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
+const unb64u=h=>new TextDecoder().decode(Uint8Array.from(atob(h.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0)));
+const shareLink=()=>{const j=JSON.stringify(packList());return CFG.shortLinks?APP_URL+"#l-"+b64u(j):APP_URL+"#list-"+hex(j)};
 function readHash(){
   const h=location.hash||"";const short=h.startsWith("#l-");if(!short&&!h.startsWith("#list-"))return null;
   try{const o=JSON.parse(short?unb64u(h.slice(3)):unhex(h.slice(6)));if(!o||!Array.isArray(o.i))return null;
@@ -799,6 +1139,7 @@ document.addEventListener("click",e=>{const a=e.target.closest("a.buy");if(!a)re
 /* group gift exchange */
 function renderGroup(){
   $("#gName").value=S.g.name;$("#gLimit").value=S.g.limit;$("#gCount").textContent=S.g.people.length;
+  if(PAY)$("#gNote").textContent=hasPass()?"Your Holiday Pass is on, so any size group is free.":"Free for up to 4 people. Groups of 5 or more need the Holiday Pass.";
   $("#gPeople").innerHTML=S.g.people.map((p,i)=>`<button type="button" class="chip" data-p="${i}" aria-label="Remove ${esc(p)}">${esc(p)} &#215;</button>`).join("");
   const r=$("#gResult");
   if(!S.g.pairs.length){r.innerHTML="";return}
@@ -815,7 +1156,8 @@ $("#gName").addEventListener("input",e=>{S.g.name=e.target.value;save()});
 $("#gLimit").addEventListener("change",e=>{S.g.limit=e.target.value;save();renderGroup()});
 $("#gDraw").addEventListener("click",()=>{
   const p=S.g.people;if(p.length<3){toast("Add at least 3 people");return}
-  if(p.length>4&&!S.g.unlocked){S.g.unlocked=true;save();openPlans(`Groups of 5 or more will use the $2.99 Exchange Pass, coming soon. For now it's free, so close this to draw names for ${p.length} people.`,"exchange");return}
+  if(p.length>4&&PAY&&!hasPass()){openPlans(`Groups of 5 or more need the Holiday Pass. Get it, or enter your license key below, then draw names for ${p.length} people.`,"holiday");return}
+  if(p.length>4&&!PAY&&!S.g.unlocked){S.g.unlocked=true;save();openPlans(`Groups of 5 or more will use the $2.99 Exchange Pass, coming soon. For now it's free, so close this to draw names for ${p.length} people.`,"exchange");return}
   const sh=p.slice();for(let i=sh.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[sh[i],sh[j]]=[sh[j],sh[i]]}
   S.g.pairs=sh.map((a,i)=>[a,sh[(i+1)%sh.length]]);S.m.draws++;S.m.biggest=Math.max(S.m.biggest,p.length);save();renderGroup();toast("Names drawn");
 });
@@ -829,7 +1171,8 @@ $("#gResult").addEventListener("click",e=>{
 
 /* plans and what testers would pay for */
 function openPlans(why,tier){
-  $("#plansWhy").textContent=why||"The passes are coming soon. Nothing here charges you. Tap Coming soon on any pass you'd want.";
+  $("#plansWhy").textContent=why||(PAY?(hasPass()?"Your Holiday Pass is on for this device.":"Pick a pass. Checkout is handled by Gumroad."):"The passes are coming soon. Nothing here charges you. Tap Coming soon on any pass you'd want.");
+  renderPass();
   document.querySelectorAll(".tier").forEach(t=>t.classList.toggle("hl",!!tier&&t.dataset.t===tier));
   $("#plans").hidden=false;$("#closePlans").focus();
 }
@@ -838,14 +1181,55 @@ $("#openPlans").addEventListener("click",()=>openPlans());
 $("#closePlans").addEventListener("click",closePlans);
 $("#plans").addEventListener("click",e=>{if(e.target.id==="plans")closePlans()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("#plans").hidden)closePlans();$("#copyM").hidden=true}});
-$("#plans").addEventListener("click",e=>{const b=e.target.closest("button[data-pay]");if(!b)return;S.m.pay[b.dataset.pay]=1;save();b.textContent="Noted, thanks";$("#payNote").textContent="Thanks! The passes are coming soon. Your tap is in your test report.";});
+$("#plans").addEventListener("click",e=>{const b=e.target.closest("[data-pay]");if(!b)return;S.m.pay[b.dataset.pay]=1;save();if(b.tagName==="A")return;b.textContent="Noted, thanks";$("#payNote").textContent=PAY?"Thanks! The Exchange Pass is coming soon. Your tap is in your test report.":"Thanks! The passes are coming soon. Your tap is in your test report.";});
+
+/* Holiday Pass checkout and license key (only when gumroadUrl is set) */
+const okPurchase=d=>!!(d&&d.success&&d.purchase&&!d.purchase.refunded&&!d.purchase.chargebacked&&!d.purchase.disputed);
+async function checkKey(key){
+  const url=String(CFG.licenseCheckUrl||"").trim()||(AI_ON?String(CFG.aiUrl).trim().replace(/\/+$/,"")+"/verify":"");
+  if(url){
+    const r=await fetch(url,{method:"POST",headers:aiHeaders(false),body:JSON.stringify({license_key:key})});
+    const d=await r.json().catch(()=>({}));return !!d.valid;
+  }
+  const r=await fetch("https://api.gumroad.com/v2/licenses/verify",{method:"POST",body:new URLSearchParams({product_id:String(CFG.gumroadProductId||"").trim(),license_key:key})});
+  const d=await r.json().catch(()=>({}));return okPurchase(d);
+}
+function renderPass(){
+  const box=$("#passBox");box.hidden=!PAY;if(!PAY)return;
+  if(hasPass()){box.innerHTML=`<strong>Holiday Pass is on for this device.</strong> ${AI_ON?"25 AI rounds a day and any size group.":"Any size group."}`;return}
+  box.innerHTML=`<div class="field" style="margin:0"><span>I have a license key</span><div class="row"><input type="text" id="keyBox" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="License key" placeholder="Paste your key"><button class="btn" type="button" id="keyBtn">Unlock</button></div></div><p class="small muted" id="keyMsg" style="margin:6px 0 0">After you buy, your key is on the Gumroad receipt and in your email.</p>`;
+}
+async function unlock(){
+  const kb=$("#keyBox"),btn=$("#keyBtn"),m=$("#keyMsg");if(!kb)return;const key=kb.value.trim();
+  if(!key){m.textContent="Paste your license key first.";return}
+  btn.disabled=true;btn.textContent="Checking...";
+  try{
+    if(await checkKey(key)){PASS={ok:true,key,at:Date.now()};try{localStorage.setItem("wishwell-pass",JSON.stringify(PASS))}catch(e){}
+      $("#plansWhy").textContent="Your Holiday Pass is on for this device.";renderPass();render();toast("Holiday Pass unlocked");return}
+    m.textContent="That key didn't work for the Holiday Pass. Check it against your Gumroad receipt and try again.";
+  }catch(e){m.textContent="Couldn't check the key right now. Check your connection and try again in a minute."}
+  btn.disabled=false;btn.textContent="Unlock";
+}
+$("#passBox").addEventListener("click",e=>{if(e.target.closest("#keyBtn"))unlock()});
+$("#passBox").addEventListener("keydown",e=>{if(e.target.id==="keyBox"&&e.key==="Enter"){e.preventDefault();unlock()}});
+document.addEventListener("click",e=>{if(e.target.closest("#capPlans"))openPlans("","holiday")});
+/* only promise AI perks when the AI service is set up */
+if(!AI_ON){$("#perkAi").remove();$("#perkFreeAi").remove()}else $("#perkFreeAi").textContent=FREE+" free AI rounds to try";
+if(PAY){
+  $("#plansT").textContent="Plans";
+  const hb=document.querySelector('button[data-pay="holiday"]');
+  const a=document.createElement("a");a.className="btn primary";a.dataset.pay="holiday";a.href=String(CFG.gumroadUrl).trim();a.target="_blank";a.rel="noopener";a.textContent="Get the Holiday Pass $4.99";
+  hb.replaceWith(a);
+  $("#payNote").textContent="Checkout is on Gumroad. After you pay, paste the license key from your receipt above.";
+  const f=$("#foot");f.textContent=f.textContent.replace("No accounts and no payments.","No accounts. The Holiday Pass is paid through Gumroad.");
+}
 
 /* tester report: counts only, no list contents */
 function report(){
   const m=S.m,y=v=>v?"yes":"no";
   return ["Wishwell test report",
   `Taste quiz finished ${m.quizDone} time(s)`,
-  `Ideas seen ${m.ideas}, circled ${m.circled}, cut ${m.cut}, AI rounds ${m.ai}`,
+  `Ideas seen ${m.ideas}, circled ${m.circled}, cut ${m.cut}, already have ${m.have||0}, AI rounds ${m.ai}`,
   `Items on my list ${S.kept.length}`,
   `Share link copied ${m.linkCopies}, text copied ${m.textCopies}, family preview ${m.previews}`,
   `Buy taps ${m.buy} (on shared lists ${m.famBuy})`,
@@ -856,22 +1240,26 @@ function report(){
 document.addEventListener("click",e=>{if(e.target.closest(".reportBtn"))copy(report(),"Report copied. Send it back, thanks!")});
 
 /* render */
+const ringSvg=`<svg class="ring" viewBox="0 0 74 74" aria-hidden="true"><path d="M14 18 C 26 2, 60 4, 69 26 C 76 46, 62 70, 36 70 C 12 70, 2 52, 5 34 C 7 24, 12 18, 22 12"/></svg>`;
+const keepIcon=on=>`<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="${on?"currentColor":"none"}" stroke="currentColor" stroke-width="2"/>${on?'<path d="M6 10.5l2.6 2.6L14.2 7.4" fill="none" stroke="var(--redink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>':""}</svg>`;
 function card(it){
   const c=CATS[it.cat]||CATS.Other;const k=it.status==="kept";
-  return `<article class="card">${k?`<svg class="circle" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path vector-effect="non-scaling-stroke" d="M8 30 C 4 8, 70 2, 92 14 C 100 22, 99 78, 86 92 C 70 100, 14 98, 6 80 C 1 62, 4 40, 14 24"/></svg>`:""}
-<div class="mono" style="background:${c}" aria-hidden="true">${esc(it.cat.charAt(0))}</div>
+  return `<article class="card${k?" on":""}${it.id===freshId?" fresh":""}" data-id="${esc(it.id)}">
+<div class="mono" style="background:${c}" aria-hidden="true">${esc(it.cat.charAt(0))}${k?ringSvg:""}</div>
 <div class="no">No. ${String(it.no).padStart(3,"0")} · ${esc(it.cat)}</div><h3>${esc(it.title)}</h3>
 ${it.hi?`<span class="price">${esc(est(it))}</span>`:`<span class="small muted">Price not set</span>`}
 ${it.why?`<p class="why">${esc(it.why)}</p>`:""}
-<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="${esc(it.id)}" aria-pressed="${k}">${k?"Circled":"Circle it"}</button><button type="button" class="btn" data-a="cut" data-id="${esc(it.id)}">Cut</button>${buyLink(it)}</div>
+<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="${esc(it.id)}" aria-pressed="${k}">${keepIcon(k)}${k?"Circled":"Circle it"}</button><button type="button" class="btn quiet" data-a="have" data-id="${esc(it.id)}">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="${esc(it.id)}">Cut</button>${buyLink(it)}</div>
 <div class="src">${esc(it.src)}</div></article>`;
 }
 function render(){
   syncKept();
-  const vis=S.items.filter(i=>i.status!=="cut").sort((a,b)=>(b.round||0)-(a.round||0)||a.no-b.no);
+  const vis=S.items.filter(i=>i.status!=="cut"&&i.status!=="have").sort((a,b)=>(b.round||0)-(a.round||0)||a.no-b.no);
   $("#ideaGrid").innerHTML=vis.length?vis.map(card).join(""):`<div class="empty">No ideas yet. Tap More ideas.</div>`;
   const cut=S.items.filter(i=>i.status==="cut");$("#cutN").textContent=cut.length;$("#cutBox").hidden=!cut.length;
   $("#cutList").innerHTML=cut.map(i=>`<button type="button" class="chip" data-id="${esc(i.id)}">Bring back ${esc(i.title)}</button>`).join("");
+  const have=S.items.filter(i=>i.status==="have");$("#haveN").textContent=have.length;$("#haveBox").hidden=!have.length;
+  $("#haveList").innerHTML=have.map(i=>`<button type="button" class="chip" data-id="${esc(i.id)}">I don't have ${esc(i.title)}</button>`).join("");
   $("#c-ideas").textContent=S.items.filter(i=>i.status==="new").length;$("#c-rank").textContent=S.kept.length;
   const bits=[S.forWho==="me"?"For "+(S.name||"you"):"For "+(S.name||"someone else")];if(S.ints.length)bits.push(S.ints.join(", "));
   const tg=tasteTags();if(tg.length)bits[1]=tg.join(", ");bits.push((BUDGETS.find(b=>b[0]===S.budget)||["","Any price"])[1]);$("#whoLine").textContent=bits.join(" · ");
@@ -896,11 +1284,23 @@ window.addEventListener("hashchange",openShared);
 renderQuiz();
 if(!openShared())show(S.view||"start");
 const aiLine=$("#aiState");
-const setAi=()=>aiLine.textContent=sample?"AI ideas are on.":"Using starter ideas. AI ideas coming soon.";
+const setAi=()=>{
+  if(!sample){aiLine.textContent="Using starter ideas. AI ideas coming soon.";return}
+  const L=S.aiLeft;
+  if(hasPass())aiLine.textContent="Holiday Pass: AI ideas are on."+(L&&L.k==="pass"?` ${L.n} AI rounds left today.`:"");
+  else if(S.trialUsed)aiLine.textContent=`Your ${FREE} free AI rounds are used. Starter ideas are on.`;
+  else aiLine.textContent="AI ideas are on."+(L&&L.k==="trial"?(L.n>0?` ${L.n} free AI round${L.n===1?"":"s"} left.`:" That was your last free AI round."): ` Your first ${FREE} AI rounds are free.`);
+};
 if(CFG.aiUrl){sample={json:async(_p,o)=>{
-  const r=await fetch(CFG.aiUrl,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(o.payload)});
-  if(r.status===429){const e=new Error("busy");e.code="rate_limited";throw e}
-  if(!r.ok)throw new Error("AI service "+r.status);return r.json()}}}
+  /* give up after a minute so a slow AI never leaves the page stuck on Thinking */
+  const ac=window.AbortController?new AbortController():null,tm=ac&&setTimeout(()=>ac.abort(),60000);
+  let r;try{r=await fetch(CFG.aiUrl,{method:"POST",headers:aiHeaders(true),body:JSON.stringify(o.payload),signal:ac?ac.signal:undefined})}
+  catch(x){const e=new Error("AI service unreachable");e.code=x&&x.name==="AbortError"?"slow":"error";throw e}
+  finally{clearTimeout(tm)}
+  const tl=r.headers.get("x-trial-left"),pl=r.headers.get("x-pass-left");
+  if(pl!=null)S.aiLeft={k:"pass",n:+pl};else if(tl!=null)S.aiLeft={k:"trial",n:+tl};
+  if(!r.ok){const d=await r.json().catch(()=>({}));const e=new Error("AI service "+r.status);e.code=d.error||(r.status===429?"rate_limited":"error");throw e}
+  return r.json()}}}
 setAi();
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
