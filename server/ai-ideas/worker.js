@@ -198,9 +198,13 @@ Gender: ${q.lean ? LEANS[q.lean] : "not given, so keep every idea gender neutral
 Budget: ${budgetRule(q.budget)}
 They kept (want more like these): ${q.kept.join("; ") || "nothing yet"}.
 They cut (avoid things like these): ${q.cut.join("; ") || "nothing yet"}.
-Do not repeat any of: ${q.seen.join("; ") || "none"}.
+${q.liked && q.liked.length ? `Other people with these interests kept ideas like: ${q.liked.join("; ")}. Match how specific these are; one or two may be suggested if they fit.\n` : ""}${q.avoid && q.avoid.length ? `Other people often cut these (avoid them and close cousins): ${q.avoid.join("; ")}.\n` : ""}Do not repeat any of: ${q.seen.join("; ") || "none"}.
 How to choose:
-${q.notes ? "- At least half of the ideas must fit the details directly. Read the details for the feeling too: \"quirky, keeps my brain busy\" means puzzles, brain teasers and odd clever gadgets, not plain items from each interest.\n" : ""}- Start broad and everyday: home and comfort, food and drink, hobbies, style, books and stories, music, games, outdoors and experiences.
+${q.notes ? "- At least half of the ideas must fit the details directly. Read the details for the feeling too: \"quirky, keeps my brain busy\" means puzzles, brain teasers and odd clever gadgets, not plain items from each interest.\n" : ""}- Start broad and everyday: home and comfort, hobbies, style, books and stories, music, games, outdoors and experiences. Only suggest food, drink or kitchen gifts when they picked Cooking or Coffee and tea, or a detail or quiz pick is about food.
+- Every idea must tie clearly to at least one detail, quiz pick or interest above, and its "why" says which in plain words.
+- Be specific: name the exact kind of thing, like "moon phase desk lamp" or "3D printer filament sampler", never a vague "smart light", "art supplies" or "gourmet basket".
+- No subscriptions, classes, courses, lessons or gift cards unless the details ask for them.
+- At most one personalized or custom-printed item, and only when it ties to a specific detail.
 - Only suggest tech, gadgets, electronics, science or space items when the interests, quiz picks, details or kept items show that interest, and even then keep them to a third of the list or less.
 - Prefer ideas that fit two or more of the things above at once, like a detail plus an interest, or two quiz picks together.
 - Do not hand out one plain idea per interest. Skip generic picks almost anyone could get (gift cards, plain headphones, generic decor) unless the details ask for them.
@@ -288,11 +292,54 @@ function inBudget(lo, hi, budget) {
   return lo <= max && hi <= max;
 }
 
+// Kinds people cut almost every time unless they asked for them. Returns the word to look for in
+// what they told us ("class" also matches "classes"), or "" when the title is not one of these.
+function genericKind(title) {
+  const m = String(title).toLowerCase().match(/\b(subscription|class|classes|course|lessons?|gift card)\b/);
+  return m ? m[1].replace(/es$|s$/, "").replace(/^clas$/, "class") : "";
+}
+
+/* ---------- crowd hints from the idea pool ---------- */
+// What other people kept and cut, to steer a round. Only pool titles and counts are read.
+async function crowdHints(db, q, env) {
+  const res = { liked: [], avoid: [], blocked: new Set() };
+  if (!db) return res;
+  const mine = new Set([...q.kept, ...q.keptAi, ...q.cut, ...q.seen].map(ideaKey));
+  const tags = q.ints.filter(i => INTERESTS.includes(i)).map(i => "int:" + i);
+  const minShows = num(env.CROWD_BLOCK_SHOWS, 4);
+  try {
+    const cutQ = db.prepare("SELECT title, shown, kept, top, cut FROM ideas WHERE cut >= 2 AND cut >= 2 * (kept + top) ORDER BY cut DESC, shown DESC LIMIT 40");
+    const likedQ = tags.length
+      ? db.prepare(`SELECT i.title AS title FROM ideas i JOIN idea_tags t ON t.key = i.key WHERE t.tag IN (${tags.map((_, k) => "?" + (k + 1)).join(", ")}) AND i.kept + i.top >= 1 AND i.kept + 2 * i.top > 2 * i.cut GROUP BY i.key ORDER BY SUM(t.n) * (i.kept + 2 * i.top - i.cut) DESC, i.shown DESC LIMIT 20`).bind(...tags)
+      : db.prepare("SELECT title FROM ideas WHERE kept + top >= 2 AND kept + 2 * top > 2 * cut ORDER BY kept + 2 * top - cut DESC LIMIT 20");
+    const [cuts, liked] = await withTime(Promise.all([cutQ.all(), likedQ.all()]), num(env.CROWD_TIMEOUT_MS, 1500));
+    for (const r of (cuts && cuts.results) || []) {
+      const k = ideaKey(r.title);
+      if (r.shown >= minShows && r.cut >= 0.6 * r.shown && (r.kept + r.top) * 3 <= r.cut) res.blocked.add(k);
+      if (!mine.has(k) && res.avoid.length < 8) res.avoid.push(clean(r.title, 60));
+    }
+    for (const r of (liked && liked.results) || []) {
+      const k = ideaKey(r.title);
+      if (!mine.has(k) && !brandRe.test(r.title) && res.liked.length < 6) res.liked.push(clean(r.title, 60));
+    }
+  } catch (e) {}
+  return res;
+}
+
+// Daily totals of ideas shown, kept, ranked, cut and already had: how well picks land over time.
+function statsStatement(db, day, add) {
+  const c = k => Math.max(0, Math.min(200, Math.round(add[k] || 0)));
+  return db.prepare("INSERT INTO pick_stats (day, shown, kept, top, cut, have) VALUES (?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT(day) DO UPDATE SET shown = shown + ?2, kept = kept + ?3, top = top + ?4, cut = cut + ?5, have = have + ?6")
+    .bind(day, c("shown"), c("kept"), c("top"), c("cut"), c("have"));
+}
+
 function parseIdeas(out, q) {
   const raw = findArray(modelText(out));
   const have = new Set(q.seen.map(s => s.toLowerCase()));
   const ideas = [];
-  const dropped = { budget: 0, brand: 0, other: 0 };
+  const dropped = { budget: 0, brand: 0, other: 0, crowd: 0, generic: 0 };
+  const blocked = q.blocked || new Set();
+  const asked = [q.notes, ...q.quiz, ...q.ints].join(" ").toLowerCase();
   // Some models rename keys ("Title", "name", "price_low"), so read them loosely.
   const pick = (o, keys) => { for (const k of Object.keys(o)) if (keys.includes(k.toLowerCase().replace(/[^a-z]/g, ""))) return o[k]; };
   for (let o of raw) {
@@ -306,6 +353,9 @@ function parseIdeas(out, q) {
     const title = clean(o.title, 60);
     if (title.length < 2 || have.has(title.toLowerCase())) { dropped.other++; continue; }
     if (brandRe.test(title)) { dropped.brand++; continue; }
+    if (blocked.has(ideaKey(title))) { dropped.crowd++; continue; }
+    const kind = genericKind(title);
+    if (kind && !asked.includes(kind)) { dropped.generic++; continue; }
     const cat = CATS.find(c => c.toLowerCase() === clean(o.category, 20).toLowerCase()) || "Other";
     let lo = Math.round(Number(o.lo)), hi = Math.round(Number(o.hi));
     if (!Number.isFinite(lo) || lo < 0) lo = 0;
@@ -466,6 +516,8 @@ async function passDevice(env, lic, dev) {
 
 const num = (v, d) => { const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : d; };
 const today = () => new Date().toISOString().slice(0, 10);
+// Day in US Eastern, the same as the free rounds (starts at 5 AM UTC).
+const statsDay = env => new Date(Date.now() - num(env.TRIAL_DAY_START_HOUR_UTC, 5) * 3600000).toISOString().slice(0, 10);
 
 /* ---------- page counter (/hit) ---------- */
 // Only these pages and events are counted; anything else is dropped. No ids, addresses or full URLs.
@@ -549,7 +601,7 @@ async function unreserve(db, keys) {
 /* ---------- handler ---------- */
 export default {
   // For tests only; not used by Cloudflare.
-  _test: { cleanHit, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
+  _test: { cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
 
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
@@ -654,6 +706,10 @@ export default {
       if (env.DB && String(env.POOL || "on") !== "off") {
         const st = signalStatements(env.DB, raw);
         if (st.length) later(env.DB.batch(st));
+        const p = raw && typeof raw === "object" ? raw : {};
+        const n = f => new Set(list(p[f], 40, 60).map(ideaKey).filter(Boolean)).size;
+        const add = { kept: n("kept"), top: n("top"), cut: n("cut"), have: n("have") };
+        if (add.kept + add.top + add.cut + add.have) later(statsStatement(env.DB, statsDay(env), add).run());
       }
       return new Response(null, { status: 204, headers: cors });
     }
@@ -759,6 +815,7 @@ export default {
       return reply({ items }, 200, { [left[0]]: String(Math.max(0, left[1])), ...(left[2] || {}) });
     }
 
+    if (String(env.CROWD || "on") !== "off") Object.assign(q, await crowdHints(env.DB, q, env));
     const input = { messages: buildMessages(q), max_tokens: 1200, temperature: 0.7 };
     // Each model call gets a time limit. When the main model is slow or its reply is unusable,
     // the backup model gets one try, so a round answers in under a minute.
@@ -811,6 +868,7 @@ export default {
 
     // Count the round only now that it produced ideas.
     await countIt();
+    if (env.DB) later(statsStatement(env.DB, statsDay(env), { shown: ideas.length }).run());
     if (String(env.POOL || "on") !== "off") {
       const rec = poolRecord(ideas, q);
       if (env.DB) {
