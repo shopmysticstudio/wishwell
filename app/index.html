@@ -742,18 +742,21 @@ const endDrag=()=>{if(!drag)return;const list=$("#rankList");if(list)S.kept=[...
 window.addEventListener("pointerup",endDrag);window.addEventListener("pointercancel",endDrag);
 $("#groupBtn").addEventListener("click",()=>{S.group=!S.group;save();render()});
 
-/* share: the list travels in the link itself, as hex after #list- */
+/* share: the list travels in the link itself, as base64url after #l- (shorter).
+   Links made before Nov 27, 2026 use hex after #list-, and those still open. */
 const hex=s=>[...new TextEncoder().encode(s)].map(b=>b.toString(16).padStart(2,"0")).join("");
 const unhex=h=>new TextDecoder().decode(new Uint8Array((h.match(/[0-9a-f]{2}/g)||[]).map(x=>parseInt(x,16))));
+const b64u=t=>{let b="";new TextEncoder().encode(t).forEach(c=>b+=String.fromCharCode(c));return btoa(b).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
+const unb64u=h=>new TextDecoder().decode(Uint8Array.from(atob(h.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0)));
 const listTitle=()=>S.listName.trim()||(nm()==="My"?"My wishlist":nm()+(nm()==="Their"?" wishlist":"'s wishlist"));
 function packList(){
   const list=S.kept.map(byId).filter(Boolean).slice(0,30);
-  return{t:listTitle(),p:S.opt.price?1:0,i:list.map(it=>[it.title,it.lo,it.hi,it.url||"",it.search===it.title?"":it.search])};
+  return{t:listTitle(),p:S.opt.price?1:0,i:list.map(it=>{const a=[it.title,it.lo,it.hi,it.url||"",it.search===it.title?"":it.search];while(a.length>3&&!a[a.length-1])a.pop();return a})};
 }
-const shareLink=()=>APP_URL+"#list-"+hex(JSON.stringify(packList()));
+const shareLink=()=>APP_URL+"#l-"+b64u(JSON.stringify(packList()));
 function readHash(){
-  const h=location.hash||"";if(!h.startsWith("#list-"))return null;
-  try{const o=JSON.parse(unhex(h.slice(6)));if(!o||!Array.isArray(o.i))return null;
+  const h=location.hash||"";const short=h.startsWith("#l-");if(!short&&!h.startsWith("#list-"))return null;
+  try{const o=JSON.parse(short?unb64u(h.slice(3)):unhex(h.slice(6)));if(!o||!Array.isArray(o.i))return null;
     const items=o.i.slice(0,40).map(a=>Array.isArray(a)?{title:String(a[0]||"").slice(0,80),lo:Math.max(0,+a[1]||0),hi:Math.max(0,+a[2]||0),url:/^https:\/\//.test(a[3]||"")?String(a[3]).slice(0,400):"",search:String(a[4]||a[0]||"").slice(0,80)}:null).filter(x=>x&&x.title);
     return{t:String(o.t||"A wishlist").slice(0,60),p:!!o.p,i:items};
   }catch(e){return null}
