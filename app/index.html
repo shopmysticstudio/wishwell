@@ -1406,7 +1406,7 @@ if(PAY){
 
 /* tester report: counts only, no list contents */
 function report(){
-  const m=S.m,y=v=>v?"yes":"no";
+  const m=S.m;
   return ["Wishwell test report",
   `Taste quiz finished ${m.quizDone} time(s)`,
   `Ideas seen ${m.ideas}, circled ${m.circled}, cut ${m.cut}, already have ${m.have||0}, AI rounds ${m.ai}`,
@@ -1415,7 +1415,8 @@ function report(){
   `Buy taps ${m.buy} (on shared lists ${m.famBuy})`,
   `Shared lists opened here ${m.famOpens}, marked bought ${m.claims}, Make your own taps ${m.makeOwn}`,
   `Group draws ${m.draws}, biggest group ${m.biggest}`,
-  `Would pay: Holiday Pass ${y(m.pay.holiday)}, Exchange Pass ${y(m.pay.exchange)}, Plus ${y(m.pay.plus)}`].join("\n");
+  `Would pay for the Holiday Pass: ${m.pay.holiday?"yes (tapped Coming soon)":"not answered"}`,
+  ...(m.pay.exchange||m.pay.plus?[`Also tapped: ${[m.pay.exchange&&"Exchange Pass",m.pay.plus&&"Plus"].filter(Boolean).join(", ")}`]:[])].join("\n");
 }
 document.addEventListener("click",e=>{if(e.target.closest(".reportBtn"))copy(report(),"Report copied. Send it back, thanks!")});
 

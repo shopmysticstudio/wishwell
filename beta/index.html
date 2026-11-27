@@ -292,7 +292,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"56d52ff766e67fd9fe8b98e5c3a99e7e",hash:"50261d2ed171b3b7096f9ea9d58e75f87f520cf550a8ff6593ca0c596dbdae69",iter:200000};
+window.WISHWELL_BETA={salt:"9c16a321767bc927f030ca1a94d4727d",hash:"d1b6ced3f82c46a12c690c4e4e19a4953cb67058bdd8ef58b2ca3ccc88c95fe7",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
@@ -1457,7 +1457,7 @@ if(PAY){
 
 /* tester report: counts only, no list contents */
 function report(){
-  const m=S.m,y=v=>v?"yes":"no";
+  const m=S.m;
   return ["Wishwell test report",
   `Taste quiz finished ${m.quizDone} time(s)`,
   `Ideas seen ${m.ideas}, circled ${m.circled}, cut ${m.cut}, already have ${m.have||0}, AI rounds ${m.ai}`,
@@ -1466,7 +1466,8 @@ function report(){
   `Buy taps ${m.buy} (on shared lists ${m.famBuy})`,
   `Shared lists opened here ${m.famOpens}, marked bought ${m.claims}, Make your own taps ${m.makeOwn}`,
   `Group draws ${m.draws}, biggest group ${m.biggest}`,
-  `Would pay: Holiday Pass ${y(m.pay.holiday)}, Exchange Pass ${y(m.pay.exchange)}, Plus ${y(m.pay.plus)}`].join("\n");
+  `Would pay for the Holiday Pass: ${m.pay.holiday?"yes (tapped Coming soon)":"not answered"}`,
+  ...(m.pay.exchange||m.pay.plus?[`Also tapped: ${[m.pay.exchange&&"Exchange Pass",m.pay.plus&&"Plus"].filter(Boolean).join(", ")}`]:[])].join("\n");
 }
 document.addEventListener("click",e=>{if(e.target.closest(".reportBtn"))copy(report(),"Report copied. Send it back, thanks!")});
 
