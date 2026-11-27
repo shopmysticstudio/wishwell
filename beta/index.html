@@ -292,7 +292,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"f9496287aa24821103593dd77099b2a3",hash:"4aed40c7917e358cebfabce15f6f1b61c5efbb61a7a6cd61add45cd041574ba9",iter:200000};
+window.WISHWELL_BETA={salt:"d3fb2785b7842ef98b0dc816f2a4669b",hash:"6790bfc149f1f107e758dae64c0ba9eedc3b0479ad40e6c81a1a536125e4ad5e",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
@@ -360,7 +360,7 @@ document.getElementById("gateForm").addEventListener("submit",async e=>{
 
 <section class="view" id="v-ideas" hidden>
   <div class="bar"><div><h2 class="lede" style="margin:0">Circle the good ones</h2><div class="who" id="whoLine"></div></div>
-    <button class="btn" type="button" data-go="start" id="retake">Retake quiz</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn quiet soundTgl" type="button" id="sndIdeas" aria-pressed="true">Sound on</button><button class="btn" type="button" data-go="start" id="retake">Retake quiz</button></div></div>
   <div class="row"><input type="text" id="addBox" placeholder="Paste a product link or type an item" aria-label="Add an item"><button class="btn" type="button" id="addBtn">Add</button><button class="btn" type="button" id="photoBtn" hidden>Add from a photo</button><input type="file" id="photoIn" accept="image/*" hidden></div>
   <p class="small muted" id="photoHint" hidden style="margin:6px 0 0">Add from a photo reads a picture or screenshot of things you want and adds them to your list. It uses one AI round. The photo isn't saved.</p>
   <p class="small muted" style="margin:6px 0 16px">Links from Amazon and most shops turn into an item with the link kept.</p>
@@ -1246,9 +1246,9 @@ $("#ideaGrid").addEventListener("click",e=>{
   const b=e.target.closest("button[data-a]");const card=e.target.closest(".card[data-id]");
   const it=byId(b?b.dataset.id:card?card.dataset.id:"");if(!it)return;const a=b?b.dataset.a:"keep";
   if(a==="cmp"){openCompare(it);return}
-  if(a==="keep"){it.status=it.status==="kept"?"new":"kept";if(it.status==="kept"){S.m.circled++;freshId=it.id}syncKept();save();render();freshId="";return}
+  if(a==="keep"){it.status=it.status==="kept"?"new":"kept";if(it.status==="kept"){S.m.circled++;freshId=it.id;cardSound("circle")}syncKept();save();render();freshId="";return}
   const gone=()=>{syncKept();save();render()};
-  if(a==="cut"){it.status="cut";S.m.cut++;toast("Cut. Undo at the bottom of the page.")}
+  if(a==="cut"){it.status="cut";S.m.cut++;cardSound("cut");toast("Cut. Undo at the bottom of the page.")}
   if(a==="have"){it.status="have";S.m.have=(S.m.have||0)+1;const t=it.title.toLowerCase();if(!S.have.includes(t))S.have.push(t);toast("Got it. It won't come back. Undo at the bottom.")}
   if(card&&!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)){card.classList.add("out");setTimeout(gone,170)}else gone();
 });
@@ -1518,6 +1518,38 @@ function chime(kind){
     for(let i=0;i<len;i++)ch[i]=(Math.random()*2-1)*Math.pow(1-i/len,2)*(0.6+0.4*Math.sin(i/90));
     const n=c.createBufferSource();n.buffer=b;const bp=c.createBiquadFilter();bp.type="bandpass";bp.frequency.value=2600;bp.Q.value=0.7;
     const ng=c.createGain();ng.gain.value=0.55;n.connect(bp);bp.connect(ng);ng.connect(out);n.start(c.currentTime)}
+}
+/* card sounds, made on the fly like the chimes.
+   Circle: a felt-tip marker loop, timed to the red ring drawing on (0.44s): paper-grain noise through a bandpass that sweeps
+   1800 to 3400 and back to 2000 Hz (up and around), plus a faint triangle squeak riding it (1150 to 1500 to 1250 Hz).
+   Cut: a scissors snip, two quick blade clicks 75 ms apart (a 50 ms high-passed noise tick plus a short metal ping at 2900 Hz, then 2400 Hz).
+   Reduced motion plays a short circle (0.16s). Both follow the Sound on/off switch; Cut also buzzes 15 ms where the phone supports it. */
+function noiseBuf(c,dur,grain){const len=Math.max(1,Math.floor(c.sampleRate*dur)),b=c.createBuffer(1,len,c.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*(grain?0.55+0.45*Math.sin(i/len*Math.PI*2*grain):1);return b}
+function cardSound(kind){
+  if(!soundOn())return;
+  if(kind==="cut"&&navigator.vibrate){try{navigator.vibrate(15)}catch(e){}}
+  const c=audio();if(!c)return;const t=c.currentTime+0.01;const out=c.createGain();out.connect(c.destination);
+  if(kind==="circle"){
+    const dur=reduced()?0.16:0.44;out.gain.value=0.32;
+    const n=c.createBufferSource();n.buffer=noiseBuf(c,dur,dur*40);
+    const bp=c.createBiquadFilter();bp.type="bandpass";bp.Q.value=2.2;
+    bp.frequency.setValueAtTime(1800,t);bp.frequency.linearRampToValueAtTime(3400,t+dur*0.45);bp.frequency.linearRampToValueAtTime(2000,t+dur);
+    const g=c.createGain();g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.55,t+0.03);g.gain.setValueAtTime(0.55,t+dur*0.7);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    n.connect(bp);bp.connect(g);g.connect(out);n.start(t);n.stop(t+dur+0.02);
+    const o=c.createOscillator(),og=c.createGain();o.type="triangle";
+    o.frequency.setValueAtTime(1150,t);o.frequency.linearRampToValueAtTime(1500,t+dur*0.45);o.frequency.linearRampToValueAtTime(1250,t+dur);
+    og.gain.setValueAtTime(0.0001,t);og.gain.exponentialRampToValueAtTime(0.06,t+0.05);og.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(og);og.connect(out);o.start(t);o.stop(t+dur+0.05);
+  }
+  if(kind==="cut"){
+    out.gain.value=0.3;
+    [[0,2900],[0.075,2400]].forEach(([dt,f])=>{const st=t+dt;
+      const n=c.createBufferSource();n.buffer=noiseBuf(c,0.05,0);const hp=c.createBiquadFilter();hp.type="highpass";hp.frequency.value=3500;
+      const g=c.createGain();g.gain.setValueAtTime(0.8,st);g.gain.exponentialRampToValueAtTime(0.0001,st+0.05);n.connect(hp);hp.connect(g);g.connect(out);n.start(st);
+      const o=c.createOscillator(),og=c.createGain();o.type="sine";o.frequency.value=f;og.gain.setValueAtTime(0.18,st);og.gain.exponentialRampToValueAtTime(0.0001,st+0.06);
+      o.connect(og);og.connect(out);o.start(st);o.stop(st+0.08)});
+  }
 }
 function sparkle(el,n){
   if(!el)return;el.classList.remove("glow");void el.offsetWidth;el.classList.add("glow");
