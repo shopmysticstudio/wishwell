@@ -34,9 +34,9 @@
 
 const DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash";
 const CATS = ["Tech", "Gaming", "Making", "Art", "Music", "Sports", "Outdoors", "Science",
-  "Books", "Food", "Style", "Room", "Experiences", "Other"];
+  "Books", "Food", "Style", "Room", "Experiences", "Beauty", "Other"];
 const INTERESTS = ["Tech", "Gaming", "Making", "Art", "Music", "Sports", "Outdoors", "Space and science",
-  "Books", "Cooking", "Style", "Room setup", "Cars", "Pets", "Puzzles"];
+  "Books", "Cooking", "Style", "Room setup", "Cars", "Pets", "Puzzles", "Beauty", "Jewelry", "Travel"];
 const BUDGETS = { "25": 25, "75": 75, "200": 200, "9999": Infinity, "any": Infinity };
 const MAX_IDEAS = 10;
 const EXTRA_ASK = 3;          // ask for a few more than needed, since some get filtered out
@@ -109,18 +109,24 @@ function buildMessages(q) {
     "Use American English. Never use dashes of any kind in text.",
     "Reply with only a JSON array and nothing else."
   ].join(" ");
-  const user = `Suggest ${Math.min(MAX_IDEAS + EXTRA_ASK, q.n + EXTRA_ASK)} specific, buyable gifts for ${who}.
-Interests: ${q.ints.join(", ") || "none picked"}.
-Taste quiz picks: ${q.quiz.join("; ") || "none"}.
-Gift style: ${q.style || "any"}${q.style === "Surprise me" ? " (a few can be unexpected, but each must still tie to their interests or details)" : ""}.
-Details from the user: ${q.notes || "none"}.
+  const n = Math.min(MAX_IDEAS + EXTRA_ASK, q.n + EXTRA_ASK);
+  const user = `Suggest ${n} specific, buyable gifts for ${who}.
+What they told us, most specific first:
+1. Details in their own words (matter most): ${q.notes || "none"}.
+2. Taste quiz picks: ${q.quiz.join("; ") || "none"}.
+3. Interests they ticked: ${q.ints.join(", ") || "none picked"}.
+4. Gift style: ${q.style || "any"}${q.style === "Surprise me" ? " (a few can be unexpected, but each must still tie to something above)" : ""}.
 Budget: ${budgetRule(q.budget)}
 They kept (want more like these): ${q.kept.join("; ") || "nothing yet"}.
 They cut (avoid things like these): ${q.cut.join("; ") || "nothing yet"}.
 Do not repeat any of: ${q.seen.join("; ") || "none"}.
-Every idea must clearly connect to at least one interest, quiz pick, detail or kept item above. No generic filler.
+How to choose:
+${q.notes ? "- At least half of the ideas must fit the details directly. Read the details for the feeling too: \"quirky, keeps my brain busy\" means puzzles, brain teasers and odd clever gadgets, not plain items from each interest.\n" : ""}- Prefer ideas that fit two or more of the things above at once, like a detail plus an interest, or two quiz picks together.
+- Do not hand out one plain idea per interest. Skip generic picks almost anyone could get (gift cards, plain headphones, generic decor) unless the details ask for them.
+- If they kept items, about a third of the ideas should be close cousins of those.
+- Vary the kinds of gifts: no more than two from the same category.
 Use honest, typical current US store prices.
-Each element: {"title": generic product name under 50 characters, "category": one of ${CATS.join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a generic store search phrase}.`;
+Each element: {"title": generic product name under 50 characters, "category": one of ${CATS.join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words that names which of their answers it fits, "search": a generic store search phrase}.`;
   return [{ role: "system", content: system }, { role: "user", content: user }];
 }
 
@@ -281,7 +287,7 @@ function poolStatements(db, rec, q) {
 function signalStatements(db, raw) {
   const p = raw && typeof raw === "object" ? raw : {};
   const out = [];
-  for (const [field, col] of [["kept", "kept"], ["top", "top"], ["cut", "cut"]]) {
+  for (const [field, col] of [["kept", "kept"], ["top", "top"], ["cut", "cut"], ["have", "have"]]) {
     const keys = [...new Set(list(p[field], 40, 60).map(ideaKey).filter(Boolean))];
     for (const k of keys) out.push(db.prepare(`UPDATE ideas SET ${col} = ${col} + 1 WHERE key = ?1`).bind(k));
   }

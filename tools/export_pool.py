@@ -117,10 +117,11 @@ def near_duplicate(title, others):
     return False
 
 
-def score(kept, top, cut, shown):
-    """Share of showings that ended in a circle, with a top 3 worth two and a cut costing one.
-    The +1 and +5 keep an idea shown once and circled once from beating one circled 30 of 40 times."""
-    return (kept + 2 * top - cut + 1) / (shown + 5)
+def score(kept, top, cut, shown, have=0):
+    """Share of showings that ended in a circle, with a top 3 worth two, an "already have it"
+    worth one (a real, wanted gift) and a cut costing one. The +1 and +5 keep an idea shown
+    once and circled once from beating one circled 30 of 40 times."""
+    return (kept + 2 * top + have - cut + 1) / (shown + 5)
 
 
 def app_lists(html):
@@ -200,7 +201,7 @@ def main():
                        "lo": round(int(r.get("lo_sum") or 0) / shown), "hi": round(int(r.get("hi_sum") or 0) / shown),
                        "why": r.get("why", ""), "search": r.get("search") or r["title"], "ints": ints,
                        "shown": shown, "kept": int(r.get("kept") or 0), "top": int(r.get("top") or 0),
-                       "cut": int(r.get("cut") or 0)}
+                       "cut": int(r.get("cut") or 0), "have": int(r.get("have") or 0)}
         source = f"{len(rows)} ideas in the D1 pool"
     else:
         records = json.load(open(a.from_json, encoding="utf-8")) if a.from_json else \
@@ -242,7 +243,7 @@ def main():
     # Filters: kept enough, not a starter idea already (or nearly), no brands, sane prices.
     skipped = collections.Counter()
     picked, picked_words, rows = set(), [], []
-    ranked = sorted(pool.items(), key=lambda kv: (score(kv[1]["kept"], kv[1]["top"], kv[1]["cut"], kv[1]["shown"]),
+    ranked = sorted(pool.items(), key=lambda kv: (score(kv[1]["kept"], kv[1]["top"], kv[1]["cut"], kv[1]["shown"], kv[1].get("have", 0)),
                                                   kv[1]["kept"]), reverse=True)
     for k, d in ranked:
         title = d["title"].strip()

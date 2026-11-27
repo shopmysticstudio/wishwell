@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 const dir = process.argv[2] || new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const worker = (await import(dir + "/worker.js")).default;
 const sql = new DatabaseSync(":memory:");
-sql.exec(readFileSync(dir + "/migrations/0001_idea_pool.sql", "utf8"));
+for (const f of ["0001_idea_pool.sql", "0002_have.sql"]) sql.exec(readFileSync(dir + "/migrations/" + f, "utf8"));
 const conv = s => s.replace(/\?(\d+)/g, "?$1");
 const DB = {
   prepare(q) { const st = { q, args: [], bind(...a) { st.args = a; return st; }, run() { const p = sql.prepare(q); const named = {}; st.args.forEach((v, i) => named[String(i + 1)] = v); return p.run(...st.args.length && /\?\d/.test(q) ? [] : st.args, ...[]); } }; return st; },
@@ -28,9 +28,9 @@ const payload = { n: 3, forWho: "them", ints: ["Making", "Music", "Not a real in
 let r = await worker.fetch(req("/", payload), env, ctx); await Promise.all(waits.splice(0));
 console.log("round 1 status", r.status, (await r.json()).map(i => i.title));
 r = await worker.fetch(req("/", { ...payload, keptAi: ["Drone repair kit"] }), env, ctx); await Promise.all(waits.splice(0));
-r = await worker.fetch(req("/signal", { kept: ["trombone SLIDE oil"], top: ["Drone repair kit", "My own typed item"], cut: ["Trombone slide oil"] }), env, ctx); await Promise.all(waits.splice(0));
+r = await worker.fetch(req("/signal", { kept: ["trombone SLIDE oil"], top: ["Drone repair kit", "My own typed item"], cut: ["Trombone slide oil"], have: ["Drone repair kit"] }), env, ctx); await Promise.all(waits.splice(0));
 console.log("signal status", r.status);
-console.log(sql.prepare("SELECT key,title,shown,kept,top,cut,lo_sum,hi_sum FROM ideas ORDER BY key").all());
+console.log(sql.prepare("SELECT key,title,shown,kept,top,cut,have,lo_sum,hi_sum FROM ideas ORDER BY key").all());
 console.log(sql.prepare("SELECT * FROM idea_tags ORDER BY key, tag").all());
 console.log("KV pool keys (should be none):", [...store.keys()].filter(k => k.startsWith("pool:")));
 console.log("anything personal stored?", JSON.stringify(sql.prepare("SELECT * FROM ideas").all()).match(/jove|abcdefghij/i));
