@@ -26,13 +26,15 @@
    feed tools/export_pool.py. Notes, names, IPs, device ids and license keys are never saved there.
 
    Settings ([vars] in wrangler.toml, or the dashboard):
-     MODEL, ALLOWED_ORIGINS, BETA_ONLY, TRIAL_ROUNDS, TRIAL_PER_IP, PASS_DAILY, POOL
+     MODEL, BACKUP_MODEL, AI_TIMEOUT_MS, BACKUP_TIMEOUT_MS, ALLOWED_ORIGINS, BETA_ONLY, TRIAL_ROUNDS, TRIAL_PER_IP, PASS_DAILY, POOL
    Secrets (dashboard > Settings > Variables and Secrets > Type: Secret):
      GUMROAD_PRODUCT_ID  the Holiday Pass product ID (passes can't be checked without it)
      BETA_CODE           optional; overrides the beta code fingerprint below
    Bindings: AI (Workers AI), KV (KV namespace), PER_MINUTE (rate limit), DB (D1, optional) */
 
 const DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash";
+// Used when the main model is slow or its reply is unusable. "off" turns it off.
+const BACKUP_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const CATS = ["Tech", "Gaming", "Making", "Art", "Music", "Sports", "Outdoors", "Science",
   "Books", "Food", "Style", "Room", "Experiences", "Beauty", "Other"];
 const INTERESTS = ["Tech", "Gaming", "Making", "Art", "Music", "Sports", "Outdoors", "Space and science",
@@ -436,30 +438,45 @@ export default {
       left = ["x-trial-left", trial - usedDev - 1];
     }
 
-    const input = { messages: buildMessages(q), max_tokens: 1500, temperature: 0.7 };
-    const ask = async () => {
+    const input = { messages: buildMessages(q), max_tokens: 1200, temperature: 0.7 };
+    // Each model call gets a time limit. When the main model is slow or its reply is unusable,
+    // the backup model gets one try, so a round answers in under a minute.
+    const withTime = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error("timeout " + ms)), ms))]);
+    const main = env.MODEL || DEFAULT_MODEL, backup = env.BACKUP_MODEL || BACKUP_MODEL;
+    const ask = async (model, ms) => {
       try {
         // Ask thinking models to answer directly; a model that rejects this option gets the plain request.
-        return await env.AI.run(env.MODEL || DEFAULT_MODEL, { ...input, chat_template_kwargs: { enable_thinking: false } });
+        return await withTime(env.AI.run(model, { ...input, chat_template_kwargs: { enable_thinking: false } }), ms);
       } catch (first) {
-        if (/4006|allocation|5035|paid/i.test(String(first && first.message))) throw first;
-        return await env.AI.run(env.MODEL || DEFAULT_MODEL, input);
+        if (/4006|allocation|5035|paid|timeout/i.test(String(first && first.message))) throw first;
+        return await withTime(env.AI.run(model, input), ms);
       }
     };
-    let out, ideas;
-    const dg = { model: env.MODEL || DEFAULT_MODEL, ms1: 0, ms2: 0, info1: "", info2: "" };
+    let out, ideas = [];
+    const dg = { model: main, ms1: 0, ms2: 0, info1: "", info2: "" };
+    let t0 = Date.now();
     try {
-      let t0 = Date.now();
-      out = await ask();
-      dg.ms1 = Date.now() - t0; dg.info1 = describe(out).slice(0, 400);
+      out = await ask(main, num(env.AI_TIMEOUT_MS, 20000));
+      dg.info1 = describe(out).slice(0, 400);
       ideas = parseIdeas(out, q);
-      if (!ideas.length) {   // one retry for an unusable reply
-        t0 = Date.now(); out = await ask(); ideas = parseIdeas(out, q);
-        dg.ms2 = Date.now() - t0; dg.info2 = describe(out).slice(0, 400);
-      }
     } catch (e) {
-      // Includes the daily free amount running out.
-      return reply({ error: "ai_unavailable", detail: String(e && e.message || e).slice(0, 200) }, 429);
+      dg.info1 = "error " + String(e && e.message || e).slice(0, 200);
+      if (/4006|allocation|5035|paid/i.test(String(e && e.message))) {
+        // The daily free amount ran out.
+        return reply({ error: "ai_unavailable", detail: String(e && e.message || e).slice(0, 200) }, 429);
+      }
+    }
+    dg.ms1 = Date.now() - t0;
+    if (!ideas.length && backup && backup !== "off") {
+      t0 = Date.now(); dg.model = main + " > " + backup;
+      try {
+        out = await ask(backup, num(env.BACKUP_TIMEOUT_MS, 25000));
+        dg.info2 = describe(out).slice(0, 400);
+        ideas = parseIdeas(out, q);
+      } catch (e) {
+        dg.info2 = "error " + String(e && e.message || e).slice(0, 200);
+      }
+      dg.ms2 = Date.now() - t0;
     }
 
     // Temporary timing notes (no user data), only when a diag table exists.
