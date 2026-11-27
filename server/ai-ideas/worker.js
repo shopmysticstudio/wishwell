@@ -460,6 +460,7 @@ export default {
       out = await ask(main, num(env.AI_TIMEOUT_MS, 20000));
       dg.info1 = describe(out).slice(0, 400);
       ideas = parseIdeas(out, q);
+      if (!ideas.length) dg.info1 += " | raw " + ideas.raw + " dropped " + JSON.stringify(ideas.dropped) + " | " + modelText(out).replace(/\s+/g, " ").slice(0, 500);
     } catch (e) {
       dg.info1 = "error " + String(e && e.message || e).slice(0, 200);
       if (/4006|allocation|5035|paid/i.test(String(e && e.message))) {
