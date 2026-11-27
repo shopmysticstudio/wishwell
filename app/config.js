@@ -3,7 +3,7 @@
    shareBase: address people open for shared lists. Blank = wherever this app is hosted.
    gumroadUrl:       your Holiday Pass product link on Gumroad. Blank = passes show "Coming soon".
    gumroadProductId: the product ID from Gumroad (needed to check license keys).
-   licenseCheckUrl:  address of the license check Worker (see ../server/README.md). Blank = ask Gumroad directly.
+   licenseCheckUrl:  where to check license keys. Blank = the AI service's /verify (or Gumroad directly if aiUrl is blank).
    See PAYMENTS.md for the full steps. */
 window.WISHWELL_CONFIG = {
   aiUrl: "",

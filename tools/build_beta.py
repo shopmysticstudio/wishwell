@@ -3,6 +3,7 @@
 
 Usage, from the repo root on the payments branch:
     BETA_CODE="YOUR-CODE" python3 tools/build_beta.py OUTPUT_DIR
+Add GUMROAD_URL="https://...gumroad.com/l/..." to turn on the Holiday Pass Buy button.
 
 The access code itself is never written to the output. The page only gets a
 salted PBKDF2 fingerprint of it, so the code screen can check a typed code.
@@ -47,7 +48,9 @@ def main():
         c = f.read()
     c = re.sub(r'aiUrl: "[^"]*"', 'aiUrl: "%s"' % AI_URL, c)
     c = re.sub(r'shareBase: "[^"]*"', 'shareBase: "%s"' % SHARE_BASE, c)
-    for k in ("gumroadUrl", "gumroadProductId", "licenseCheckUrl"):
+    # GUMROAD_URL (optional) turns on the Holiday Pass Buy button in the beta.
+    c = re.sub(r'gumroadUrl: "[^"]*"', 'gumroadUrl: "%s"' % os.environ.get("GUMROAD_URL", "").strip(), c)
+    for k in ("gumroadProductId", "licenseCheckUrl"):
         c = re.sub(k + r': "[^"]*"', k + ': ""', c)
     with open(cfg, "w", encoding="utf-8") as f:
         f.write(c)

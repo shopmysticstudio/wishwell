@@ -1,9 +1,0 @@
-name = "wishwell-license-check"
-main = "worker.js"
-compatibility_date = "2025-01-01"
-
-[vars]
-# Paste the Holiday Pass product ID from Gumroad between the quotes.
-GUMROAD_PRODUCT_ID = ""
-# Sites allowed to call this Worker. Add your own domain here later, comma separated.
-ALLOWED_ORIGINS = "https://shopmysticstudio.github.io"

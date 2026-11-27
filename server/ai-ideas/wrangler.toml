@@ -11,18 +11,24 @@ binding = "AI"
 MODEL = "@cf/zai-org/glm-4.7-flash"
 # Only this site may call the Worker.
 ALLOWED_ORIGINS = "https://shopmysticstudio.github.io"
-# Most AI rounds one visitor gets per day. Only used if the LIMITS KV namespace below is set up.
-DAILY_PER_IP = "30"
+# "true": every request needs the beta code. Set to "false" when AI goes public on /app.
+BETA_ONLY = "true"
+# Free trial: AI rounds per device, and most trial rounds per IP address per day.
+TRIAL_ROUNDS = "3"
+TRIAL_PER_IP = "6"
+# Holiday Pass: AI rounds per pass per day (UTC).
+PASS_DAILY = "25"
+# "off" stops saving ideas to the pool.
+POOL = "on"
+# GUMROAD_PRODUCT_ID is set as a Secret in the Cloudflare dashboard, not here.
 
-# Per visitor limit: 5 AI rounds a minute. namespace_id can be any number not used by another limit.
+# Trial counts, pass checks and the idea pool.
+[[kv_namespaces]]
+binding = "KV"
+id = "9e7e866afc6e4d1ca50c4a86f30169e7"
+
+# Per visitor limit: 5 requests a minute. namespace_id can be any number not used by another limit.
 [[ratelimits]]
 name = "PER_MINUTE"
 namespace_id = "1101"
 simple = { limit = 5, period = 60 }
-
-# Optional daily cap per visitor. To turn it on, run:
-#   npx wrangler kv namespace create LIMITS
-# then remove the # from the three lines below and paste the id it prints.
-# [[kv_namespaces]]
-# binding = "LIMITS"
-# id = "PASTE_THE_ID_HERE"
