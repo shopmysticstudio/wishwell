@@ -13,3 +13,6 @@ CREATE TABLE IF NOT EXISTS analytics_new (
 INSERT OR IGNORE INTO analytics_new (day, hour, page, event, ref, dev, n) SELECT day, -1, page, event, ref, dev, n FROM analytics;
 DROP TABLE analytics;
 ALTER TABLE analytics_new RENAME TO analytics;
+
+-- To read the counts, newest first (hour -1 shows as "before hours"):
+-- SELECT day, CASE WHEN hour < 0 THEN 'before hours' WHEN hour = 0 THEN '12 AM' WHEN hour < 12 THEN hour || ' AM' WHEN hour = 12 THEN '12 PM' ELSE (hour - 12) || ' PM' END AS hour_et, page, event, CASE WHEN ref = '' THEN '(direct)' ELSE ref END AS referrer, dev AS device, n AS count FROM analytics ORDER BY day DESC, hour DESC, n DESC;
