@@ -297,7 +297,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"5d3567cc751bba11e2268ba3931542a7",hash:"926a1c5277e300badd69295247f0351a3bf6a0ffd9aeaba3d25db5aa8b24dc03",iter:200000};
+window.WISHWELL_BETA={salt:"418ae8dca844ec1fff447da9a9da5427",hash:"d9189057aa1664f8f8fa57bb2fa2631ba4d154a5466c58aebf2a17775e0eda52",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
@@ -1218,7 +1218,7 @@ async function getIdeas(){
       else if(c==="pass_device_limit"){note="Your Holiday Pass key is already on 3 devices, so these are starter ideas here."}
       else if(c==="too_many_tries"){note="Too many wrong key tries from this network today. Try again tomorrow. These are starter ideas."}
       else if(c==="pass_invalid"){PASS=null;try{localStorage.removeItem("wishwell-beta-pass")}catch(x){}note=`Your Holiday Pass key didn't check out (it may have been refunded), so these are starter ideas. ${passBtn}`}
-      else msg.innerHTML=`<p class="note err">AI ideas didn't load${c==="rate_limited"?" (too many asks, try again in a minute)":c==="slow"?" (the AI was too slow just now)":""}. Showing starter ideas instead.</p>`;
+      else msg.innerHTML=`<p class="note err">AI ideas didn't load${c==="rate_limited"?" (too many asks, try again in a minute)":c==="slow"?" (the AI was too slow just now)":c==="ai_busy"?" (free AI ideas are full for today, more tomorrow)":""}. Showing starter ideas instead.</p>`;
       if(c==="not_granted")sample=null}
   }
   if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
