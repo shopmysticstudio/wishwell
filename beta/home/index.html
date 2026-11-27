@@ -50,6 +50,17 @@
   .play svg{width:26px;height:26px;flex:none}
   .play small{display:block;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#c9c6dd}
   .play span{font-size:18px;font-weight:900}
+  .wait{margin:18px 0 0;padding:16px;border-radius:18px;background:rgba(255,201,74,.1);border:1px solid rgba(255,201,74,.45);max-width:34em}
+  .wait label{display:block;font-weight:900;font-size:17px;margin:0 0 4px}
+  .wait p{margin:0 0 10px;font-size:14px;color:#cfcce3;line-height:1.4}
+  .wait form{display:flex;flex-wrap:wrap;gap:10px}
+  .wait input[type=email]{flex:1 1 220px;min-width:0;font:inherit;font-size:17px;padding:12px 16px;border-radius:999px;border:2px solid rgba(255,255,255,.3);background:#fff8ec;color:var(--navy)}
+  .wait input[type=email]:focus{outline:3px solid var(--gold);outline-offset:2px}
+  .btn.notify{background:var(--teal);color:#fff;font-size:17px;padding:12px 22px;box-shadow:0 5px 0 #146b61}
+  .btn.notify[disabled]{opacity:.7;cursor:default}
+  .wait .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .wait .msg{margin:8px 0 0;font-weight:800;font-size:15px;color:var(--cream);min-height:1.2em}
+  .wait a{color:var(--gold)}
   .fine{font-size:14px;color:#c9c6dd;margin:14px 0 0;line-height:1.5}
 
   /* phone showing the app's key box */
@@ -96,6 +107,17 @@
           <div><small>Coming soon to</small><span>Google Play</span></div>
         </span>
       </div>
+      <div class="wait">
+        <label for="waitEmail">Get an email when it launches</label>
+        <p>One email when the app and the key go on sale, and nothing else. US only for now.</p>
+        <form id="waitForm" novalidate>
+          <input type="email" id="waitEmail" name="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" required>
+          <div class="hp" aria-hidden="true"><label for="waitSite">Leave this empty</label><input type="text" id="waitSite" name="website" tabindex="-1" autocomplete="off"></div>
+          <button class="btn notify" type="submit" id="waitBtn">Notify me at launch</button>
+        </form>
+        <p class="msg" id="waitMsg" role="status" aria-live="polite"></p>
+        <p style="margin:0">We keep only your email, just for this. Ask to be removed any time. <a href="../../privacy/">Privacy</a></p>
+      </div>
       <p class="fine">For buyers in the US with an Android phone, ages 13 and up. Buy your key here before you install, since the app only asks for the key.</p>
     </div>
 
@@ -119,5 +141,26 @@
   Made by Wishwell. Wishwell is an early test: your lists stay on your own device, and nothing on this page takes payment yet.<br>
   Google Play is a trademark of Google LLC. © 2026 Wishwell. All rights reserved.
 </footer>
+<script>
+(() => {
+  const URL_ = "https://wishwell-ai-ideas.shopmysticstudio.workers.dev/waitlist";
+  const f = document.getElementById("waitForm"), e = document.getElementById("waitEmail"),
+        b = document.getElementById("waitBtn"), m = document.getElementById("waitMsg");
+  f.addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const email = e.value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { m.textContent = "Type your email first."; e.focus(); return; }
+    b.disabled = true; b.textContent = "Saving...";
+    try {
+      const r = await fetch(URL_, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, website: document.getElementById("waitSite").value }) });
+      if (r.ok) { f.hidden = true; m.textContent = "You're on the list! We'll email you once, when Wishwell launches."; return; }
+      m.textContent = r.status === 400 ? "That email doesn't look right. Check it and try again."
+        : r.status === 429 ? "Too many sign-ups from this network today. Try again tomorrow." : "Couldn't save that just now. Try again in a minute.";
+    } catch (x) { m.textContent = "Couldn't save that just now. Check your connection and try again."; }
+    b.disabled = false; b.textContent = "Notify me at launch";
+  });
+})();
+</script>
 </body>
 </html>
