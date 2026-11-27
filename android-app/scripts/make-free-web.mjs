@@ -27,7 +27,7 @@ const swapRe = (re, to, label) => {
 };
 
 // Settings: AI is always off in the free app.
-swap('<script src="config.js"></script>', '<script>window.WISHWELL_CONFIG={aiUrl:"",shareBase:"https://shopmysticstudio.github.io/wishwell/app/"};</script>', "config.js script tag");
+swap('<script src="config.js"></script>', '<script>window.WISHWELL_CONFIG={aiUrl:"",shareBase:"https://shopmysticstudio.github.io/wishwell/app/",shortLinks:true};</script>', "config.js script tag");
 swap("if(CFG.aiUrl){", "if(false){", "AI switch");
 
 // Details box: say plainly that short hobby words work best, since there's no AI to read sentences.
