@@ -164,6 +164,71 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
  .mv{grid-column:2/-1;justify-content:flex-end}
  .top h1{font-size:24px}
 }
+/* beta shopping tools: compare prices, photo to list, Magic Coupons, unwrap */
+.mono.pic{background:var(--soft);overflow:hidden}.mono.pic img{width:100%;height:100%;object-fit:cover;display:block}
+.cmpBtn{flex:1 1 100%!important}
+.cmpHead{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center;margin:4px 0 12px}
+.cmpHead .mono{width:64px;height:64px;grid-row:auto}
+.switch{display:flex;align-items:center;gap:10px;font-weight:800;min-height:48px;cursor:pointer}
+.switch input{appearance:none;width:52px;height:30px;border-radius:99px;background:var(--soft);border:2px solid var(--line);position:relative;margin:0;flex:none;cursor:pointer}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--ink);transition:left .15s}
+.switch input:checked{background:var(--teal);border-color:var(--teal)}.switch input:checked::after{left:25px;background:#fff}
+.stores{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.store{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:4px 12px;align-items:center;border:2px solid var(--line);border-radius:10px;padding:10px 12px}
+.store.best{border-color:var(--teal);box-shadow:inset 0 0 0 2px var(--teal)}
+.slogo{width:40px;height:40px;border-radius:8px;background:#fff;border:1px solid light-dark(#ddd,#444);display:grid;place-items:center;overflow:hidden;font-weight:900;color:#141414;grid-row:span 2}
+.slogo img{width:28px;height:28px;object-fit:contain}
+.store b{font-size:17px}.store .tot{font-weight:900;font-size:17px;text-align:right}
+.store .rule{grid-column:2/-1;font-size:13px;color:var(--muted)}
+.store .go{grid-column:1/-1;margin-top:4px}
+.tagFree{display:inline-block;background:var(--teal);color:#fff;border-radius:99px;padding:0 8px;font-size:12px;font-weight:800;margin-left:6px;vertical-align:2px}
+.codeRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;border:2px dashed var(--line);border-radius:10px;padding:10px 12px;position:relative;margin-top:8px}
+.codeRow code{font:900 20px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.06em;word-break:break-all}
+.codeRow .meta{grid-column:1/-1;font-size:13px;color:var(--muted)}
+.codeRow.worked{border-style:solid;border-color:var(--teal);background:light-dark(#eefaf8,#10211f)}
+.codeRow .acts{margin-top:0}
+.cstore{border:2px solid var(--line);border-radius:10px;padding:14px;margin:12px 0}
+.cstore h3{display:flex;align-items:center;gap:10px;font-size:20px}
+.cstore .links{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.cstore .links a{flex:1 1 150px}
+.magicHead{background:var(--navy);color:#fff;border-radius:10px;padding:16px;margin-bottom:14px}
+.magicHead h2{color:var(--tag)}
+.magicHead p{margin:6px 0 0;color:#dfe3ff}
+.soundBtn{min-height:40px;padding:4px 12px}
+.spark{position:absolute;pointer-events:none;width:14px;height:14px;left:50%;top:50%;margin:-7px 0 0 -7px;z-index:3;
+  background:radial-gradient(circle,#fff 0 18%,var(--tag) 30%,transparent 70%);clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);
+  animation:spark 1s ease-out forwards}
+@keyframes spark{0%{transform:translate(0,0) scale(.2) rotate(0);opacity:1}70%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(1.1) rotate(160deg);opacity:0}}
+.glow{animation:glow 1.1s ease-out}
+@keyframes glow{0%{box-shadow:0 0 0 0 rgba(255,201,74,.9)}100%{box-shadow:0 0 0 18px rgba(255,201,74,0)}}
+/* opening: a gift that unwraps */
+.unwrap{position:fixed;inset:0;z-index:50;background:radial-gradient(circle at 50% 42%,#3a4180 0,var(--navy) 60%);display:grid;place-items:center;color:#fff;text-align:center;cursor:pointer;transition:opacity .45s}
+.unwrap[hidden]{display:none}
+.unwrap.gone{opacity:0;pointer-events:none}
+.unwrap .gift{width:min(56vw,240px);overflow:visible;display:block;margin:0 auto}
+.unwrap p{font-weight:900;font-size:22px;margin:18px 0 4px}
+.unwrap .skip{position:absolute;top:max(14px,env(safe-area-inset-top));right:14px;background:none;border:2px solid #fff;color:#fff;border-radius:10px;min-height:44px;padding:4px 14px;font-weight:800}
+.unwrap .mute{position:absolute;top:max(14px,env(safe-area-inset-top));left:14px;background:none;border:2px solid #fff;color:#fff;border-radius:10px;min-height:44px;padding:4px 14px;font-weight:800}
+.unwrap .wrap-sparks{position:relative;width:0;height:0;margin:0 auto}
+.gift .lid,.gift .bowL,.gift .bowR,.gift .knot{transform-box:fill-box;transition:transform .7s cubic-bezier(.3,1.4,.5,1),opacity .6s}
+.gift .lid{transform-origin:10% 100%}.gift .bowL{transform-origin:100% 100%}.gift .bowR{transform-origin:0 100%}
+.gift .body{transition:transform .2s}
+.unwrap:not(.open) .gift{animation:wiggle 2.4s ease-in-out infinite}
+@keyframes wiggle{0%,80%,100%{transform:rotate(0)}85%{transform:rotate(-4deg)}90%{transform:rotate(4deg)}95%{transform:rotate(-2deg)}}
+.unwrap.open .bowL{transform:translate(-40%,-60%) rotate(-50deg) scale(.6);opacity:0}
+.unwrap.open .bowR{transform:translate(40%,-60%) rotate(50deg) scale(.6);opacity:0}
+.unwrap.open .knot{transform:translateY(-120%) scale(.4);opacity:0}
+.unwrap.open .lid{transform:translate(-12%,-90%) rotate(-28deg);transition-delay:.18s}
+.unwrap.open .rays{opacity:1;transform:scale(1)}
+.gift .rays{opacity:0;transform:scale(.3);transform-box:fill-box;transform-origin:50% 100%;transition:transform .8s ease-out .25s,opacity .5s .25s}
+@media(prefers-reduced-motion:reduce){
+ .spark{display:none}.unwrap:not(.open) .gift{animation:none}
+ .gift .lid,.gift .bowL,.gift .bowR,.gift .knot,.gift .rays{transition:opacity .4s}
+ .unwrap.open .bowL,.unwrap.open .bowR,.unwrap.open .knot,.unwrap.open .lid{transform:none;opacity:0}
+ .unwrap.open .rays{transform:none}
+}
+
+.unwrap .wm{font-weight:900;font-size:30px;margin:14px 0 0}
 </style>
 </head>
 <body>
@@ -178,6 +243,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <button role="tab" data-v="rank" id="t-rank">Rank<span class="n" id="c-rank">0</span></button>
   <button role="tab" data-v="share" id="t-share">Share</button>
   <button role="tab" data-v="group" id="t-group">Group</button>
+  <button role="tab" data-v="coupons" id="t-coupons" hidden>Coupons</button>
 </nav>
 <main>
 <section class="view" id="v-age" hidden>
@@ -200,7 +266,8 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
 <section class="view" id="v-ideas" hidden>
   <div class="bar"><div><h2 class="lede" style="margin:0">Circle the good ones</h2><div class="who" id="whoLine"></div></div>
     <button class="btn" type="button" data-go="start" id="retake">Retake quiz</button></div>
-  <div class="row"><input type="text" id="addBox" placeholder="Paste a product link or type an item" aria-label="Add an item"><button class="btn" type="button" id="addBtn">Add</button></div>
+  <div class="row"><input type="text" id="addBox" placeholder="Paste a product link or type an item" aria-label="Add an item"><button class="btn" type="button" id="addBtn">Add</button><button class="btn" type="button" id="photoBtn" hidden>Add from a photo</button><input type="file" id="photoIn" accept="image/*" hidden></div>
+  <p class="small muted" id="photoHint" hidden style="margin:6px 0 0">Add from a photo reads a picture or screenshot of things you want and adds them to your list. It uses one AI round. The photo isn't saved.</p>
   <p class="small muted" style="margin:6px 0 16px">Links from Amazon and most shops turn into an item with the link kept.</p>
   <div id="msg"></div>
   <div class="grid" id="ideaGrid"></div>
@@ -224,6 +291,12 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <div class="row" style="margin:16px 0"><button class="btn primary" type="button" id="linkBtn">Copy share link</button><button class="btn" type="button" id="copyBtn">Copy as text</button><button class="btn" type="button" id="famBtn">See what family sees</button></div>
   <p class="note">The share link opens your list for family, where they can buy and mark things as already bought. Paste it in a text or family chat.</p>
   <div class="note"><strong>Testing this?</strong> When you're done, copy your test report and send it back to whoever sent you Wishwell. It has counts only, none of your list.<div class="row" style="margin-top:10px"><button class="btn reportBtn" type="button">Copy my test report</button></div></div>
+</section>
+
+<section class="view" id="v-coupons" hidden>
+  <div class="magicHead"><div class="bar" style="margin:0"><h2 style="margin:0">Magic Coupons</h2><button class="btn soundBtn soundTgl" type="button" aria-pressed="true">Sound on</button></div>
+  <p>Start with each store's own deals page, then RetailMeNot or Slickdeals. Save a code here, try it at checkout, and tap It worked! if it did. Codes are never called working until you say so.</p></div>
+  <div id="couponWrap"></div>
 </section>
 
 <section class="view" id="v-group" hidden>
@@ -268,6 +341,25 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
 <div class="modal" id="copyM" hidden role="dialog" aria-modal="true" aria-label="Copy text">
   <div class="box" style="max-width:560px"><p style="margin-top:0"><strong>Copy this</strong> <span class="muted small">(select all, then copy)</span></p><textarea id="copyArea" readonly style="min-height:200px"></textarea><div class="row" style="margin-top:10px"><button class="btn" type="button" id="copyClose">Done</button></div></div>
 </div>
+<div class="modal" id="cmpM" hidden role="dialog" aria-modal="true" aria-labelledby="cmpT">
+  <div class="box" style="max-width:620px"><div class="bar"><h2 id="cmpT" style="font-size:clamp(24px,5vw,32px);margin:0">Compare prices</h2><button class="btn" type="button" id="cmpClose">Close</button></div><div id="cmpBody"></div></div>
+</div>
+<div class="unwrap" id="unwrap" hidden tabindex="0" role="dialog" aria-label="Open your Wishwell gift">
+  <button class="mute soundTgl" type="button" aria-pressed="true">Sound on</button><button class="skip" type="button" id="unwrapSkip">Skip</button>
+  <div>
+  <svg class="gift" viewBox="0 0 200 200" aria-hidden="true">
+    <g class="rays" fill="#ffc94a"><circle cx="100" cy="96" r="60" opacity=".35"/><path d="M100 96 70 10h60Z" opacity=".5"/><path d="M100 96 20 40l20-26Z" opacity=".4"/><path d="M100 96 180 40l-20-26Z" opacity=".4"/></g>
+    <rect class="body" x="34" y="96" width="132" height="92" rx="6" fill="#e0453a"/><rect x="90" y="96" width="20" height="92" fill="#ffc94a"/>
+    <g class="lid"><rect x="26" y="72" width="148" height="28" rx="5" fill="#c9362c"/><rect x="90" y="72" width="20" height="28" fill="#ffc94a"/></g>
+    <path class="bowL" d="M100 70C84 40 50 44 58 62 64 76 88 74 100 70Z" fill="#ffc94a" stroke="#f2b12f" stroke-width="3"/>
+    <path class="bowR" d="M100 70C116 40 150 44 142 62 136 76 112 74 100 70Z" fill="#ffc94a" stroke="#f2b12f" stroke-width="3"/>
+    <circle class="knot" cx="100" cy="70" r="9" fill="#f2b12f"/>
+  </svg>
+  <div class="wrap-sparks" id="unwrapSparks"></div>
+  <div class="wm">Wishwell</div>
+  <p id="unwrapTxt">Tap to unwrap</p>
+  </div>
+</div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -278,6 +370,8 @@ const PAY=!!String(CFG.gumroadUrl||"").trim();
 let PASS=null;try{PASS=JSON.parse(localStorage.getItem("wishwell-pass")||"null")}catch(e){}
 const hasPass=()=>PAY&&!!(PASS&&PASS.ok);
 const AI_ON=!!String(CFG.aiUrl||"").trim();
+const SHOP=!!CFG.shopTools;
+const reduced=()=>!!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
 /* free AI rounds per person (the AI service enforces the real number) */
 const FREE=Math.max(1,Math.round(+CFG.freeRounds||3));
 /* random id for this browser, so the AI service can count free trial rounds per device */
@@ -1038,6 +1132,7 @@ $("#ideaGrid").addEventListener("click",e=>{
   if(e.target.closest("a"))return;
   const b=e.target.closest("button[data-a]");const card=e.target.closest(".card[data-id]");
   const it=byId(b?b.dataset.id:card?card.dataset.id:"");if(!it)return;const a=b?b.dataset.a:"keep";
+  if(a==="cmp"){openCompare(it);return}
   if(a==="keep"){it.status=it.status==="kept"?"new":"kept";if(it.status==="kept"){S.m.circled++;freshId=it.id}syncKept();save();render();freshId="";return}
   const gone=()=>{syncKept();save();render()};
   if(a==="cut"){it.status="cut";S.m.cut++;toast("Cut. Undo at the bottom of the page.")}
@@ -1058,7 +1153,7 @@ function renderRank(){
     w.innerHTML=Object.keys(groups).map(c=>`<div class="group"><h3 style="color:${CATS[c]}">${esc(c)}</h3><ol class="rank">${groups[c].map(([r,it])=>`<li class="ri" style="grid-template-columns:40px minmax(0,1fr)"><span class="rn">${r}</span><span class="rt">${esc(it.title)}<small>${esc(priceTxt(it))}</small></span></li>`).join("")}</ol></div>`).join("")+`<p class="small muted">Numbers are the overall order. Turn grouping off to reorder.</p>`;
     return;
   }
-  w.innerHTML=`<ol class="rank" id="rankList">${list.map((it,i)=>`<li class="ri" data-id="${esc(it.id)}"><button type="button" class="handle" aria-label="Drag to reorder ${esc(it.title)}">${handleSvg}</button><span class="rn">${i+1}</span><span class="rt">${esc(it.title)}<small>${esc(it.cat)} · ${esc(priceTxt(it))}</small></span><span class="mv"><button type="button" data-m="-1" aria-label="Move up">&#8593;</button><button type="button" data-m="1" aria-label="Move down">&#8595;</button><button type="button" data-m="x" aria-label="Remove from list">&#215;</button></span></li>`).join("")}</ol>`;
+  w.innerHTML=`<ol class="rank" id="rankList">${list.map((it,i)=>`<li class="ri" data-id="${esc(it.id)}"><button type="button" class="handle" aria-label="Drag to reorder ${esc(it.title)}">${handleSvg}</button><span class="rn">${i+1}</span><span class="rt">${esc(it.title)}<small>${esc(it.cat)} · ${esc(priceTxt(it))}</small>${SHOP?`<button type="button" class="btn quiet" data-cmp="${esc(it.id)}" style="min-height:36px;padding:2px 10px;margin-top:4px">Compare prices</button>`:""}</span><span class="mv"><button type="button" data-m="-1" aria-label="Move up">&#8593;</button><button type="button" data-m="1" aria-label="Move down">&#8595;</button><button type="button" data-m="x" aria-label="Remove from list">&#215;</button></span></li>`).join("")}</ol>`;
 }
 $("#rankWrap").addEventListener("click",e=>{
   const b=e.target.closest("button[data-m]");if(!b)return;const id=b.closest(".ri").dataset.id;const k=S.kept.indexOf(id);
@@ -1250,11 +1345,11 @@ const keepIcon=on=>`<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" 
 function card(it){
   const c=CATS[it.cat]||CATS.Other;const k=it.status==="kept";
   return `<article class="card${k?" on":""}${it.id===freshId?" fresh":""}" data-id="${esc(it.id)}">
-<div class="mono" style="background:${c}" aria-hidden="true">${esc(it.cat.charAt(0))}${k?ringSvg:""}</div>
+${it.img?`<div class="mono pic" aria-hidden="true"><img src="${esc(it.img)}" alt="">${k?ringSvg:""}</div>`:`<div class="mono" style="background:${c}" aria-hidden="true">${esc(it.cat.charAt(0))}${k?ringSvg:""}</div>`}
 <div class="no">No. ${String(it.no).padStart(3,"0")} · ${esc(it.cat)}</div><h3>${esc(it.title)}</h3>
 ${it.hi?`<span class="price">${esc(est(it))}</span>`:`<span class="small muted">Price not set</span>`}
 ${it.why?`<p class="why">${esc(it.why)}</p>`:""}
-<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="${esc(it.id)}" aria-pressed="${k}">${keepIcon(k)}${k?"Circled":"Circle it"}</button><button type="button" class="btn quiet" data-a="have" data-id="${esc(it.id)}">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="${esc(it.id)}">Cut</button>${buyLink(it)}</div>
+<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="${esc(it.id)}" aria-pressed="${k}">${keepIcon(k)}${k?"Circled":"Circle it"}</button><button type="button" class="btn quiet" data-a="have" data-id="${esc(it.id)}">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="${esc(it.id)}">Cut</button>${buyLink(it)}${SHOP?`<button type="button" class="btn quiet cmpBtn" data-a="cmp" data-id="${esc(it.id)}">Compare prices</button>`:""}</div>
 <div class="src">${esc(it.src)}</div></article>`;
 }
 function render(){
@@ -1269,7 +1364,7 @@ function render(){
   const bits=[S.forWho==="me"?"For "+(S.name||"you"):"For "+(S.name||"someone else")];if(S.ints.length)bits.push(S.ints.join(", "));
   const tg=tasteTags();if(tg.length)bits[1]=tg.join(", ");bits.push((BUDGETS.find(b=>b[0]===S.budget)||["","Any price"])[1]);$("#whoLine").textContent=bits.join(" · ");
   $("#groupBtn").setAttribute("aria-pressed",S.group);$("#groupBtn").textContent=S.group?"Show one list":"Group by kind";
-  renderRank();renderShare();renderGroup();renderFamily();renderAge();
+  renderRank();renderShare();renderGroup();renderFamily();renderAge();if(SHOP)renderCoupons();
 }
 function show(v){
   if(v!=="family"&&v!=="age"&&!S.ageOk)v="age";
@@ -1285,6 +1380,187 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b
 $("#retake").addEventListener("click",()=>{qi=0;renderQuiz()});
 const openShared=()=>{const d=readHash();if(d){FAM={data:d,preview:false};S.m.famOpens++;show("family");return true}return false};
 window.addEventListener("hashchange",openShared);
+
+/* ---------- beta shopping tools (config shopTools) and the opening gift (config unwrap) ---------- */
+/* sound: soft synthesized chimes, made on the fly. Off when muted; "ambient" so a phone on silent stays silent where the browser supports it. */
+let AC=null;
+const soundOn=()=>S.sound!==false;
+function audio(){
+  const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;
+  if(!AC){try{if(navigator.audioSession)navigator.audioSession.type="ambient"}catch(e){}try{AC=new C()}catch(e){return null}}
+  if(AC.state==="suspended")AC.resume().catch(()=>{});return AC;
+}
+function chime(kind){
+  if(!soundOn())return;const c=audio();if(!c)return;const t=c.currentTime+(kind==="unwrap"?0.18:0.02);
+  const out=c.createGain();out.gain.value=kind==="soft"?0.08:0.14;out.connect(c.destination);
+  const echo=c.createDelay();echo.delayTime.value=0.16;const fb=c.createGain();fb.gain.value=0.28;echo.connect(fb);fb.connect(echo);echo.connect(out);
+  const notes=kind==="soft"?[1318.5,1760]:[783.99,987.77,1174.66,1567.98,1975.53,2349.32];
+  notes.forEach((f,i)=>{const st=t+i*0.075;
+    [[ "sine",f,0.9,1.0],["triangle",f*2.01,0.22,0.45]].forEach(([type,fr,peak,len])=>{
+      const o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.value=fr;
+      g.gain.setValueAtTime(0.0001,st);g.gain.exponentialRampToValueAtTime(peak,st+0.012);g.gain.exponentialRampToValueAtTime(0.0001,st+len);
+      o.connect(g);g.connect(out);if(type==="sine")g.connect(echo);o.start(st);o.stop(st+len+0.05)})});
+  if(kind==="unwrap"){/* a quick paper rustle before the chime */
+    const len=Math.floor(c.sampleRate*0.32),b=c.createBuffer(1,len,c.sampleRate),ch=b.getChannelData(0);
+    for(let i=0;i<len;i++)ch[i]=(Math.random()*2-1)*Math.pow(1-i/len,2)*(0.6+0.4*Math.sin(i/90));
+    const n=c.createBufferSource();n.buffer=b;const bp=c.createBiquadFilter();bp.type="bandpass";bp.frequency.value=2600;bp.Q.value=0.7;
+    const ng=c.createGain();ng.gain.value=0.55;n.connect(bp);bp.connect(ng);ng.connect(out);n.start(c.currentTime)}
+}
+function sparkle(el,n){
+  if(!el)return;el.classList.remove("glow");void el.offsetWidth;el.classList.add("glow");
+  if(reduced())return;if(getComputedStyle(el).position==="static")el.style.position="relative";
+  for(let i=0;i<(n||14);i++){const s=document.createElement("i");s.className="spark";const a=Math.PI*2*i/(n||14)+Math.random()*0.5,r=40+Math.random()*70;
+    s.style.setProperty("--dx",(Math.cos(a)*r).toFixed(0)+"px");s.style.setProperty("--dy",(Math.sin(a)*r).toFixed(0)+"px");s.style.animationDelay=(Math.random()*0.12).toFixed(2)+"s";
+    el.appendChild(s);setTimeout(()=>s.remove(),1400)}
+}
+const soundLabel=()=>soundOn()?"Sound on":"Sound off";
+function setSound(on){S.sound=on;save();document.querySelectorAll(".soundTgl").forEach(b=>{b.textContent=soundLabel();b.setAttribute("aria-pressed",on)});if(on)chime("soft")}
+document.addEventListener("click",e=>{const b=e.target.closest(".soundTgl");if(b){e.stopPropagation();setSound(!soundOn())}},true);
+
+/* trusted stores. Shipping rules are each store's standard rule for non-members, checked Nov 27, 2026 on the store's own help pages where they had one. */
+const RULES_CHECKED="Nov 27, 2026";
+const STORES=[
+ {id:"amazon",name:"Amazon",dom:"amazon.com",min:35,fee:null,rule:"Free shipping on $35 or more of eligible items, or with Prime",s:"https://www.amazon.com/s?k=",deals:"https://www.amazon.com/deals?bubble-id=deals-collection-coupons",cats:"*"},
+ {id:"target",name:"Target",dom:"target.com",min:35,fee:null,rule:"Free shipping over $35, or with a Target Circle Card",s:"https://www.target.com/s?searchTerm=",deals:"https://www.target.com/c/top-deals/-/N-4xw74",sd:"https://daily.slickdeals.net/stores/target-promo-code/",cats:"*"},
+ {id:"walmart",name:"Walmart",dom:"walmart.com",min:35,fee:6.99,rule:"Free shipping on $35 or more, $6.99 below that, or free with Walmart+",s:"https://www.walmart.com/search?q=",deals:"https://www.walmart.com/shop/deals",sd:"https://daily.slickdeals.net/stores/walmart-promo-codes/",cats:"*"},
+ {id:"bestbuy",name:"Best Buy",dom:"bestbuy.com",min:35,fee:null,rule:"Free shipping on $35 or more, or any order with a free My Best Buy account",s:"https://www.bestbuy.com/site/searchpage.jsp?st=",deals:"https://www.bestbuy.com/top-deals",cats:["Tech","Gaming","Music","Science","Room","Experiences"]},
+ {id:"kohls",name:"Kohl's",dom:"kohls.com",min:49,fee:8.95,rule:"Free shipping on $49 or more, $8.95 below that",s:"https://www.kohls.com/search.jsp?search=",deals:"https://www.kohls.com/sale-event/coupons-deals.jsp",cats:["Style","Room","Food","Sports","Beauty","Outdoors","Other","Making"]},
+ {id:"bn",name:"Barnes & Noble",dom:"barnesandnoble.com",min:60,fee:null,rule:"Free shipping on $60 or more, or $15 for Premium members",s:"https://www.barnesandnoble.com/s/",deals:"",cats:["Books","Art","Gaming"]},
+ {id:"rei",name:"REI",dom:"rei.com",min:100,fee:null,rule:"Free shipping on $100 or more, or any order for co-op members",s:"https://www.rei.com/search?q=",deals:"",cats:["Outdoors","Sports"]},
+ {id:"lego",name:"LEGO",dom:"lego.com",min:35,fee:null,rule:"Free shipping on orders over $35",s:"https://www.lego.com/en-us/search?q=",deals:"https://www.lego.com/en-us/promotions",match:/\blego\b|brick|building set/i}
+];
+const storeFor=(st,it)=>st.cats==="*"||(st.cats||[]).includes(it.cat)||!!(st.match&&st.match.test(it.title+" "+(it.search||"")));
+const slogo=st=>`<span class="slogo" data-l="${esc(st.name.charAt(0))}" aria-hidden="true"><img src="https://www.${st.dom}/favicon.ico" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`;
+document.addEventListener("error",e=>{const t=e.target;if(t&&t.tagName==="IMG"&&t.parentNode&&t.parentNode.classList&&t.parentNode.classList.contains("slogo")){const p=t.parentNode;p.textContent=p.dataset.l||""}},true);
+const dollars=v=>"$"+(Math.round(v*100)%100?v.toFixed(2):Math.round(v));
+const shipAt=(st,p)=>p>=st.min?0:st.fee; /* null: the store shows its fee at checkout */
+function priceRows(it){
+  const lo=it.lo||0,hi=it.hi||lo;
+  return STORES.filter(st=>storeFor(st,it)).map(st=>{
+    const sl=shipAt(st,lo),sh=shipAt(st,hi);
+    const free=lo>0&&sl===0;
+    const key=lo+(sl==null?7.99:sl)+(hi+(sh==null?7.99:sh))/1000;
+    let tot,note;
+    if(!hi){tot="";note=st.rule}
+    else if(free){tot=money(lo,hi);note="Ships free at this price"}
+    else if(sl!=null){tot=lo===hi?dollars(lo+sl):dollars(lo+sl)+" to "+dollars(hi+(sh||0));note=sh===0?`Includes ${dollars(sl)} shipping at the low price. Free at ${dollars(st.min)}.`:`Includes ${dollars(sl)} shipping. Free at ${dollars(st.min)}.`}
+    else{tot=money(lo,hi)+" + shipping";note=`Shipping is added under ${dollars(st.min)}. ${st.rule}.`}
+    return {st,free,key,tot,note};
+  }).sort((a,b)=>a.key-b.key||a.st.min-b.st.min);
+}
+let cmpItem=null;
+function renderCompare(){
+  const it=cmpItem;if(!it)return;const q=encodeURIComponent(it.search||it.title);
+  let rows=priceRows(it);const all=rows.length;if(S.freeShip)rows=rows.filter(r=>r.free);
+  const head=`<div class="cmpHead">${it.img?`<div class="mono pic"><img src="${esc(it.img)}" alt=""></div>`:`<div class="mono" style="background:${CATS[it.cat]||CATS.Other}" aria-hidden="true">${esc(it.cat.charAt(0))}</div>`}<div><h3 style="font-size:22px">${esc(it.title)}</h3><div class="small muted">${it.hi?esc(est(it))+" before shipping":"Price not set"}</div></div></div>`;
+  const list=rows.length?`<ol class="stores">${rows.map((r,i)=>`<li class="store${i===0&&it.hi?" best":""}">${slogo(r.st)}<b>${esc(r.st.name)}${r.free?'<span class="tagFree">Free shipping</span>':""}</b><span class="tot">${esc(r.tot)}</span><span class="rule">${i===0&&it.hi?"Lowest estimated total. ":""}${esc(r.note)}</span><a class="btn go" href="${esc(r.st.s+q)}" target="_blank" rel="noopener">See ${esc(r.st.name)}'s price</a></li>`).join("")}</ol>`
+    :`<div class="empty">None of these stores ship this item free on its own${it.hi?" at "+esc(money(it.lo,it.hi)):""}. Free shipping starts at $35 at Amazon, Target, Walmart and Best Buy, so pairing it with a second gift gets there.</div>`;
+  $("#cmpBody").innerHTML=head+`<label class="switch"><input type="checkbox" id="freeShip" ${S.freeShip?"checked":""}> Free shipping only${S.freeShip&&rows.length<all?` <span class="small muted">(${all-rows.length} hidden)</span>`:""}</label>`+list
+    +`<a class="btn wide" style="margin-top:12px" href="https://www.google.com/search?tbm=shop&q=${q}" target="_blank" rel="noopener">Compare every store on Google Shopping</a>`
+    +`<p class="small muted">Totals are estimates: this item's usual price plus each store's standard shipping rule, checked ${RULES_CHECKED}. Sales tax isn't included. Each store shows the exact total in the cart before you pay. Live prices aren't on yet.</p>`;
+}
+function openCompare(it){cmpItem=it;renderCompare();$("#cmpM").hidden=false;$("#cmpClose").focus()}
+if(SHOP){
+  $("#cmpClose").addEventListener("click",()=>{$("#cmpM").hidden=true;cmpItem=null});
+  $("#cmpM").addEventListener("click",e=>{if(e.target.id==="cmpM"){$("#cmpM").hidden=true;cmpItem=null}});
+  $("#cmpM").addEventListener("change",e=>{if(e.target.id==="freeShip"){S.freeShip=e.target.checked;save();renderCompare()}});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#cmpM").hidden){$("#cmpM").hidden=true;cmpItem=null}});
+  $("#rankWrap").addEventListener("click",e=>{const b=e.target.closest("button[data-cmp]");if(b){const it=byId(b.dataset.cmp);if(it)openCompare(it)}});
+}
+
+/* photo or screenshot to list (beta, uses one AI round) */
+function shrink(file,max,q){return new Promise((ok,no)=>{const u=URL.createObjectURL(file),im=new Image();
+  im.onload=()=>{const k=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));const cv=document.createElement("canvas");cv.width=Math.max(1,Math.round(im.naturalWidth*k));cv.height=Math.max(1,Math.round(im.naturalHeight*k));
+    const x=cv.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,cv.width,cv.height);x.drawImage(im,0,0,cv.width,cv.height);URL.revokeObjectURL(u);ok(cv.toDataURL("image/jpeg",q))};
+  im.onerror=()=>{URL.revokeObjectURL(u);no(new Error("not an image"))};im.src=u})}
+const pmsg=(t,err)=>{$("#msg").innerHTML=t?`<p class="${err?"err":"small muted"}">${t}</p>`:""};
+async function photoToList(file){
+  if(busy)return;busy=true;$("#photoBtn").disabled=true;$("#photoBtn").textContent="Reading...";pmsg("Looking for gift items in your photo. This takes a few seconds.");
+  try{
+    let big=await shrink(file,1024,0.8);if(big.length>650000)big=await shrink(file,768,0.7);
+    const thumb=await shrink(file,128,0.7);
+    const ac=window.AbortController?new AbortController():null,tm=ac&&setTimeout(()=>ac.abort(),60000);
+    let r;try{r=await fetch(String(CFG.aiUrl).trim().replace(/\/+$/,"")+"/photo",{method:"POST",headers:aiHeaders(false),body:JSON.stringify({image:big}),signal:ac?ac.signal:undefined})}finally{clearTimeout(tm)}
+    const tl=r.headers.get("x-trial-left");if(tl!=null)S.aiLeft={k:"trial",n:+tl};
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){
+      if(d.error==="trial_used"){S.trialUsed=true;S.trialFree=FREE;pmsg(`You've used your ${FREE} free AI rounds, so photos are paused for now.`,1)}
+      else if(d.error==="nothing_found")pmsg("I couldn't spot anything to buy in that photo. Try a closer shot, or a screenshot of the product page.",1);
+      else if(d.error==="beta_code_required"||d.error==="beta_only")pmsg("Photos work on the beta with your access code.",1);
+      else pmsg("Photos aren't working right now. Try again in a minute.",1);
+      return;
+    }
+    const items=(d.items||[]).slice(0,8);S.round=(S.round||0)+1;S.aiRounds=(S.aiRounds||0)+1;S.m.photo=(S.m.photo||0)+1;
+    items.forEach(o=>{const it=addItem({title:o.title,cat:o.category,lo:o.lo,hi:o.hi,search:o.search,src:"From your photo",status:"kept"});if(items.length<=2)it.img=thumb;S.kept.push(it.id)});
+    pmsg(`Added ${items.length} item${items.length===1?"":"s"} from your photo and circled ${items.length===1?"it":"them"}. Tap Compare prices on any of them.`);
+    chime("soft");
+  }catch(e){pmsg(e&&e.message==="not an image"?"That file isn't a photo I can read. Try a JPG or PNG.":"Photos aren't working right now. Try again in a minute.",1)}
+  finally{busy=false;$("#photoBtn").disabled=false;$("#photoBtn").textContent="Add from a photo";save();render();setAi()}
+}
+if(SHOP&&AI_ON){
+  $("#photoBtn").hidden=false;$("#photoHint").hidden=false;
+  $("#photoBtn").addEventListener("click",()=>$("#photoIn").click());
+  $("#photoIn").addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];e.target.value="";if(f)photoToList(f)});
+}
+
+/* Magic Coupons: trusted places to look, plus the codes you save. A code is only called working after you say it worked. */
+const SOURCES={store:"the store's site",rmn:"RetailMeNot",sd:"Slickdeals",other:"somewhere else"};
+const day=iso=>{try{return new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric"})}catch(e){return ""}};
+function couponStores(){
+  const kept=S.kept.map(byId).filter(Boolean);const score=st=>kept.filter(it=>storeFor(st,it)&&(st.cats!=="*")).length*2+(S.codes||[]).filter(c=>c.s===st.id).length*5+(st.cats==="*"?1:0);
+  return STORES.slice().sort((a,b)=>score(b)-score(a));
+}
+function renderCoupons(){
+  if(!SHOP)return;const codes=S.codes||[];
+  $("#couponWrap").innerHTML=couponStores().map(st=>{
+    const mine=codes.filter(c=>c.s===st.id);
+    const links=[st.deals?`<a class="btn" href="${esc(st.deals)}" target="_blank" rel="noopener">${esc(st.name)}'s own deals</a>`:`<a class="btn" href="https://www.${esc(st.dom)}/" target="_blank" rel="noopener">${esc(st.name)}'s site</a>`,
+      `<a class="btn" href="https://www.retailmenot.com/view/${esc(st.dom)}" target="_blank" rel="noopener">RetailMeNot</a>`,
+      st.sd?`<a class="btn" href="${esc(st.sd)}" target="_blank" rel="noopener">Slickdeals</a>`:""].join("");
+    return `<div class="cstore" data-s="${esc(st.id)}"><h3>${slogo(st)}${esc(st.name)}</h3><p class="small muted" style="margin:6px 0 0">${esc(st.rule)}.</p><div class="links">${links}</div>
+${mine.map(c=>`<div class="codeRow${c.st==="ok"?" worked":""}" data-c="${esc(c.id)}"><code>${esc(c.code)}</code><button type="button" class="btn quiet" data-ca="copy">Copy</button>
+<div class="meta">From ${esc(SOURCES[c.src]||SOURCES.other)}, saved ${esc(day(c.at))}. ${c.st==="ok"?"Worked at checkout on "+esc(day(c.chk))+".":c.st==="no"?"Didn't work on "+esc(day(c.chk))+".":"Not tried yet."}</div>
+<div class="acts" style="grid-column:1/-1">${c.st==="ok"?"":`<button type="button" class="btn" data-ca="ok">It worked!</button>`}${c.st==="no"?"":`<button type="button" class="btn quiet" data-ca="no">Didn't work</button>`}<button type="button" class="btn quiet" data-ca="del">Remove</button></div></div>`).join("")}
+<div class="row" style="margin-top:10px"><input type="text" maxlength="32" placeholder="Paste a code you found" aria-label="Code for ${esc(st.name)}" data-in="code" autocomplete="off" autocapitalize="characters" spellcheck="false" style="flex:2 1 160px">
+<select data-in="src" aria-label="Where you found it" style="flex:1 1 130px"><option value="store">On ${esc(st.name)}'s site</option><option value="rmn">RetailMeNot</option>${st.sd?'<option value="sd">Slickdeals</option>':""}<option value="other">Somewhere else</option></select>
+<button type="button" class="btn" data-ca="add">Save code</button></div></div>`}).join("");
+}
+if(SHOP){
+  $("#t-coupons").hidden=false;
+  $("#couponWrap").addEventListener("click",e=>{
+    const b=e.target.closest("button[data-ca]");if(!b)return;const box=b.closest(".cstore");const sid=box.dataset.s;S.codes=S.codes||[];
+    if(b.dataset.ca==="add"){const inp=box.querySelector('[data-in="code"]');const code=inp.value.trim().replace(/\s+/g,"").toUpperCase().slice(0,32);
+      if(!code){inp.focus();return}if(S.codes.some(c=>c.s===sid&&c.code===code)){toast("That code is already saved");return}
+      S.codes.push({id:"c"+Date.now().toString(36),s:sid,code,src:box.querySelector('[data-in="src"]').value,at:new Date().toISOString(),st:""});save();renderCoupons();
+      toast("Saved. Tap It worked! after you try it at checkout.");return}
+    const row=b.closest(".codeRow");const c=row&&S.codes.find(x=>x.id===row.dataset.c);if(!c)return;
+    if(b.dataset.ca==="copy"){copy(c.code,"Copied "+c.code);chime("soft");sparkle(row,8);return}
+    if(b.dataset.ca==="del"){S.codes=S.codes.filter(x=>x!==c);save();renderCoupons();return}
+    c.st=b.dataset.ca==="ok"?"ok":"no";c.chk=new Date().toISOString();save();renderCoupons();
+    if(c.st==="ok"){S.m.codeWins=(S.m.codeWins||0)+1;save();const nr=$(`#couponWrap .codeRow[data-c="${c.id}"]`);chime("magic");sparkle(nr,16);toast("Coupon magic! It's marked as working.")}
+  });
+  $("#couponWrap").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.matches('[data-in="code"]')){e.preventDefault();e.target.closest(".cstore").querySelector('[data-ca="add"]').click()}});
+}
+
+/* the opening gift: once per visit, tap to unwrap (sound can only start after a tap), skip any time */
+function unwrapIntro(){
+  const ov=$("#unwrap");if(!ov)return;
+  let seen=false;try{seen=sessionStorage.getItem("ww-unwrapped")==="1"}catch(e){}
+  if(seen||!CFG.unwrap){ov.remove();return}
+  ov.hidden=false;document.body.style.overflow="hidden";
+  let done=false;
+  const close=()=>{if(done)return;done=true;try{sessionStorage.setItem("ww-unwrapped","1")}catch(e){}ov.classList.add("gone");document.body.style.overflow="";setTimeout(()=>ov.remove(),480)};
+  const open=()=>{if(ov.classList.contains("open"))return;ov.classList.add("open");$("#unwrapTxt").textContent="Make a wish";chime("unwrap");
+    const sp=$("#unwrapSparks");if(!reduced())for(let i=0;i<22;i++){const s=document.createElement("i");s.className="spark";const a=-Math.PI*(0.05+0.9*Math.random()),r=60+Math.random()*120;
+      s.style.setProperty("--dx",(Math.cos(a)*r).toFixed(0)+"px");s.style.setProperty("--dy",(Math.sin(a)*r).toFixed(0)+"px");s.style.animationDelay=(0.2+Math.random()*0.25).toFixed(2)+"s";sp.appendChild(s)}
+    setTimeout(close,reduced()?900:1500)};
+  $("#unwrapSkip").addEventListener("click",e=>{e.stopPropagation();close()});
+  ov.addEventListener("click",open);
+  ov.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open()}else if(e.key==="Escape")close()});
+  ov.focus();
+}
+document.querySelectorAll(".soundTgl").forEach(b=>{b.textContent=soundLabel();b.setAttribute("aria-pressed",soundOn())});
+unwrapIntro();
 
 renderQuiz();
 if(!openShared())show(S.view||"start");

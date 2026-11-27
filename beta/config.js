@@ -5,6 +5,8 @@
    gumroadProductId: the product ID from Gumroad (needed to check license keys).
    licenseCheckUrl:  where to check license keys. Blank = the AI service's /verify (or Gumroad directly if aiUrl is blank).
    freeRounds:       free AI rounds shown in the app (the AI service enforces the real number).
+   shopTools:        beta shopping tools (compare prices, add from a photo, Magic Coupons).
+   unwrap:           the gift that unwraps when the app opens.
    See PAYMENTS.md for the full steps. */
 window.WISHWELL_CONFIG = {
   aiUrl: "https://wishwell-ai-ideas.shopmysticstudio.workers.dev",
@@ -12,5 +14,7 @@ window.WISHWELL_CONFIG = {
   gumroadUrl: "",
   gumroadProductId: "",
   licenseCheckUrl: "",
-  freeRounds: 15
+  freeRounds: 15,
+  shopTools: true,
+  unwrap: true
 };
