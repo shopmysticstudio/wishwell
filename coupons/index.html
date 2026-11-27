@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shopper coupon codes · Wishwell</title>
+<meta name="description" content="Coupon codes shared by shoppers for Amazon, Target, Walmart, Best Buy, Kohl's, Barnes & Noble, REI and LEGO, with how many people said each one worked.">
+<meta name="theme-color" content="#23284d">
+<link rel="canonical" href="https://shopmysticstudio.github.io/wishwell/coupons/">
+<link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{--navy:#23284d;--deep:#161a36;--gold:#ffc94a;--red:#e0453a;--teal:#0f766e;--cream:#fff8ec;--line:rgba(255,248,236,.16)}
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:Nunito,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--cream);
+    background:radial-gradient(ellipse 70% 40% at 50% 0%,rgba(255,201,74,.18),transparent 70%),linear-gradient(var(--navy),var(--deep));
+    min-height:100vh;min-height:100dvh}
+  main{max-width:720px;margin:0 auto;padding:28px 20px 24px}
+  .top{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit}
+  .top img{width:44px;height:44px}
+  .top b{font-size:22px;font-weight:900}
+  h1{font-size:clamp(32px,6vw,48px);line-height:1.05;margin:22px 0 8px;font-weight:900}
+  .lead{font-size:17px;line-height:1.5;color:#e9e6f5;margin:0 0 18px;max-width:34em}
+  .store{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin:12px 0}
+  .store h2{font-size:20px;margin:0 0 6px}
+  .code{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+  .code:first-of-type{border-top:0}
+  .code code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:19px;font-weight:700;letter-spacing:.5px;color:var(--gold);word-break:break-all}
+  .meta{grid-column:1/-1;font-size:14px;color:#d6d3e8;line-height:1.45}
+  .acts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
+  button,.btn{font:inherit;font-weight:800;font-size:15px;border:0;border-radius:999px;padding:9px 16px;cursor:pointer;background:var(--teal);color:#fff;min-height:40px}
+  button.quiet{background:rgba(255,255,255,.12);color:var(--cream)}
+  button[aria-pressed="true"]{outline:2px solid var(--gold);outline-offset:1px}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  .none{font-size:15px;color:#c9c6dd;margin:4px 0}
+  form{display:grid;gap:10px;margin-top:6px}
+  .row{display:flex;flex-wrap:wrap;gap:10px}
+  .row>*{flex:1 1 160px}
+  input,select{font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.95);color:#1b1e38;min-height:44px}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+  .msg{min-height:1.4em;font-size:15px;color:var(--gold);margin:0}
+  .small{font-size:14px;color:#c9c6dd;line-height:1.5}
+  a{color:var(--gold)}
+  footer{max-width:720px;margin:0 auto;padding:6px 20px 34px;font-size:13px;color:#a9a6c2;line-height:1.6}
+</style>
+</head>
+<body>
+<main>
+  <a class="top" href="../"><img src="../img/mark.png" alt="" width="44" height="44"><b>Wishwell</b></a>
+  <h1>Shopper coupon codes</h1>
+  <p class="lead">Codes other shoppers found, grouped by store. Copy one, try it at checkout, then tap whether it worked so the good ones rise to the top.</p>
+  <div id="list"><p class="none">Loading codes...</p></div>
+
+  <section class="store" aria-labelledby="addh">
+    <h2 id="addh">Share a code you found</h2>
+    <form id="add" autocomplete="off">
+      <div class="row">
+        <select id="st" aria-label="Store"></select>
+        <input id="code" maxlength="24" placeholder="Code, like SAVE10" aria-label="Code" autocapitalize="characters" spellcheck="false" required>
+      </div>
+      <div class="row">
+        <input id="about" maxlength="60" placeholder="What it's for (optional), like 20% off toys" aria-label="What it's for (optional)">
+        <input id="exp" type="date" aria-label="Ends on (optional)" title="Ends on (optional)">
+      </div>
+      <input class="hp" id="website" tabindex="-1" aria-hidden="true">
+      <div><button type="submit">Share code</button></div>
+      <p class="msg" id="msg" role="status"></p>
+    </form>
+    <p class="small">Shared codes are public. Only letters, numbers and dashes in a code, and no links, emails or phone numbers. Codes that expire, keep failing or get reported are hidden.</p>
+  </section>
+</main>
+<footer>
+  Codes come from shoppers, not the stores, so a code may not work. <a href="../privacy/">Privacy</a><br>
+  © 2026 Wishwell. All rights reserved.
+</footer>
+<script>
+(function(){
+  var API="https://wishwell-ai-ideas.shopmysticstudio.workers.dev/codes";
+  var STORES=[["amazon","Amazon"],["target","Target"],["walmart","Walmart"],["bestbuy","Best Buy"],["kohls","Kohl's"],["bn","Barnes & Noble"],["rei","REI"],["lego","LEGO"]];
+  var $=function(s){return document.querySelector(s)};
+  var esc=function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
+  var DEV="";try{DEV=localStorage.getItem("wishwell-device")||"";if(!/^[A-Za-z0-9_-]{16,64}$/.test(DEV)){DEV=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9]/g,"");localStorage.setItem("wishwell-device",DEV)}}catch(e){}
+  var VOTES={};try{VOTES=JSON.parse(localStorage.getItem("wishwell-coupon-votes")||"{}")||{}}catch(e){}
+  var CODES=[];
+  function day(s){if(!s)return"";var d=new Date(String(s).length===10?s+"T12:00:00":s);return isNaN(d)?"":d.toLocaleDateString("en-US",{month:"short",day:"numeric"})}
+  function post(path,body){var h={"content-type":"application/json"};if(DEV)h["x-device-id"]=DEV;
+    return fetch(API+path,{method:"POST",headers:h,body:JSON.stringify(body||{})}).then(function(r){return r.json().catch(function(){return{}}).then(function(b){return[r.status,b]})}).catch(function(){return[0,{}]})}
+  function votesTxt(c){return c.worked||c.failed?"Worked for "+c.worked+", didn't for "+c.failed+".":"Not checked yet."}
+  function render(){
+    var html=STORES.map(function(s){var cs=CODES.filter(function(c){return c.store===s[0]});if(!cs.length)return"";
+      return '<section class="store"><h2>'+esc(s[1])+'</h2>'+cs.map(function(c){var v=VOTES[c.id];
+        return '<div class="code" data-id="'+esc(c.id)+'"><code>'+esc(c.code)+'</code><button type="button" class="quiet" data-a="copy">Copy</button>'+
+          '<div class="meta">'+(c.about?esc(c.about)+". ":"")+"Added "+esc(day(c.added))+"."+(c.expires?" Ends "+esc(day(c.expires))+".":"")+" "+esc(votesTxt(c))+'</div>'+
+          '<div class="acts"><button type="button" data-a="worked" aria-pressed="'+(v==="worked")+'">It worked</button><button type="button" class="quiet" data-a="failed" aria-pressed="'+(v==="failed")+'">Didn\'t work</button><button type="button" class="quiet" data-a="report" aria-pressed="'+(v==="report")+'">Report</button></div></div>'}).join("")+'</section>'}).join("");
+    $("#list").innerHTML=html||'<p class="none">No shared codes yet. Found one? Share it below.</p>';
+  }
+  function load(){post("",{}).then(function(r){if(r[0]===200&&Array.isArray(r[1].codes)){CODES=r[1].codes;render()}else $("#list").innerHTML='<p class="none">Codes didn\'t load. Try again in a bit.</p>'})}
+  $("#st").innerHTML=STORES.map(function(s){return '<option value="'+s[0]+'">'+esc(s[1])+'</option>'}).join("");
+  $("#list").addEventListener("click",function(e){var b=e.target.closest("button[data-a]");if(!b)return;var row=b.closest(".code");
+    var c=CODES.filter(function(x){return String(x.id)===row.dataset.id})[0];if(!c)return;var a=b.dataset.a;
+    if(a==="copy"){try{navigator.clipboard.writeText(c.code);b.textContent="Copied"}catch(err){}setTimeout(function(){b.textContent="Copy"},1500);return}
+    if(VOTES[c.id]===a)return;
+    post("/vote",{id:c.id,vote:a}).then(function(r){if(r[0]!==200){alertMsg(r[0]===429?"That's a lot of taps today. Try again tomorrow.":"That didn't go through. Try again in a bit.");return}
+      var prev=VOTES[c.id];if(prev==="worked"||prev==="failed")c[prev]=Math.max(0,c[prev]-1);if(a==="worked"||a==="failed")c[a]++;
+      VOTES[c.id]=a;try{localStorage.setItem("wishwell-coupon-votes",JSON.stringify(VOTES))}catch(err){}render();
+      alertMsg(a==="worked"?"Thanks for letting other shoppers know.":a==="report"?"Thanks. Reported codes get hidden.":"Thanks. Codes that keep failing get hidden.")})});
+  function alertMsg(t){$("#msg").textContent=t}
+  $("#add").addEventListener("submit",function(e){e.preventDefault();var code=$("#code").value.trim().replace(/\s+/g,"").toUpperCase();if(!code)return;
+    post("/add",{store:$("#st").value,code:code,about:$("#about").value.trim(),expires:$("#exp").value,website:$("#website").value}).then(function(r){var b=r[1]||{};
+      if(r[0]===200){$("#code").value="";$("#about").value="";$("#exp").value="";alertMsg(b.code?"Shared. Thanks!":"Thanks, it's in.");load()}
+      else alertMsg(b.error==="bad_about"?"Leave out links, emails and phone numbers.":b.error==="bad_code"?"Codes can only have letters, numbers and dashes.":b.error==="expired"?"That end date has passed.":b.error==="rate_limited"?"You've shared a lot today. Try again tomorrow.":"That didn't go through. Try again in a bit.")})});
+  load();
+})();
+</script>
+<script src="../count.js" defer></script>
+</body>
+</html>
