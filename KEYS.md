@@ -66,9 +66,9 @@ or a price, and never says where to buy (Google Play's rule on steering buyers).
 
 ## What the app needs from the Worker (small changes, later)
 
-- **Origin:** the Worker now only answers the website's origin. A phone app sends
-  no Origin, so the Worker needs to accept app calls: allow no-Origin requests
-  only when they carry a valid `x-pass-key` (no free trial from the app).
+- **Origin (done):** the app's WebView sends `Origin: https://localhost` (APP_ORIGINS
+  in wrangler.toml). From that origin the Worker answers only `/verify` and idea
+  rounds that carry `x-pass-key`; no free trial, `/photo`, `/signal` or `/waitlist`.
 - **Play Integrity (later):** the app can send a Play Integrity token so the
   Worker knows the call comes from the real Wishwell app on a real phone.
 - `/photo` (photo to list) is beta-only today; key holders could get it too.

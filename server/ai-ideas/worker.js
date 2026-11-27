@@ -537,7 +537,10 @@ export default {
     const origin = request.headers.get("Origin") || "";
     const allowed = String(env.ALLOWED_ORIGINS || "https://shopmysticstudio.github.io")
       .split(",").map(s => s.trim()).filter(Boolean);
-    const okOrigin = allowed.includes(origin);
+    const webOrigin = allowed.includes(origin);
+    // The Android app (WebView origin) may only check a Holiday Pass key and use a pass; no free trial.
+    const appOrigin = !webOrigin && String(env.APP_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean).includes(origin);
+    const okOrigin = webOrigin || appOrigin;
     const cors = okOrigin ? {
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -552,9 +555,13 @@ export default {
     const later = p => { if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {})); else p.catch(() => {}); };
 
     if (!okOrigin) return reply({ error: "origin_not_allowed" }, 403);
-    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-    if (request.method !== "POST") return reply({ error: "use_post" }, 405);
     const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
+    if (request.method === "OPTIONS") {
+      if (appOrigin && path !== "/verify" && path !== "/") return reply({ error: "origin_not_allowed" }, 403);
+      return new Response(null, { status: 204, headers: cors });
+    }
+    if (request.method !== "POST") return reply({ error: "use_post" }, 405);
+    if (appOrigin && !(path === "/verify" || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
     if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist") return reply({ error: "not_found" }, 404);
 
     const maxBody = path === "/photo" ? MAX_PHOTO_BODY : MAX_BODY;
