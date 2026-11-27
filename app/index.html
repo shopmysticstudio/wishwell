@@ -272,7 +272,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
 const CFG=window.WISHWELL_CONFIG||{};
 const APP_URL=CFG.shareBase||(location.origin+location.pathname);
 const CATS={Tech:"#2563eb",Gaming:"#7c3aed",Making:"#ea580c",Art:"#db2777",Music:"#0891b2",Sports:"#16a34a",Outdoors:"#4d7c0f",Science:"#1e3a8a",Books:"#92400e",Food:"#b91c1c",Style:"#334155",Room:"#0f766e",Experiences:"#c2410c",Beauty:"#be185d",Other:"#525252"};
-const INTS=[["Tech","tech electronics gadgets phone computer"],["Gaming","gaming games controller"],["Making","maker build tools 3dprinting electronics"],["Art","art drawing painting"],["Music","music audio instrument"],["Sports","sports fitness running"],["Outdoors","outdoors camping hiking"],["Space and science","space science astronomy rockets"],["Books","books reading"],["Cooking","cooking food"],["Style","fashion style clothes"],["Room setup","room decor desk"],["Cars","cars driving"],["Pets","pets dog cat"],["Puzzles","puzzles"],["Beauty","beauty selfcare makeup spa"],["Jewelry","jewelry"],["Travel","travel"]];
+const INTS=[["Cooking","cooking food"],["Music","music audio instrument"],["Movies and shows","movies tv"],["Sports","sports fitness running"],["Outdoors","outdoors camping hiking"],["Art","art drawing painting"],["Crafts","crafts sewing knit diy"],["Books","books reading"],["Style","fashion style clothes"],["Room setup","room decor desk"],["Coffee and tea","coffee tea"],["Gaming","gaming games controller"],["Travel","travel"],["Pets","pets dog cat"],["Self-care","selfcare spa bath"],["Beauty","beauty makeup skincare"],["Jewelry","jewelry"],["Puzzles","puzzles"],["Friends and parties","party friends games"],["Tech","tech electronics gadgets phone computer"],["Making","maker build tools 3dprinting electronics"],["Cars","cars driving"],["Space and science","space science astronomy rockets"]];
 const BANK=[
 ["Beginner camera drone","Tech",60,300,"drone fly camera rc aerospace","Fly it, film it, learn to land it."],
 ["Mechanical keyboard kit","Tech",60,150,"keyboard computer gaming build","Swap switches and keycaps until it sounds right."],
@@ -740,7 +740,7 @@ const BANK=[
 ["Wireless mouse","Tech",20,60,"computer desk school","One less cable on the desk."],
 ["Tablet case with keyboard","Tech",30,90,"tablet school typing","Turns a tablet into a tiny laptop."],
 ["Phone camera lens kit","Tech",20,50,"photography phone camera photos","Wide, close-up and fisheye shots from a phone."],
-["Selfie ring light","Tech",20,50,"photography video streaming makeup phone","Good light for calls, videos and selfies."],
+["Selfie ring light","Tech",20,50,"photography video streaming phone selfie","Good light for calls, videos and selfies."],
 ["Phone tripod with remote","Tech",15,40,"photography phone video travel","Everyone fits in the group photo."],
 ["Pocket photo printer","Tech",60,130,"photos photography phone memories","Prints little photos straight from the phone."],
 ["Laptop sleeve","Tech",15,40,"computer school travel","Keeps the laptop safe in any bag."],
@@ -921,7 +921,7 @@ const BANK=[
 const $=s=>document.querySelector(s);
 const esc=v=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const metrics=()=>({quizDone:0,quizTaps:0,ideas:0,circled:0,cut:0,have:0,ai:0,linkCopies:0,textCopies:0,previews:0,buy:0,famBuy:0,famOpens:0,claims:0,makeOwn:0,draws:0,biggest:0,pay:{holiday:0,exchange:0,plus:0}});
-const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],have:[],seq:0,round:0,aiRounds:0,view:"start",listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
+const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",age:"",lean:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],have:[],seq:0,round:0,aiRounds:0,view:"start",listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
 let S=fresh(),sample=null,busy=false,FAM=null;
 try{const raw=localStorage.getItem("wishbook-v1");if(raw){const o=JSON.parse(raw);S=Object.assign(fresh(),o);S.m=Object.assign(metrics(),o.m||{});S.m.pay=Object.assign(metrics().pay,(o.m||{}).pay||{});S.g=Object.assign(fresh().g,o.g||{});S.opt=Object.assign(fresh().opt,o.opt||{})}}catch(e){}
 const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}};
@@ -961,16 +961,18 @@ function renderAge(){
 /* taste quiz: quick taps that seed the first wishlist */
 const CAT2INT={Making:"Making",Outdoors:"Outdoors",Tech:"Tech",Art:"Art",Music:"Music",Gaming:"Gaming",Room:"Room setup",Science:"Space and science",Books:"Books",Sports:"Sports",Food:"Cooking",Style:"Style",Experiences:""};
 const PAIRS=[
- {id:"sat",q:"Free Saturday. You'd rather...",o:[["Build or fix something","Tinkerer","maker build tools electronics repair","Making"],["Get outside","Outdoorsy","outdoors hiking camping sports","Outdoors"]]},
- {id:"desk",q:"Pick a desk buddy",o:[["A tiny robot","Techie","robot coding electronics tech","Tech"],["A fresh sketchbook","Artsy","art drawing","Art"]]},
+ {id:"sat2",q:"Free Saturday. You'd rather...",o:[["Go out with friends","Social","friends party games","Experiences"],["Stay in and get cozy","Cozy","cozy room decor sleep blanket","Room"]]},
+ {id:"aft",q:"A good afternoon is...",o:[["Outside, on the move","Outdoorsy","outdoors hiking bike beach","Outdoors"],["Making something","Creative","art crafts drawing painting diy","Art"]]},
  {id:"ears",q:"Headphones on or controller in hand?",o:[["Headphones on","Music lover","music audio","Music"],["Controller in hand","Gamer","gaming games controller","Gaming"]]},
- {id:"treat",q:"The best kind of treat is...",o:[["A gadget that does something cool","Gadget fan","tech gadgets camera drone","Tech"],["Something that makes a room cozy","Cozy","cozy room decor sleep","Room"]]},
- {id:"mind",q:"Down a rabbit hole about...",o:[["Space, rockets and science","Space nerd","space science astronomy rockets aerospace","Science"],["A great story or series","Bookworm","books reading manga comics","Books"]]},
- {id:"move",q:"Weekend energy",o:[["Sweat it out","Sporty","sports fitness running climbing","Sports"],["Cook up something good","Foodie","cooking food","Food"]]}
+ {id:"treat2",q:"Pick a treat",o:[["Something to wear","Style","clothes fashion shoes cozy","Style"],["A handy gadget","Gadgets","tech gadgets phone","Tech"]]},
+ {id:"mind2",q:"Down a rabbit hole about...",o:[["A great story or show","Story lover","books reading movies manga","Books"],["How things work","Curious","science space experiments","Science"]]},
+ {id:"move",q:"Weekend energy",o:[["Sweat it out","Sporty","sports fitness running","Sports"],["Cook up something good","Foodie","cooking food","Food"]]}
 ];
 const STYLES=[["Practical","Stuff they'll use every day"],["Wow factor","The gift they'll show off"],["Cozy","Comfort and good vibes"],["Surprise me","Mix in some wild cards"]];
 const BUDGETS=[["25","Under $25"],["75","Up to $75"],["200","Up to $200"],["9999","$200 and up"],["any","Any price"]];
-const STEPS=["who",...PAIRS.map(p=>p.id),"ints","style","budget","notes"];
+const AGES=[["teen","13 to 17","Gen Z or Gen Alpha"],["young","18 to 29","Gen Z"],["adult","30 to 44","Millennial"],["mid","45 to 59","Gen X"],["older","60 and up","Boomer or older"]];
+const LEANS=[["fem","Lean feminine","Jewelry, makeup and the like can show up"],["masc","Lean masculine","Beard care, cologne and the like can show up"],["neutral","Keep it neutral","Everyday ideas for anyone"]];
+const STEPS=["who","age","lean",...PAIRS.map(p=>p.id),"ints","style","budget","notes"];
 let qi=0;
 const tasteTags=()=>{const t=[];PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k])t.push(p.o[k][1])});return t};
 function seedInts(){const set=new Set(S.ints);PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k]){const n=CAT2INT[p.o[k][3]];if(n)set.add(n)}});S.ints=[...set]}
@@ -980,13 +982,15 @@ function renderQuiz(){
   if(id==="who"){h=`<h2 class="qq">Who's this list for?</h2><p class="qsub">A few quick taps and Wishwell learns their taste.</p>
    <div class="pair"><button type="button" class="opt" style="background:var(--teal)" data-who="me" aria-pressed="${S.forWho==="me"}">Me<small>Make my own wishlist</small></button><button type="button" class="opt" style="background:var(--navy)" data-who="them" aria-pressed="${S.forWho==="them"}">Someone else<small>Find gifts for them</small></button></div>
    <label class="field" style="max-width:720px"><span>${S.forWho==="me"?"Your":"Their"} first name <span class="muted small">(optional)</span></span><input type="text" id="qName" maxlength="30" autocomplete="off" value="${esc(S.name)}" placeholder="Sam"></label>`}
+  else if(id==="age"){const me=S.forWho==="me";h=`<h2 class="qq">${me?"How old are you?":"About how old are they?"}</h2><p class="qsub">Optional. It helps the first ideas fit the stage of life.</p><div class="tiles">${AGES.map(([v,n,d])=>`<button type="button" class="tile" data-age="${v}" aria-pressed="${S.age===v}">${esc(n)}<small>${esc(d)}</small></button>`).join("")}</div><button type="button" class="neither" data-age="">Skip</button>`}
+  else if(id==="lean"){h=`<h2 class="qq">Lean any ideas by gender?</h2><p class="qsub">Optional. Most ideas are for anyone either way.</p><div class="tiles">${LEANS.map(([v,n,d])=>`<button type="button" class="tile" data-lean="${v}" aria-pressed="${S.lean===v}">${esc(n)}<small>${esc(d)}</small></button>`).join("")}</div><button type="button" class="neither" data-lean="">Skip</button>`}
   else if(PAIRS.some(p=>p.id===id)){const p=PAIRS.find(p=>p.id===id);const cur=S.quiz[id];
    h=`<h2 class="qq">${esc(p.q)}</h2><p class="qsub">Go with your gut.</p><div class="pair">${p.o.map((o,k)=>`<button type="button" class="opt" style="background:${CATS[o[3]]}" data-k="${k}" aria-pressed="${cur===k}">${esc(o[0])}<small>${esc(o[1])}</small></button>`).join("")}</div><button type="button" class="neither" data-k="-1">Neither, skip</button>`}
   else if(id==="ints"){seedInts();h=`<h2 class="qq">Anything else ${S.forWho==="me"?"you're":"they're"} into?</h2><p class="qsub">We picked some from your answers. Tap to add or remove.</p><div class="seg" id="ints">${INTS.map(([n])=>`<button type="button" class="chip" data-i="${esc(n)}" aria-pressed="${S.ints.includes(n)}">${esc(n)}</button>`).join("")}</div><button type="button" class="btn primary" style="margin-top:18px" data-next="1">Next</button>`}
   else if(id==="style"){h=`<h2 class="qq">What kind of gifts?</h2><div class="tiles">${STYLES.map(([n,d])=>`<button type="button" class="tile" data-style="${esc(n)}" aria-pressed="${S.style===n}">${esc(n)}<small>${esc(d)}</small></button>`).join("")}</div>`}
   else if(id==="budget"){h=`<h2 class="qq">Budget per gift?</h2><div class="tiles">${BUDGETS.map(([v,n])=>`<button type="button" class="tile" data-b="${v}" aria-pressed="${S.budget===v}">${esc(n)}</button>`).join("")}</div>`}
   else{const tags=tasteTags();h=`<h2 class="qq">Anything specific?</h2><p class="qsub">Optional. Hobbies, favorite things, what ${S.forWho==="me"?"you":"they"} already have.</p>${tags.length?`<div class="taste" aria-label="Taste so far">${tags.map(t=>`<span>${esc(t)}</span>`).join("")}</div>`:""}
-   <label class="field" style="max-width:720px"><span class="small muted">Details</span><textarea id="qNotes" maxlength="400" placeholder="Builds drones, plays trombone, already has a 3D printer">${esc(S.notes)}</textarea></label><button type="button" class="btn primary wide" style="max-width:720px" id="qGo">Fish out my ideas</button>`}
+   <label class="field" style="max-width:720px"><span class="small muted">Details</span><textarea id="qNotes" maxlength="400" placeholder="Bakes on weekends, plays soccer, already has a good speaker">${esc(S.notes)}</textarea></label><button type="button" class="btn primary wide" style="max-width:720px" id="qGo">Fish out my ideas</button>`}
   $("#qbody").innerHTML=h;
 }
 const qNext=()=>{if(qi<STEPS.length-1){qi++;save();renderQuiz();window.scrollTo(0,0)}};
@@ -996,6 +1000,8 @@ $("#qbody").addEventListener("click",e=>{
   const k=t.closest("[data-k]");if(k){const v=+k.dataset.k;if(v<0)delete S.quiz[id];else S.quiz[id]=v;S.m.quizTaps=(S.m.quizTaps||0)+1;qNext();return}
   const c=t.closest("#ints .chip");if(c){const n=c.dataset.i;S.ints=S.ints.includes(n)?S.ints.filter(x=>x!==n):[...S.ints,n];c.setAttribute("aria-pressed",S.ints.includes(n));save();return}
   if(t.closest("[data-next]")){qNext();return}
+  const ag=t.closest("[data-age]");if(ag){S.age=ag.dataset.age;qNext();return}
+  const ln=t.closest("[data-lean]");if(ln){S.lean=ln.dataset.lean;qNext();return}
   const st=t.closest("[data-style]");if(st){S.style=st.dataset.style;qNext();return}
   const b=t.closest("[data-b]");if(b){S.budget=b.dataset.b;qNext();return}
   if(t.closest("#qGo")){S.notes=($("#qNotes")?.value||"").trim();finishQuiz()}
@@ -1003,7 +1009,7 @@ $("#qbody").addEventListener("click",e=>{
 $("#qbody").addEventListener("input",e=>{if(e.target.id==="qName"){S.name=e.target.value.trim();save()}if(e.target.id==="qNotes"){S.notes=e.target.value;save()}});
 $("#qBack").addEventListener("click",()=>{if(qi>0){qi--;renderQuiz()}});
 function finishQuiz(){
-  seedInts();if(!S.ints.length&&!S.notes)S.ints=["Tech","Making"];
+  seedInts();
   S.m.quizDone=(S.m.quizDone||0)+1;
   S.items=S.items.filter(i=>i.status==="kept"||i.status==="have"||i.mine);
   $("#qbar").style.width="100%";const tags=tasteTags();
@@ -1054,8 +1060,9 @@ const NOTE_MAP=[
  [/robot|electronic|arduino|3d print/,"maker electronics robot"]
 ];
 function signals(){
-  const sig=[];const add=(key,w,t,note)=>sig.push({key,w,note,set:new Set(t.split(" ").map(stem))});
-  S.ints.forEach(n=>{const f=INTS.find(x=>x[0]===n);if(f)add(n,2,f[1])});
+  const sig=[];const add=(key,w,t,note,strong)=>sig.push({key,w,note,strong:!!(note||strong),set:new Set(t.split(" ").map(stem))});
+  const fromQuiz=new Set(PAIRS.map(p=>{const k=S.quiz[p.id];return k!=null&&p.o[k]?CAT2INT[p.o[k][3]]:""}));
+  S.ints.forEach(n=>{const f=INTS.find(x=>x[0]===n);if(f)add(n,2,f[1],0,!fromQuiz.has(n))});
   PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k])add(CAT2INT[p.o[k][3]]||p.o[k][1],3,p.o[k][2])});
   const nt=" "+S.notes.toLowerCase()+" ";
   NOTE_MAP.forEach(([re,t],i)=>{if(re.test(nt))add("note"+i,6,t,1)});
@@ -1100,6 +1107,33 @@ function learned(P,b){
   let ws=0,wn=0;tasteWords(b).forEach(x=>{const f=IDF[x]||1;ws+=f*lo(P.word,x);wn+=f});
   return 4*lo(P.cat,b[1])+5*(wn?ws/Math.sqrt(wn):0)+1.2*lo(P.band,band((b[2]+b[3])/2));
 }
+/* Opening batches stay broad and everyday. Science, maker and tech-hobby ideas, and ideas
+   aimed at one gender (makeup, jewelry, beard care and the like), only come in once the
+   person shows that interest: an interest chip they picked, words in Details, or circles.
+   A quiz pick alone lets in at most one science idea per batch. From the third batch on,
+   every other batch tries one held-back idea in the discovery slot, so a person who loves
+   science or makeup but never said so still gets the chance to circle one. */
+const NICHE_RE=/robot|coding|electronic(?! drum)|arduino|raspberry|solder|3d ?print|telescope|microscope|chemistr|experiment|rocket|aerospace|astronom|meteorite|mineral|circuit|\bdna\b|science|drone|caliper|machining|laser engrav|linux|engine kit|model railroad|balsa/;
+const GEN_RE=/makeup|lip gloss|nail polish|nail care|curling|straighten|hair dryer|earring|necklace|bracelet|stackable ring|jewelry|perfume|cologne|beard|shav|scrunchie|claw clip|crossbody|legging|gua sha|nail salon/;
+const FEM_RE=/makeup|lip gloss|nail polish|nail care|curling|straighten|hair dryer|earring|necklace|bracelet|stackable ring|jewelry|perfume|scrunchie|claw clip|crossbody|legging|gua sha|nail salon/;
+const MASC_RE=/beard|shav|cologne/;
+/* Optional age range: a light nudge toward what fits that stage of life, and away from what rarely does. */
+const AGE_FIT={
+ teen:["gaming games school desk room decor lights skateboard sneakers friends party phone anime manga trampoline arcade concert hoodie","kitchen cooker grilling bbq mattress car cars espresso knife skillet beard cologne golf"],
+ young:["room decor desk coffee travel concert friends party fitness gym fashion sneakers plants","kids slime"],
+ adult:["kitchen cooking coffee home travel outdoors garden plants fitness books sleep","kids slime school dorm anime manga trampoline arcade"],
+ mid:["kitchen cooking garden plants books travel outdoors coffee tea home grilling golf","kids slime school dorm anime manga controller skateboard trampoline arcade streaming"],
+ older:["garden plants books reading puzzles photos memories birds tea cozy sleep family travel","kids slime school dorm anime manga controller skateboard vr streaming trampoline arcade sneakers drone"]};
+const AGE_SETS={};for(const k in AGE_FIT)AGE_SETS[k]=AGE_FIT[k].map(t=>new Set(t.split(" ").map(stem)));
+function ageFit(b){const a=AGE_SETS[S.age];if(!a)return 0;const w=ideaWords(b);let plus=0,minus=false;w.forEach(x=>{if(a[0].has(x))plus++;if(a[1].has(x))minus=true});return minus?-4:Math.min(3,plus*1.5)}
+const ideaText=b=>(b[0]+" "+b[4]).toLowerCase();
+const isNiche=b=>b[1]==="Science"||NICHE_RE.test(ideaText(b));
+const isGen=b=>GEN_RE.test(ideaText(b));
+function shownInterest(P,b,re){ // circles on ideas like this one
+  if((b[1]==="Science"||b[1]==="Beauty")&&lo(P.cat,b[1])>0.3)return true;
+  for(const x of tasteWords(b))if(re.test(x)&&lo(P.word,x)>0.3)return true;
+  return false;
+}
 const jac=(a,b)=>{let n=0;a.forEach(x=>{if(b.has(x))n++});return n/(a.size+b.size-n||1)};
 function bankIdeas(n){
   const seen=new Set([...S.items.map(i=>i.title.toLowerCase()),...S.have]);const sig=signals();const mb=maxB();
@@ -1110,21 +1144,30 @@ function bankIdeas(n){
   const P=tasteProfile();const learn=Math.min(1,P.n/4);
   let noteHit=false;
   const scored=pool.map(b=>{const iw=ideaWords(b);const hit=new Map();let note=false;
-    sig.forEach(g=>{for(const x of g.set)if(iw.has(x)){hit.set(g.key,Math.max(hit.get(g.key)||0,g.w));if(g.note)note=true;break}});
+    let strong=false,light=false;
+    sig.forEach(g=>{for(const x of g.set)if(iw.has(x)){hit.set(g.key,Math.max(hit.get(g.key)||0,g.w));if(g.note)note=true;if(g.strong)strong=true;else light=true;break}});
     let s=0;hit.forEach(w=>s+=w);if(hit.size>1)s+=3*(hit.size-1);if(note){s+=4;noteHit=true}
     if(SB.includes(b[1]))s+=2;if(S.style==="Wow factor"&&b[3]>=200)s+=1;
     s+=learn*learned(P,b);
-    return{b,s:s+Math.random()*(S.style==="Surprise me"?4:1.5),w:tasteWords(b)}}).sort((a,b)=>b.s-a.s);
+    const gen=isGen(b),niche=isNiche(b);let gate=0;
+    let held=false;
+    s+=ageFit(b);
+    const leanOk=gen&&((S.lean==="fem"&&FEM_RE.test(ideaText(b)))||(S.lean==="masc"&&MASC_RE.test(ideaText(b))));if(leanOk)s+=1;
+    if(gen&&!strong&&!leanOk&&!shownInterest(P,b,GEN_RE))held=true;
+    else if(niche&&!strong&&!shownInterest(P,b,NICHE_RE)){if(light)gate=1;else held=true}
+    const r=Math.random()*(S.style==="Surprise me"?4:1.5);
+    return{b,s:s+r-(held?50:0),s0:s+r,w:tasteWords(b),gate,held}}).sort((a,b)=>b.s-a.s);
   const picks=[],cats={},left=scored.slice();
-  const take=i=>{const x=left.splice(i,1)[0];cats[x.b[1]]=(cats[x.b[1]]||0)+1;picks.push(x)};
+  let gated=0;const take=i=>{const x=left.splice(i,1)[0];cats[x.b[1]]=(cats[x.b[1]]||0)+1;if(x.gate)gated++;picks.push(x)};
   // exploration: once there is something to learn from, try a category they haven't seen and haven't turned down
   const explore=P.n>=3?(S.style==="Surprise me"?2:1):0;
   const main=n-explore;
   const cap=Math.max(2,Math.ceil(n*0.6));// never more than 5 of 8 from one category
-  while(picks.length<main&&left.length){let bi=-1,bv=-1e9;left.forEach((x,i)=>{if((cats[x.b[1]]||0)>=cap)return;const v=x.s-2*(cats[x.b[1]]||0)-(picks.some(p=>jac(p.w,x.w)>=0.4)?4:0);if(v>bv){bv=v;bi=i}});if(bi<0)break;take(bi)}
+  while(picks.length<main&&left.length){let bi=-1,bv=-1e9;left.forEach((x,i)=>{if((cats[x.b[1]]||0)>=cap||(x.gate&&gated>=1))return;const v=x.s-2*(cats[x.b[1]]||0)-(picks.some(p=>jac(p.w,x.w)>=0.4)?4:0);if(v>bv){bv=v;bi=i}});if(bi<0)break;take(bi)}
   for(let e=0;e<explore&&picks.length<n&&left.length;e++){
-    const fresh=left.map((x,i)=>[x,i]).filter(([x])=>!P.cat[x.b[1]]&&!cats[x.b[1]]);
-    const from=fresh.length?fresh:left.map((x,i)=>[x,i]).filter(([x])=>lo(P.cat,x.b[1])>=0&&(cats[x.b[1]]||0)<cap);
+    if(e===0&&(S.round||0)>=3&&(S.round%2)===1){const hs=left.map((x,i)=>[x,i]).filter(([x])=>x.held&&!cats[x.b[1]]);if(hs.length){take(hs.sort((a,b)=>b[0].s0-a[0].s0)[0][1]);continue}}
+    const fresh=left.map((x,i)=>[x,i]).filter(([x])=>!P.cat[x.b[1]]&&!cats[x.b[1]]&&x.s>-20&&!(x.gate&&gated));
+    const from=fresh.length?fresh:left.map((x,i)=>[x,i]).filter(([x])=>lo(P.cat,x.b[1])>=0&&(cats[x.b[1]]||0)<cap&&x.s>-20&&!(x.gate&&gated));
     if(!from.length)break;take(from.sort((a,b)=>b[0].s-a[0].s)[0][1]);
   }
   while(picks.length<n&&left.length){const i=left.findIndex(x=>(cats[x.b[1]]||0)<cap);take(i<0?0:i)}

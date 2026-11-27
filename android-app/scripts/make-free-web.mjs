@@ -32,7 +32,7 @@ swap("if(CFG.aiUrl){", "if(false){", "AI switch");
 
 // Details box: say plainly that short hobby words work best, since there's no AI to read sentences.
 swap("<p class=\"qsub\">Optional. Hobbies, favorite things, what ${S.forWho===\"me\"?\"you\":\"they\"} already have.</p>", "<p class=\"qsub\">Optional. A few hobby words help most, like puzzles, camping, baking or cats.</p>", "Details hint");
-swap('placeholder="Builds drones, plays trombone, already has a 3D printer"', 'placeholder="puzzles, drones, coffee, quirky desk toys"', "Details placeholder");
+swap('placeholder="Bakes on weekends, plays soccer, already has a good speaker"', 'placeholder="baking, soccer, coffee, movie nights"', "Details placeholder");
 
 // Bundled fonts instead of Google Fonts.
 swapRe(/<link rel="preconnect" href="https:\/\/fonts\.googleapis\.com">\s*<link href="https:\/\/fonts\.googleapis\.com[^"]*" rel="stylesheet">/, '<link rel="stylesheet" href="fonts/fonts.css">', "Google Fonts links");
