@@ -1,0 +1,8 @@
+{
+  "appId": "com.shopmysticstudio.wishwell",
+  "appName": "Wishwell",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#23284d"
+  }
+}

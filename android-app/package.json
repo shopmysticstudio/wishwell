@@ -1,0 +1,19 @@
+{
+  "name": "wishwell-android",
+  "private": true,
+  "description": "Wishwell free Android app for Google Play (starter ideas only, no AI).",
+  "type": "module",
+  "scripts": {
+    "build:web": "node scripts/make-free-web.mjs",
+    "sync": "npm run build:web && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "@fontsource/caveat": "^5.0.0",
+    "@fontsource/nunito": "^5.0.0"
+  }
+}
