@@ -67,6 +67,10 @@ swap('rel="noopener sponsored"', 'rel="noopener"', "sponsored rel");
 // Footer.
 swapRe(/<footer>[\s\S]*?<\/footer>/, "<footer>Free app. No accounts. Your lists stay on this phone. With a key, AI ideas send your quiz answers, Details and idea titles to the Wishwell AI service. Prices are rough estimates, not live prices. Buy, Compare prices and Magic Coupons open a store or deals search in your browser.</footer>", "footer");
 
+// Coupons: plain text pointing to the shared store coupons on the website (Leo, Nov 27). No link, and nothing about passes, keys or prices.
+const COUPON_LINE = "Shoppers share store coupons on the Wishwell website.";
+swap('<div class="grid" id="ideaGrid"></div>', `<div class="grid" id="ideaGrid"></div>\n  <p class="small muted" style="margin:10px 0 0">${COUPON_LINE}</p>`, "idea grid");
+
 // No service worker inside the app: the files already live on the phone.
 swap('if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});', "", "service worker");
 
@@ -76,8 +80,9 @@ for (const bad of ["Holiday Pass", "Exchange Pass", "$4.99", "$2.99", "$19.99", 
   if (html.includes(bad)) throw new Error(`Free app build: "${bad}" is still in the page.`);
 }
 for (const bad of [/gumroad/i, /\bbuy (a|your|the) (key|pass)/i, /\bget (a|your|the) (key|pass)/i, /\bpurchas/i, /\bwebsite\b/i, /\bcheckout\b/i]) {
-  if (bad.test(html)) throw new Error(`Free app build: ${bad} matches something in the page.`);
+  if (bad.test(html.split(COUPON_LINE).join(""))) throw new Error(`Free app build: ${bad} matches something in the page.`);
 }
+if (html.split(COUPON_LINE).length !== 2 || /<a[^>]*>[^<]*coupons on the Wishwell/i.test(html)) throw new Error("Free app build: the coupon line must appear once, as plain text.");
 if (!html.includes("passOnly:true")) throw new Error("Free app build: AI must be key-only.");
 writeFileSync(join(out, "index.html"), html);
 
