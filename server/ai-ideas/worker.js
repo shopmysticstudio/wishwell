@@ -447,14 +447,24 @@ export default {
       }
     };
     let out, ideas;
+    const dg = { model: env.MODEL || DEFAULT_MODEL, ms1: 0, ms2: 0, info1: "", info2: "" };
     try {
+      let t0 = Date.now();
       out = await ask();
+      dg.ms1 = Date.now() - t0; dg.info1 = describe(out).slice(0, 400);
       ideas = parseIdeas(out, q);
-      if (!ideas.length) { out = await ask(); ideas = parseIdeas(out, q); }   // one retry for an unusable reply
+      if (!ideas.length) {   // one retry for an unusable reply
+        t0 = Date.now(); out = await ask(); ideas = parseIdeas(out, q);
+        dg.ms2 = Date.now() - t0; dg.info2 = describe(out).slice(0, 400);
+      }
     } catch (e) {
       // Includes the daily free amount running out.
       return reply({ error: "ai_unavailable", detail: String(e && e.message || e).slice(0, 200) }, 429);
     }
+
+    // Temporary timing notes (no user data), only when a diag table exists.
+    if (env.DB) later(Promise.resolve().then(() => env.DB.prepare("INSERT INTO diag (at, model, ms1, ms2, info1, info2, n) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .bind(new Date().toISOString(), dg.model, dg.ms1, dg.ms2, dg.info1, dg.info2, ideas.length).run()));
 
     if (!ideas.length) return reply({ error: "no_usable_ideas", detail: describe(out), dropped: ideas.dropped }, 429);
 
