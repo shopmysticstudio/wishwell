@@ -25,7 +25,9 @@ def norm(code):
 
 
 def sub(text, old, new, count=1):
-    assert text.count(old) == count, (old, text.count(old))
+    """Replace old with new. count=None means every occurrence (at least one)."""
+    n = text.count(old)
+    assert (n >= 1) if count is None else (n == count), (old, n)
     return text.replace(old, new)
 
 
@@ -78,8 +80,8 @@ def main():
     h = sub(h, "<title>Wishwell</title>", '<title>Wishwell Beta</title>\n<meta name="robots" content="noindex, nofollow">')
     h = sub(h, '<meta name="apple-mobile-web-app-title" content="Wishwell">', '<meta name="apple-mobile-web-app-title" content="Wishwell Beta">')
     h = sub(h, "Test draft by Wishwell", "Beta by Wishwell")
-    h = sub(h, '"wishbook-v1"', '"wishbook-beta-v1"', 2)
-    h = sub(h, '"wishwell-pass"', '"wishwell-beta-pass"', 2)
+    h = sub(h, '"wishbook-v1"', '"wishbook-beta-v1"', None)
+    h = sub(h, '"wishwell-pass"', '"wishwell-beta-pass"', None)
     gate_head = GATE_HEAD.replace("@SALT@", salt).replace("@HASH@", digest).replace("@ITER@", str(ITERATIONS))
     h = sub(h, "</head>", gate_head + "</head>")
     h = sub(h, "<body>\n", "<body>\n" + GATE_BODY)
