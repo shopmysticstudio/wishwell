@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Same navy as the app header; shows behind the status bar and navigation bar. -->
+    <color name="wishwell_navy">#23284d</color>
+</resources>
