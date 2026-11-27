@@ -176,7 +176,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"52ee1a93e192963d7fdaaa67581260a7",hash:"30c6df72e9557a362d10567ab3d02b9a79fe5675dde03fdba22c20d1cd770ff3",iter:200000};
+window.WISHWELL_BETA={salt:"9e993ab7fe7aaa8c9e06985862122ab1",hash:"e2d0175ef6a05d232e224d81fc3e162b6d9579de03a291b42bd902bfe926d7c0",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
@@ -296,8 +296,8 @@ document.getElementById("gateForm").addEventListener("submit",async e=>{
     <div class="bar"><h2 id="plansT" style="font-size:clamp(24px,5vw,34px)">Plans (coming soon)</h2><button class="btn" type="button" id="closePlans">Close</button></div>
     <p class="muted" id="plansWhy"></p>
     <div class="tiers">
-      <div class="tier" data-t="free"><h3>Free</h3><div class="amt">$0</div><ul><li>Taste quiz, lists, ranking and share links</li><li id="perkFreeAi">3 rounds of AI ideas per list</li><li>Group exchange for up to 4 people</li></ul></div>
-      <div class="tier best" data-t="holiday"><h3>Holiday Pass</h3><div class="amt">$4.99</div><div class="small muted">one time, this season</div><ul><li id="perkAi">Unlimited AI ideas</li><li>Draw names for groups of any size</li><li>No subscription</li></ul><button class="btn pay" type="button" data-pay="holiday">Coming soon</button></div>
+      <div class="tier" data-t="free"><h3>Free</h3><div class="amt">$0</div><ul><li>Taste quiz, lists, ranking and share links</li><li id="perkFreeAi">3 free AI rounds to try</li><li>Group exchange for up to 4 people</li></ul></div>
+      <div class="tier best" data-t="holiday"><h3>Holiday Pass</h3><div class="amt">$4.99</div><div class="small muted">one time, this season</div><ul><li id="perkAi">25 AI rounds a day</li><li>Draw names for groups of any size</li><li>No subscription</li></ul><button class="btn pay" type="button" data-pay="holiday">Coming soon</button></div>
       <div class="tier" data-t="exchange"><h3>Exchange Pass</h3><div class="amt">$2.99</div><div class="small muted">per group, one time</div><ul><li>Groups of 5 or more</li><li>Everyone's list in one place</li><li>Reminders before the swap</li></ul><button class="btn pay" type="button" data-pay="exchange">Coming soon</button></div>
     </div>
     <p class="later">Later, in 2027: Plus at $19.99 a year and Family at $34.99 a year. <button class="btn pay" type="button" data-pay="plus" style="min-height:40px;padding:4px 10px;margin-left:4px">I'd want Plus</button></p>
@@ -320,6 +320,9 @@ const PAY=!!String(CFG.gumroadUrl||"").trim();
 let PASS=null;try{PASS=JSON.parse(localStorage.getItem("wishwell-beta-pass")||"null")}catch(e){}
 const hasPass=()=>PAY&&!!(PASS&&PASS.ok);
 const AI_ON=!!String(CFG.aiUrl||"").trim();
+/* random id for this browser, so the AI service can count free trial rounds per device */
+let DEV="";try{DEV=localStorage.getItem("wishwell-device")||"";if(!/^[A-Za-z0-9_-]{16,64}$/.test(DEV)){DEV=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9]/g,"");localStorage.setItem("wishwell-device",DEV)}}catch(e){}
+const aiHeaders=withPass=>{const h={"content-type":"application/json"};if(window.WISHWELL_ACCESS_CODE)h["x-beta-code"]=window.WISHWELL_ACCESS_CODE;if(DEV)h["x-device-id"]=DEV;if(withPass&&hasPass())h["x-pass-key"]=PASS.key;return h};
 const APP_URL=CFG.shareBase||(location.origin+location.pathname);
 const CATS={Tech:"#2563eb",Gaming:"#7c3aed",Making:"#ea580c",Art:"#db2777",Music:"#0891b2",Sports:"#16a34a",Outdoors:"#4d7c0f",Science:"#1e3a8a",Books:"#92400e",Food:"#b91c1c",Style:"#334155",Room:"#0f766e",Experiences:"#c2410c",Other:"#525252"};
 const INTS=[["Tech","tech electronics gadgets phone computer"],["Gaming","gaming games controller"],["Making","maker build tools 3dprinting electronics"],["Art","art drawing painting"],["Music","music audio instrument"],["Sports","sports fitness running"],["Outdoors","outdoors camping hiking"],["Space and science","space science astronomy rockets"],["Books","books reading"],["Cooking","cooking food"],["Style","fashion style clothes"],["Room setup","room decor desk"],["Cars","cars driving"],["Pets","pets dog cat"],["Puzzles","puzzles"]];
@@ -711,26 +714,34 @@ Do not repeat any of: ${seen.join("; ")||"none"}.
 Mix obvious hits with a few surprising picks that fit the details. Prefer real product types; a brand is fine when it matters. Use typical US prices.
 Use American English. Never use dashes of any kind in text.
 Reply with only a JSON array. Each element: {"title": short name under 50 characters, "category": one of ${Object.keys(CATS).join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a store search phrase}.`;
-  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,ints:S.ints,quiz:PAIRS.filter(p=>S.quiz[p.id]!=null&&p.o[S.quiz[p.id]]).map(p=>p.q+" "+p.o[S.quiz[p.id]][0]),style:S.style,notes:S.notes,budget:S.budget,kept,cut,seen,cats:Object.keys(CATS)}});
+  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,ints:S.ints,quiz:PAIRS.filter(p=>S.quiz[p.id]!=null&&p.o[S.quiz[p.id]]).map(p=>p.q+" "+p.o[S.quiz[p.id]][0]),style:S.style,notes:S.notes,budget:S.budget,kept,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
   const arr=Array.isArray(out)?out:(out&&Array.isArray(out.ideas)?out.ideas:[]);
   const have=new Set(S.items.map(i=>i.title.toLowerCase()));let c=0;
   arr.forEach(o=>{if(c<n&&o&&o.title&&!have.has(String(o.title).toLowerCase())){have.add(String(o.title).toLowerCase());addItem({title:o.title,cat:o.category,lo:o.lo,hi:o.hi,why:o.why,search:o.search,src:"AI pick"});c++}});
   return c;
 }
+/* AI ideas kept since the last round, so the idea pool counts each keep once */
+const keptAiNew=()=>{const sent=new Set(S.keptSent||[]);return S.items.filter(i=>i.status==="kept"&&i.src==="AI pick"&&!sent.has(i.title)).map(i=>i.title).slice(0,40)};
 async function getIdeas(){
   if(busy)return;busy=true;S.round=(S.round||0)+1;const mb=$("#moreBtn");mb.disabled=true;
   const msg=$("#msg");msg.innerHTML="";let got=0;
-  const capped=PAY&&!hasPass()&&S.aiRounds>=3;
-  if(sample&&!capped){
+  const passBtn=`<button class="btn" type="button" id="capPlans" style="min-height:40px;padding:4px 10px">Get the Holiday Pass</button>`;
+  const trialOver=!!(sample&&S.trialUsed&&!hasPass());let note=trialOver?`You've used your 3 free AI rounds, so these are starter ideas. ${passBtn}`:"";
+  if(sample&&!trialOver){
     mb.textContent="Thinking...";msg.innerHTML=`<p class="note">Asking AI for ideas that fit. This takes a few seconds.</p>`;
-    try{got=await aiIdeas(8);S.aiRounds++;S.m.ai++;
-      if(S.aiRounds===3&&!hasPass())setTimeout(()=>openPlans(PAY?"That's the 3 rounds of AI ideas a Free list gets. The Holiday Pass unlocks unlimited AI ideas.":"That's the 3 rounds of AI ideas a Free list gets. The Holiday Pass, coming soon, will unlock more. In this test you can keep going.","holiday"),900);
-    }catch(e){msg.innerHTML=`<p class="note err">AI ideas didn't load${e&&e.code==="rate_limited"?" (too many asks, try again in a minute)":""}. Showing starter ideas instead.</p>`;if(e&&e.code==="not_granted")sample=null}
+    try{const ka=keptAiNew();got=await aiIdeas(8);S.aiRounds++;S.m.ai++;S.keptSent=[...(S.keptSent||[]),...ka].slice(-300)}
+    catch(e){const c=e&&e.code;
+      if(c==="trial_used"){S.trialUsed=true;S.aiLeft=null;note=`You've used your 3 free AI rounds, so these are starter ideas. ${passBtn}`;
+        setTimeout(()=>openPlans(PAY?"You've used your 3 free AI rounds. The Holiday Pass gives you 25 AI rounds a day, plus gift exchanges of any size.":"You've used your 3 free AI rounds. The Holiday Pass, coming soon, will give you 25 AI rounds a day.","holiday"),600)}
+      else if(c==="pass_daily_limit"){note="You've used today's 25 AI rounds. More tomorrow! These are starter ideas."}
+      else if(c==="pass_invalid"){PASS=null;try{localStorage.removeItem("wishwell-beta-pass")}catch(x){}note=`Your Holiday Pass key didn't check out (it may have been refunded), so these are starter ideas. ${passBtn}`}
+      else msg.innerHTML=`<p class="note err">AI ideas didn't load${c==="rate_limited"?" (too many asks, try again in a minute)":""}. Showing starter ideas instead.</p>`;
+      if(c==="not_granted")sample=null}
   }
   if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
   if(got&&!msg.querySelector(".err"))msg.innerHTML="";
-  if(sample&&capped)msg.innerHTML=`<p class="note">You've used the 3 free rounds of AI ideas, so these are starter ideas. <button class="btn" type="button" id="capPlans" style="min-height:40px;padding:4px 10px">Get unlimited AI ideas</button></p>`;
-  busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
+  if(note)msg.innerHTML=`<p class="note">${note}</p>`;
+  setAi();busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
 }
 $("#moreBtn").addEventListener("click",getIdeas);
 
@@ -903,8 +914,9 @@ $("#plans").addEventListener("click",e=>{const b=e.target.closest("[data-pay]");
 /* Holiday Pass checkout and license key (only when gumroadUrl is set) */
 const okPurchase=d=>!!(d&&d.success&&d.purchase&&!d.purchase.refunded&&!d.purchase.chargebacked&&!d.purchase.disputed);
 async function checkKey(key){
-  if(String(CFG.licenseCheckUrl||"").trim()){
-    const r=await fetch(CFG.licenseCheckUrl.trim(),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({license_key:key})});
+  const url=String(CFG.licenseCheckUrl||"").trim()||(AI_ON?String(CFG.aiUrl).trim().replace(/\/+$/,"")+"/verify":"");
+  if(url){
+    const r=await fetch(url,{method:"POST",headers:aiHeaders(false),body:JSON.stringify({license_key:key})});
     const d=await r.json().catch(()=>({}));return !!d.valid;
   }
   const r=await fetch("https://api.gumroad.com/v2/licenses/verify",{method:"POST",body:new URLSearchParams({product_id:String(CFG.gumroadProductId||"").trim(),license_key:key})});
@@ -912,7 +924,7 @@ async function checkKey(key){
 }
 function renderPass(){
   const box=$("#passBox");box.hidden=!PAY;if(!PAY)return;
-  if(hasPass()){box.innerHTML=`<strong>Holiday Pass is on for this device.</strong> ${AI_ON?"Unlimited AI ideas and any size group.":"Any size group."}`;return}
+  if(hasPass()){box.innerHTML=`<strong>Holiday Pass is on for this device.</strong> ${AI_ON?"25 AI rounds a day and any size group.":"Any size group."}`;return}
   box.innerHTML=`<div class="field" style="margin:0"><span>I have a license key</span><div class="row"><input type="text" id="keyBox" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="License key" placeholder="Paste your key"><button class="btn" type="button" id="keyBtn">Unlock</button></div></div><p class="small muted" id="keyMsg" style="margin:6px 0 0">After you buy, your key is on the Gumroad receipt and in your email.</p>`;
 }
 async function unlock(){
@@ -996,12 +1008,19 @@ window.addEventListener("hashchange",openShared);
 renderQuiz();
 if(!openShared())show(S.view||"start");
 const aiLine=$("#aiState");
-const setAi=()=>aiLine.textContent=sample?"AI ideas are on.":"Using starter ideas. AI ideas coming soon.";
+const setAi=()=>{
+  if(!sample){aiLine.textContent="Using starter ideas. AI ideas coming soon.";return}
+  const L=S.aiLeft;
+  if(hasPass())aiLine.textContent="Holiday Pass: AI ideas are on."+(L&&L.k==="pass"?` ${L.n} AI rounds left today.`:"");
+  else if(S.trialUsed)aiLine.textContent="Your 3 free AI rounds are used. Starter ideas are on.";
+  else aiLine.textContent="AI ideas are on."+(L&&L.k==="trial"?(L.n>0?` ${L.n} free AI round${L.n===1?"":"s"} left.`:" That was your last free AI round."):" Your first 3 AI rounds are free.");
+};
 if(CFG.aiUrl){sample={json:async(_p,o)=>{
-  const h={"content-type":"application/json"};if(window.WISHWELL_ACCESS_CODE)h["x-beta-code"]=window.WISHWELL_ACCESS_CODE;
-  const r=await fetch(CFG.aiUrl,{method:"POST",headers:h,body:JSON.stringify(o.payload)});
-  if(r.status===429){const e=new Error("busy");e.code="rate_limited";throw e}
-  if(!r.ok)throw new Error("AI service "+r.status);return r.json()}}}
+  const r=await fetch(CFG.aiUrl,{method:"POST",headers:aiHeaders(true),body:JSON.stringify(o.payload)});
+  const tl=r.headers.get("x-trial-left"),pl=r.headers.get("x-pass-left");
+  if(pl!=null)S.aiLeft={k:"pass",n:+pl};else if(tl!=null)S.aiLeft={k:"trial",n:+tl};
+  if(!r.ok){const d=await r.json().catch(()=>({}));const e=new Error("AI service "+r.status);e.code=d.error||(r.status===429?"rate_limited":"error");throw e}
+  return r.json()}}}
 setAi();
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
