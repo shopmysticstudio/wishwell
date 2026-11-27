@@ -194,7 +194,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
 .magicHead{background:var(--navy);color:#fff;border-radius:10px;padding:16px;margin-bottom:14px}
 .magicHead h2{color:var(--tag)}
 .magicHead p{margin:6px 0 0;color:#dfe3ff}
-.soundBtn{min-height:40px;padding:4px 12px}
+.soundBtn{min-height:40px;padding:4px 12px;background:#fff;color:#141414;border-color:#fff}
 .spark{position:absolute;pointer-events:none;width:14px;height:14px;left:50%;top:50%;margin:-7px 0 0 -7px;z-index:3;
   background:radial-gradient(circle,#fff 0 18%,var(--tag) 30%,transparent 70%);clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);
   animation:spark 1s ease-out forwards}
@@ -1429,6 +1429,7 @@ const STORES=[
  {id:"rei",name:"REI",dom:"rei.com",min:100,fee:null,rule:"Free shipping on $100 or more, or any order for co-op members",s:"https://www.rei.com/search?q=",deals:"",cats:["Outdoors","Sports"]},
  {id:"lego",name:"LEGO",dom:"lego.com",min:35,fee:null,rule:"Free shipping on orders over $35",s:"https://www.lego.com/en-us/search?q=",deals:"https://www.lego.com/en-us/promotions",match:/\blego\b|brick|building set/i}
 ];
+const poss=n=>/'s$/.test(n)?n:n+"'s";
 const storeFor=(st,it)=>st.cats==="*"||(st.cats||[]).includes(it.cat)||!!(st.match&&st.match.test(it.title+" "+(it.search||"")));
 const slogo=st=>`<span class="slogo" data-l="${esc(st.name.charAt(0))}" data-d="${esc(st.dom)}" aria-hidden="true"><img src="https://www.${st.dom}/favicon.ico" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`;
 /* if a store's own icon won't load, try Google's icon service once, then show the store's first letter */
@@ -1455,7 +1456,7 @@ function renderCompare(){
   const it=cmpItem;if(!it)return;const q=encodeURIComponent(it.search||it.title);
   let rows=priceRows(it);const all=rows.length;if(S.freeShip)rows=rows.filter(r=>r.free);
   const head=`<div class="cmpHead">${it.img?`<div class="mono pic"><img src="${esc(it.img)}" alt=""></div>`:`<div class="mono" style="background:${CATS[it.cat]||CATS.Other}" aria-hidden="true">${esc(it.cat.charAt(0))}</div>`}<div><h3 style="font-size:22px">${esc(it.title)}</h3><div class="small muted">${it.hi?esc(est(it))+" before shipping":"Price not set"}</div></div></div>`;
-  const list=rows.length?`<ol class="stores">${rows.map((r,i)=>`<li class="store${i===0&&it.hi?" best":""}">${slogo(r.st)}<b>${esc(r.st.name)}${r.free?'<span class="tagFree">Free shipping</span>':""}</b><span class="tot">${esc(r.tot)}</span><span class="rule">${i===0&&it.hi?"Lowest estimated total. ":""}${esc(r.note)}</span><a class="btn go" href="${esc(r.st.s+q)}" target="_blank" rel="noopener">See ${esc(r.st.name)}'s price</a></li>`).join("")}</ol>`
+  const list=rows.length?`<ol class="stores">${rows.map((r,i)=>`<li class="store${i===0&&it.hi?" best":""}">${slogo(r.st)}<b>${esc(r.st.name)}${r.free?'<span class="tagFree">Free shipping</span>':""}</b><span class="tot">${esc(r.tot)}</span><span class="rule">${i===0&&it.hi?"Lowest estimated total. ":""}${esc(r.note)}</span><a class="btn go" href="${esc(r.st.s+q)}" target="_blank" rel="noopener">See ${esc(poss(r.st.name))} price</a></li>`).join("")}</ol>`
     :`<div class="empty">None of these stores ship this item free on its own${it.hi?" at "+esc(money(it.lo,it.hi)):""}. Free shipping starts at $35 at Amazon, Target, Walmart and Best Buy, so pairing it with a second gift gets there.</div>`;
   $("#cmpBody").innerHTML=head+`<label class="switch"><input type="checkbox" id="freeShip" ${S.freeShip?"checked":""}> Free shipping only${S.freeShip&&rows.length<all?` <span class="small muted">(${all-rows.length} hidden)</span>`:""}</label>`+list
     +`<a class="btn wide" style="margin-top:12px" href="https://www.google.com/search?tbm=shop&q=${q}" target="_blank" rel="noopener">Compare every store on Google Shopping</a>`
@@ -1516,7 +1517,7 @@ function renderCoupons(){
   if(!SHOP)return;const codes=S.codes||[];
   $("#couponWrap").innerHTML=couponStores().map(st=>{
     const mine=codes.filter(c=>c.s===st.id);
-    const links=[st.deals?`<a class="btn" href="${esc(st.deals)}" target="_blank" rel="noopener">${esc(st.name)}'s own deals</a>`:`<a class="btn" href="https://www.${esc(st.dom)}/" target="_blank" rel="noopener">${esc(st.name)}'s site</a>`,
+    const links=[st.deals?`<a class="btn" href="${esc(st.deals)}" target="_blank" rel="noopener">${esc(poss(st.name))} own deals</a>`:`<a class="btn" href="https://www.${esc(st.dom)}/" target="_blank" rel="noopener">${esc(poss(st.name))} site</a>`,
       `<a class="btn" href="https://www.retailmenot.com/view/${esc(st.dom)}" target="_blank" rel="noopener">RetailMeNot</a>`,
       st.sd?`<a class="btn" href="${esc(st.sd)}" target="_blank" rel="noopener">Slickdeals</a>`:""].join("");
     return `<div class="cstore" data-s="${esc(st.id)}"><h3>${slogo(st)}${esc(st.name)}</h3><p class="small muted" style="margin:6px 0 0">${esc(st.rule)}.</p><div class="links">${links}</div>
@@ -1524,7 +1525,7 @@ ${mine.map(c=>`<div class="codeRow${c.st==="ok"?" worked":""}" data-c="${esc(c.i
 <div class="meta">From ${esc(SOURCES[c.src]||SOURCES.other)}, saved ${esc(day(c.at))}. ${c.st==="ok"?"Worked at checkout on "+esc(day(c.chk))+".":c.st==="no"?"Didn't work on "+esc(day(c.chk))+".":"Not tried yet."}</div>
 <div class="acts" style="grid-column:1/-1">${c.st==="ok"?"":`<button type="button" class="btn" data-ca="ok">It worked!</button>`}${c.st==="no"?"":`<button type="button" class="btn quiet" data-ca="no">Didn't work</button>`}<button type="button" class="btn quiet" data-ca="del">Remove</button></div></div>`).join("")}
 <div class="row" style="margin-top:10px"><input type="text" maxlength="32" placeholder="Paste a code you found" aria-label="Code for ${esc(st.name)}" data-in="code" autocomplete="off" autocapitalize="characters" spellcheck="false" style="flex:2 1 160px">
-<select data-in="src" aria-label="Where you found it" style="flex:1 1 130px"><option value="store">On ${esc(st.name)}'s site</option><option value="rmn">RetailMeNot</option>${st.sd?'<option value="sd">Slickdeals</option>':""}<option value="other">Somewhere else</option></select>
+<select data-in="src" aria-label="Where you found it" style="flex:1 1 130px"><option value="store">On ${esc(poss(st.name))} site</option><option value="rmn">RetailMeNot</option>${st.sd?'<option value="sd">Slickdeals</option>':""}<option value="other">Somewhere else</option></select>
 <button type="button" class="btn" data-ca="add">Save code</button></div></div>`}).join("");
 }
 if(SHOP){
