@@ -521,7 +521,25 @@ const BANK=[
 ["Deduction board game","Gaming",25,50,"puzzles games strategy mystery","Solve the case before anyone else."],
 ["Puzzle hunt adventure book","Books",15,30,"puzzles books mystery","Every page hides a clue."],
 ["Smart chess board","Gaming",250,500,"chess puzzles strategy games tech","Plays against them and teaches along the way."],
-["Collector mechanical puzzle set","Other",80,200,"puzzles collector mechanical","Rare puzzles that stump even puzzle fans."]
+["Collector mechanical puzzle set","Other",80,200,"puzzles collector mechanical","Rare puzzles that stump even puzzle fans."],
+["Kinetic desk sculpture","Room",25,60,"quirky desk toys fidget science","Keeps spinning long after one nudge."],
+["Newton's cradle","Room",15,40,"quirky desk toys science","Click-clack physics for the desk."],
+["Magnetic desk sculpture","Room",15,35,"quirky desk toys fidget building","A new shape every phone call."],
+["Fidget cube","Other",8,20,"fidget quirky toys desk","Buttons, switches and dials for busy hands."],
+["Infinity flip cube","Other",8,20,"fidget quirky toys","Folds over itself forever."],
+["Wooden brain teaser set","Other",15,40,"puzzles brain logic quirky","Looks easy. It is not."],
+["Daily calendar puzzle","Other",20,40,"puzzles brain logic desk quirky","A different puzzle for every date of the year."],
+["Mirror cube puzzle","Other",10,25,"puzzles cubing quirky brain","Same twists, wildly different shapes."],
+["Tangram puzzle set","Other",10,25,"puzzles brain logic","Seven pieces, hundreds of shapes."],
+["Lateral thinking puzzle cards","Gaming",10,20,"puzzles brain logic party mystery friends","Strange little stories with a twist to figure out."],
+["Pocket logic puzzle game","Gaming",10,25,"puzzles brain logic travel","Brain teasers that fit in a bag."],
+["Code-breaking cipher kit","Other",20,40,"puzzles brain mystery logic quirky","Secret messages to crack and send."],
+["Single-color jigsaw puzzle","Other",15,30,"puzzles brain quirky","No picture, all one color, pure stubbornness."],
+["Crossword and word puzzle book","Books",8,15,"puzzles brain books reading","Grids for coffee breaks."],
+["Wind-up automaton kit","Making",25,60,"quirky maker mechanical build","A little moving machine with a sense of humor."],
+["Weird science experiment kit","Science",20,45,"science experiments quirky brain chemistry","Slime, crystals and fizzing things."],
+["Desk zen sand garden","Room",15,30,"quirky desk cozy","Rake the sand between tasks."],
+["Glow-in-the-dark puzzle","Other",15,35,"puzzles quirky cozy space","Finish it, turn off the lights, see it again."]
 ];
 
 const $=s=>document.querySelector(s);
@@ -616,25 +634,72 @@ function finishQuiz(){
   show("ideas");if(tags.length)toast("Taste: "+tags.slice(0,3).join(", "));getIdeas();
 }
 
-/* idea sources */
-const words=()=>{
-  let w=[];S.ints.forEach(n=>{const f=INTS.find(x=>x[0]===n);if(f)w.push(...f[1].split(" "))});
-  PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k])w.push(...p.o[k][2].split(" "),...p.o[k][2].split(" "))});
-  w.push(...S.notes.toLowerCase().split(/[^a-z0-9]+/).filter(x=>x.length>2&&!["and","the","has","already","likes","into","loves","with","for","plays","really"].includes(x)));
-  return [...new Set(w)];
-};
+/* idea sources: each starter idea is scored against every taste signal (interests,
+   quiz picks, words in Details). Ideas that hit two or more signals rise to the top, and
+   Details count most because they are the most specific thing anyone tells us. */
+const STOP=new Set("and the has have had already like likes liked love loves into with for play plays really very also some thing things stuff gift gifts them they she her his him their who what that this just lot lots kind sort keep get make makes enjoy enjoys always much more most any all are was been being from about our your you not but can want wants need needs new old one".split(" "));
+const stem=w=>w.length>4&&w.endsWith("ies")?w.slice(0,-3)+"y":w.length>3&&w.endsWith("s")&&!w.endsWith("ss")?w.slice(0,-1):w;
+const NOTE_MAP=[
+ [/puzzl|brain|riddle|logic|teaser|sudoku|crossword|wordle|think|clever|problem.?solv|escape room|mystery|detective/,"puzzles logic mystery brain"],
+ [/quirk|weird|odd\b|unusual|funny|silly|goofy|novelty|whimsic|offbeat|nerdy|geeky|\bfun\b|unique/,"quirky"],
+ [/fidget|restless/,"fidget quirky"],
+ [/\bgames?\b|board ?game|card game|tabletop|\bdnd\b|d&d|dungeon|trivia/,"games boardgames strategy party"],
+ [/craft|knit|crochet|\bsew|diy|handmade|scrapbook|yarn/,"crafts sewing"],
+ [/garden|plant|flower|succulent/,"plants"],
+ [/coffee|espresso|latte/,"coffee"],[/\btea\b|matcha/,"tea"],
+ [/travel|\btrips?\b|vacation|abroad|backpack/,"travel"],
+ [/photo|camera/,"photography camera photos"],
+ [/anime|manga|comic|cartoon/,"anime manga comics"],
+ [/lego|brick/,"lego building"],
+ [/\bcats?\b|kitten/,"cats pets"],[/\bdogs?\b|pupp/,"dogs pets"],
+ [/\bbak|cake|cookie|dessert/,"baking dessert"],
+ [/\bwrit|journal|diary|poem|poet/,"writing journal"],
+ [/scien|chemist|experiment|biolog|physics/,"science experiments chemistry"],
+ [/\bspace\b|\bstars?\b|planet|astro|rocket|nasa|galax/,"space astronomy stars"],
+ [/cozy|comfy|blanket|sleep|relax|\bchill|\bcalm|\bnap/,"cozy sleep"],
+ [/\bgym\b|lifting|workout|fitness|yoga|\brun\b|running/,"fitness gym running yoga"],
+ [/guitar|piano|drum|singing|ukulele|vinyl|\brecords?\b|concert|music/,"music instrument"],
+ [/\bdraw|paint|sketch|\bart\b|artist/,"art drawing painting"],
+ [/\bhik|\bcamp|outdoor|nature|trail/,"outdoors hiking camping"],
+ [/\bcook|chef|kitchen|\bfood|spicy/,"cooking food"],
+ [/\bread|\bbooks?\b|novel|fantasy/,"books reading"],
+ [/\btech|gadget|computer|coding|program/,"tech gadgets coding"],
+ [/\bcars?\b|\bdriv|racing/,"cars driving"],
+ [/fashion|clothes|sneaker|jewel/,"fashion style"],
+ [/movie|\bfilms?\b|\btv\b|netflix/,"movies"],
+ [/robot|electronic|arduino|3d print/,"maker electronics robot"]
+];
+function signals(){
+  const sig=[];const add=(key,w,t,note)=>sig.push({key,w,note,set:new Set(t.split(" ").map(stem))});
+  S.ints.forEach(n=>{const f=INTS.find(x=>x[0]===n);if(f)add(n,2,f[1])});
+  PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k])add(CAT2INT[p.o[k][3]]||p.o[k][1],3,p.o[k][2])});
+  const nt=" "+S.notes.toLowerCase()+" ";
+  NOTE_MAP.forEach(([re,t],i)=>{if(re.test(nt))add("note"+i,6,t,1)});
+  nt.split(/[^a-z0-9]+/).filter(x=>x.length>2&&!STOP.has(x)&&!NOTE_MAP.some(([re])=>re.test(" "+x+" "))).forEach(x=>add("word:"+stem(x),4,x,1));
+  return sig;
+}
+const ideaWords=b=>new Set((b[4]+" "+b[1]+" "+b[0]).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(stem));
 const maxB=()=>S.budget==="any"?99999:+S.budget;
 function addItem(o){
   S.seq++;const it={id:"i"+S.seq+"_"+Date.now().toString(36),no:S.seq,title:String(o.title).slice(0,80),cat:CATS[o.cat]?o.cat:"Other",lo:Math.max(0,Math.round(+o.lo||0)),hi:Math.max(0,Math.round(+o.hi||+o.lo||0)),why:String(o.why||"").slice(0,140),search:String(o.search||o.title).slice(0,80),url:o.url||"",src:o.src||"",status:o.status||"new",mine:!!o.mine,round:S.round||0};
   if(it.hi<it.lo)it.hi=it.lo;S.items.push(it);if(!it.mine)S.m.ideas++;return it;
 }
 function bankIdeas(n){
-  const seen=new Set(S.items.map(i=>i.title.toLowerCase()));const w=words();const mb=maxB();
+  const seen=new Set(S.items.map(i=>i.title.toLowerCase()));const sig=signals();const mb=maxB();
   const pool=BANK.filter(b=>!seen.has(b[0].toLowerCase())&&b[2]<=mb&&(S.budget!=="9999"||b[3]>=150));
   const SB={Practical:["Making","Food","Sports","Tech"],"Wow factor":["Tech","Experiences"],Cozy:["Room","Food","Books"],"Surprise me":["Experiences","Other","Art"]}[S.style]||[];
-  const scored=pool.map(b=>{const hay=(b[4]+" "+b[1]+" "+b[0]).toLowerCase();let s=0;w.forEach(x=>{if(hay.includes(x))s+=x.length>4?2:1});if(SB.includes(b[1]))s+=2;if(S.style==="Wow factor"&&b[3]>=200)s+=1;return{b,s:s+Math.random()*(S.style==="Surprise me"?4:.9)}}).sort((a,b)=>b.s-a.s);
-  scored.slice(0,n).forEach(({b})=>addItem({title:b[0],cat:b[1],lo:b[2],hi:b[3],why:b[5],src:"Starter idea"}));
-  return Math.min(n,scored.length);
+  let noteHit=false;
+  const scored=pool.map(b=>{const iw=ideaWords(b);const hit=new Map();let note=false;
+    sig.forEach(g=>{for(const x of g.set)if(iw.has(x)){hit.set(g.key,Math.max(hit.get(g.key)||0,g.w));if(g.note)note=true;break}});
+    let s=0;hit.forEach(w=>s+=w);if(hit.size>1)s+=3*(hit.size-1);if(note){s+=4;noteHit=true}
+    if(SB.includes(b[1]))s+=2;if(S.style==="Wow factor"&&b[3]>=200)s+=1;
+    return{b,s:s+Math.random()*(S.style==="Surprise me"?4:1.5)}}).sort((a,b)=>b.s-a.s);
+  // a little variety: each extra pick from the same category costs a bit
+  const picks=[],cats={};const left=scored.slice();
+  while(picks.length<n&&left.length){let bi=0,bv=-1e9;left.forEach((x,i)=>{const v=x.s-2*(cats[x.b[1]]||0);if(v>bv){bv=v;bi=i}});const x=left.splice(bi,1)[0];cats[x.b[1]]=(cats[x.b[1]]||0)+1;picks.push(x.b)}
+  picks.forEach(b=>addItem({title:b[0],cat:b[1],lo:b[2],hi:b[3],why:b[5],src:"Starter idea"}));
+  bankIdeas.noteMiss=!!S.notes.trim()&&!noteHit;
+  return picks.length;
 }
 async function aiIdeas(n){
   const kept=S.items.filter(i=>i.status==="kept").map(i=>i.title);
@@ -669,7 +734,7 @@ async function getIdeas(){
     }catch(e){msg.innerHTML=`<p class="note err">AI ideas didn't load${e&&e.code==="rate_limited"?" (too many asks, try again in a minute)":""}. Showing starter ideas instead.</p>`;if(e&&e.code==="not_granted")sample=null}
   }
   if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
-  if(got&&!msg.querySelector(".err"))msg.innerHTML="";
+  if(got&&!msg.querySelector(".err"))msg.innerHTML=!sample&&bankIdeas.noteMiss?`<p class="note">None of the starter ideas matched the words in Details, so these come from the quiz. Words like puzzles, camping or coffee match best.</p>`:"";
   busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
 }
 $("#moreBtn").addEventListener("click",getIdeas);
@@ -748,12 +813,15 @@ const unhex=h=>new TextDecoder().decode(new Uint8Array((h.match(/[0-9a-f]{2}/g)|
 const listTitle=()=>S.listName.trim()||(nm()==="My"?"My wishlist":nm()+(nm()==="Their"?" wishlist":"'s wishlist"));
 function packList(){
   const list=S.kept.map(byId).filter(Boolean).slice(0,30);
-  return{t:listTitle(),p:S.opt.price?1:0,i:list.map(it=>[it.title,it.lo,it.hi,it.url||"",it.search===it.title?"":it.search])};
+  return{t:listTitle(),p:S.opt.price?1:0,i:list.map(it=>{const a=[it.title,it.lo,it.hi,it.url||"",it.search===it.title?"":it.search];while(a.length>3&&!a[a.length-1])a.pop();return a})};
 }
-const shareLink=()=>APP_URL+"#list-"+hex(JSON.stringify(packList()));
+// short links (#l- and base64url) once every page that opens links can read them; #list- hex still works
+const b64u=t=>{let b="";new TextEncoder().encode(t).forEach(c=>b+=String.fromCharCode(c));return btoa(b).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
+const unb64u=h=>new TextDecoder().decode(Uint8Array.from(atob(h.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0)));
+const shareLink=()=>{const j=JSON.stringify(packList());return CFG.shortLinks?APP_URL+"#l-"+b64u(j):APP_URL+"#list-"+hex(j)};
 function readHash(){
-  const h=location.hash||"";if(!h.startsWith("#list-"))return null;
-  try{const o=JSON.parse(unhex(h.slice(6)));if(!o||!Array.isArray(o.i))return null;
+  const h=location.hash||"";const short=h.startsWith("#l-");if(!short&&!h.startsWith("#list-"))return null;
+  try{const o=JSON.parse(short?unb64u(h.slice(3)):unhex(h.slice(6)));if(!o||!Array.isArray(o.i))return null;
     const items=o.i.slice(0,40).map(a=>Array.isArray(a)?{title:String(a[0]||"").slice(0,80),lo:Math.max(0,+a[1]||0),hi:Math.max(0,+a[2]||0),url:/^https:\/\//.test(a[3]||"")?String(a[3]).slice(0,400):"",search:String(a[4]||a[0]||"").slice(0,80)}:null).filter(x=>x&&x.title);
     return{t:String(o.t||"A wishlist").slice(0,60),p:!!o.p,i:items};
   }catch(e){return null}
