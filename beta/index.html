@@ -1023,7 +1023,7 @@ async function getIdeas(){
         setTimeout(()=>openPlans(PAY?"You've used your 3 free AI rounds. The Holiday Pass gives you 25 AI rounds a day, plus gift exchanges of any size.":"You've used your 3 free AI rounds. The Holiday Pass, coming soon, will give you 25 AI rounds a day.","holiday"),600)}
       else if(c==="pass_daily_limit"){note="You've used today's 25 AI rounds. More tomorrow! These are starter ideas."}
       else if(c==="pass_invalid"){PASS=null;try{localStorage.removeItem("wishwell-beta-pass")}catch(x){}note=`Your Holiday Pass key didn't check out (it may have been refunded), so these are starter ideas. ${passBtn}`}
-      else msg.innerHTML=`<p class="note err">AI ideas didn't load${c==="rate_limited"?" (too many asks, try again in a minute)":""}. Showing starter ideas instead.</p>`;
+      else msg.innerHTML=`<p class="note err">AI ideas didn't load${c==="rate_limited"?" (too many asks, try again in a minute)":c==="slow"?" (the AI was too slow just now)":""}. Showing starter ideas instead.</p>`;
       if(c==="not_granted")sample=null}
   }
   if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
@@ -1317,7 +1317,11 @@ const setAi=()=>{
   else aiLine.textContent="AI ideas are on."+(L&&L.k==="trial"?(L.n>0?` ${L.n} free AI round${L.n===1?"":"s"} left.`:" That was your last free AI round."):" Your first 3 AI rounds are free.");
 };
 if(CFG.aiUrl){sample={json:async(_p,o)=>{
-  const r=await fetch(CFG.aiUrl,{method:"POST",headers:aiHeaders(true),body:JSON.stringify(o.payload)});
+  /* give up after a minute so a slow AI never leaves the page stuck on Thinking */
+  const ac=window.AbortController?new AbortController():null,tm=ac&&setTimeout(()=>ac.abort(),60000);
+  let r;try{r=await fetch(CFG.aiUrl,{method:"POST",headers:aiHeaders(true),body:JSON.stringify(o.payload),signal:ac?ac.signal:undefined})}
+  catch(x){const e=new Error("AI service unreachable");e.code=x&&x.name==="AbortError"?"slow":"error";throw e}
+  finally{clearTimeout(tm)}
   const tl=r.headers.get("x-trial-left"),pl=r.headers.get("x-pass-left");
   if(pl!=null)S.aiLeft={k:"pass",n:+pl};else if(tl!=null)S.aiLeft={k:"trial",n:+tl};
   if(!r.ok){const d=await r.json().catch(()=>({}));const e=new Error("AI service "+r.status);e.code=d.error||(r.status===429?"rate_limited":"error");throw e}
