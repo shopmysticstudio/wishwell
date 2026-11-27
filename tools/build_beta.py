@@ -55,6 +55,10 @@ def main():
     # Beta code holders get 15 free AI rounds (the Worker's BETA_ROUNDS enforces it).
     c = re.sub(r'freeRounds: \d+', 'freeRounds: 15', c)
     assert "freeRounds: 15" in c
+    # Beta only: shopping tools and the opening gift.
+    c = re.sub(r"shopTools: (true|false)", "shopTools: true", c)
+    c = re.sub(r"unwrap: (true|false)", "unwrap: true", c)
+    assert "shopTools: true" in c and "unwrap: true" in c
     for k in ("gumroadProductId", "licenseCheckUrl"):
         c = re.sub(k + r': "[^"]*"', k + ': ""', c)
     with open(cfg, "w", encoding="utf-8") as f:

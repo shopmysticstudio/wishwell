@@ -5,6 +5,9 @@
      /        gift ideas. Body: the app's payload (n, forWho, ints, quiz, style, notes, budget,
               kept, keptAi, cut, seen). Answers a JSON array of {title, category, lo, hi, why, search}.
      /verify  Holiday Pass license check. Body: {"license_key": "..."}. Answers {"valid": true|false}.
+     /photo   beta only. Body: {"image": "data:image/jpeg;base64,..."} (a photo or screenshot, under
+              about 500 KB). Answers {"items": [{title, category, lo, hi, search}]} for the giftable
+              things in it. Counts as one AI round, the same way as /.
      /signal  which AI ideas people liked. Body: {"kept": [titles], "top": [titles], "cut": [titles]}.
               Only bumps counts on ideas already in the pool. Answers 204.
 
@@ -56,6 +59,45 @@ const BUDGETS = { "25": 25, "75": 75, "200": 200, "9999": Infinity, "any": Infin
 const MAX_IDEAS = 10;
 const EXTRA_ASK = 3;          // ask for a few more than needed, since some get filtered out
 const MAX_BODY = 20000;
+const MAX_PHOTO_BODY = 700000;
+// Reads photos and screenshots. Llama 4 Scout needs no license step; Llama 3.2 Vision would.
+const PHOTO_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+const withTime = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error("timeout " + ms)), ms))]);
+
+/* ---------- photo to list ---------- */
+const PHOTO_SYSTEM = `You help people turn a photo or screenshot into a gift wish list.
+List the distinct products in the image that someone could buy as a gift: things on a shelf, in a store photo, in a screenshot of a product page, wish list or cart, or handwritten on a list.
+Skip people, pets, furniture that is clearly part of the room, and anything you can't name.
+Use a short generic product name in sentence case. Add the brand only when it is clearly printed or written in the image.
+Use honest, typical current US store prices.
+Answer with only a JSON array, at most 8 elements, each with exactly these keys:
+{"title": product name under 50 characters, "category": one of ${CATS.join(", ")}, "lo": low price in whole US dollars as a number, "hi": high price as a number, "search": a store search phrase for it}.
+If nothing in the image can be bought, answer [].`;
+
+function photoMessages(img) {
+  return [{ role: "system", content: PHOTO_SYSTEM },
+    { role: "user", content: [{ type: "text", text: "What gift items are in this image?" }, { type: "image_url", image_url: { url: img } }] }];
+}
+
+function parsePhoto(out) {
+  const raw = findArray(modelText(out));
+  const pick = (o, keys) => { for (const k of Object.keys(o)) if (keys.includes(k.toLowerCase().replace(/[^a-z]/g, ""))) return o[k]; };
+  const items = [], seen = new Set();
+  for (const r of raw) {
+    if (items.length >= 8) break;
+    if (!r || typeof r !== "object") continue;
+    const title = clean(pick(r, ["title", "name", "item", "product"]), 60);
+    if (title.length < 2 || seen.has(title.toLowerCase())) continue;
+    seen.add(title.toLowerCase());
+    const cat = CATS.find(c => c.toLowerCase() === clean(pick(r, ["category", "cat", "type"]), 20).toLowerCase()) || "Other";
+    const n = v => { const x = Math.round(Number(typeof v === "string" ? v.replace(/[^0-9.]/g, "") : v)); return Number.isFinite(x) && x > 0 ? Math.min(x, 10000) : 0; };
+    let lo = n(pick(r, ["lo", "low", "pricelow", "min"])), hi = n(pick(r, ["hi", "high", "pricehigh", "max"]));
+    if (hi < lo) hi = lo;
+    const search = clean(pick(r, ["search", "query", "searchphrase"]), 80) || title;
+    items.push({ title, category: cat, lo, hi, search });
+  }
+  return items;
+}
 const GUMROAD = "https://api.gumroad.com/v2/licenses/verify";
 // Fingerprint of the beta access code (salted PBKDF2-SHA256), used when no BETA_CODE secret is set.
 // The code itself is not in this file.
@@ -423,7 +465,7 @@ async function unreserve(db, keys) {
 /* ---------- handler ---------- */
 export default {
   // For tests only; not used by Cloudflare.
-  _test: { readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve },
+  _test: { readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, parsePhoto, photoMessages },
 
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
@@ -447,14 +489,15 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (request.method !== "POST") return reply({ error: "use_post" }, 405);
     const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
-    if (path !== "/" && path !== "/verify" && path !== "/signal") return reply({ error: "not_found" }, 404);
+    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo") return reply({ error: "not_found" }, 404);
 
+    const maxBody = path === "/photo" ? MAX_PHOTO_BODY : MAX_BODY;
     const len = Number(request.headers.get("content-length") || 0);
-    if (len > MAX_BODY) return reply({ error: "too_large" }, 413);
+    if (len > maxBody) return reply({ error: "too_large" }, 413);
     let raw;
     try {
       const text = await request.text();
-      if (text.length > MAX_BODY) return reply({ error: "too_large" }, 413);
+      if (text.length > maxBody) return reply({ error: "too_large" }, 413);
       raw = JSON.parse(text);
     } catch (e) { return reply({ error: "bad_json" }, 400); }
 
@@ -483,9 +526,17 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
 
+    /* /photo is for the beta only; check the image before a round is taken */
+    let img = "";
+    if (path === "/photo") {
+      if (!beta) return reply({ error: "beta_only" }, 403);
+      img = String(raw && raw.image || "");
+      if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(img)) return reply({ error: "bad_image" }, 400);
+    }
+
     /* / : gift ideas */
     if (!env.KV || !env.AI) return reply({ error: "not_set_up" }, 429);
-    const q = readPayload(raw);
+    const q = readPayload(path === "/photo" ? {} : raw);
     const day = today();
     let mode, counterKeys = [], left, refund = null;
 
@@ -526,10 +577,25 @@ export default {
       }
     }
 
+    const countIt = async () => { for (const [key, used, ttl] of counterKeys) await env.KV.put(key, String(used + 1), { expirationTtl: ttl }).catch(() => {}); };
+
+    if (path === "/photo") {
+      let items = [], err = "";
+      try {
+        const o = await withTime(env.AI.run(env.PHOTO_MODEL || PHOTO_MODEL, { messages: photoMessages(img), max_tokens: 900, temperature: 0.2 }), num(env.PHOTO_TIMEOUT_MS, 30000));
+        items = parsePhoto(o);
+      } catch (e) { err = String(e && e.message || e); }
+      if (!items.length) {
+        if (refund) await refund();
+        return reply({ error: /4006|allocation|5035|paid/i.test(err) ? "ai_unavailable" : err ? "photo_failed" : "nothing_found" }, 429);
+      }
+      await countIt();
+      return reply({ items }, 200, { [left[0]]: String(Math.max(0, left[1])) });
+    }
+
     const input = { messages: buildMessages(q), max_tokens: 1200, temperature: 0.7 };
     // Each model call gets a time limit. When the main model is slow or its reply is unusable,
     // the backup model gets one try, so a round answers in under a minute.
-    const withTime = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error("timeout " + ms)), ms))]);
     const main = env.MODEL || DEFAULT_MODEL, backup = env.BACKUP_MODEL || BACKUP_MODEL;
     const ask = async (model, ms) => {
       // Thinking models (GLM, Qwen, DeepSeek) are asked to answer directly; others get the plain request.
@@ -578,7 +644,7 @@ export default {
     if (!ideas.length) return reply({ error: "no_usable_ideas", detail: describe(out), dropped: ideas.dropped }, 429);
 
     // Count the round only now that it produced ideas.
-    for (const [key, used, ttl] of counterKeys) await env.KV.put(key, String(used + 1), { expirationTtl: ttl }).catch(() => {});
+    await countIt();
     if (String(env.POOL || "on") !== "off") {
       const rec = poolRecord(ideas, q);
       if (env.DB) {

@@ -18,6 +18,11 @@ who may use AI. Cloudflare deploys it automatically from the `payments` branch
 - Every other problem answers 429, and the app quietly shows starter ideas.
 - Ideas over the budget or with brand names are dropped; the model is asked for a
   few extra to make up for it.
+- `POST /photo` `{image}` (beta only, needs `x-beta-code`): a JPEG, PNG or WebP
+  data URL up to about 700 KB. Llama 4 Scout reads the items in it and answers
+  `{items:[{title, category, lo, hi, search}]}` (at most 8). Uses one AI round,
+  handed back if nothing is found. The photo is never stored.
+  Test: `node server/ai-ideas/test/photo.test.mjs`.
 - `POST /signal` `{kept, top, cut}`: which AI ideas people circled, ranked in
   their top 3, or cut. Only titles already in the pool are counted. No device id.
 - Idea pool: each round's ideas go to the D1 database `wishwell-ideas` (binding
