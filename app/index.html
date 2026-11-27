@@ -40,6 +40,7 @@ button{cursor:pointer}
 .top .snd{background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:999px;width:44px;height:44px;display:grid;place-items:center;flex:none}
 .top .snd svg{width:22px;height:22px}
 .top .snd[aria-pressed="false"]{opacity:.65}
+.top .kbtn.on{background:#f2b12f;color:#141414}
 .top .plans{background:#fff;color:#141414;border:0;border-radius:999px;padding:10px 16px;font-weight:700;min-height:44px}
 .tabs{display:flex;gap:4px;padding:0 max(5vw,16px);border-bottom:2px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:5}
 .tabs button{border:0;background:none;padding:12px 10px;min-height:48px;font-weight:700;color:var(--muted);border-bottom:4px solid transparent;margin-bottom:-2px;white-space:nowrap}
@@ -52,7 +53,7 @@ main{max-width:1100px;margin:0 auto;padding:20px max(5vw,16px) 24px}
 .small{font-size:13px}
 .field{display:grid;gap:6px;margin:16px 0}
 .field>span{font-weight:700}
-input[type=text],select,textarea{width:100%;font-size:16px;padding:12px;border:2px solid var(--line);border-radius:10px;background:var(--bg);min-height:48px}
+input[type=text],input[type=email],select,textarea{width:100%;font-size:16px;padding:12px;border:2px solid var(--line);border-radius:10px;background:var(--bg);min-height:48px}
 textarea{min-height:84px;resize:vertical}
 .seg{display:flex;flex-wrap:wrap;gap:8px}
 .chip{border:2px solid var(--line);background:var(--bg);border-radius:999px;padding:8px 14px;min-height:44px;font-weight:500}
@@ -200,6 +201,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
 <header class="top">
   <img class="logo" src="img/mark.png" alt="Wishwell logo: someone fishing gifts out of a glowing well" width="68" height="68">
   <div class="brand"><h1>Wishwell</h1><div class="slogan">Want it, list it, get it.</div><div class="sub">Test draft by Wishwell</div></div>
+  <button class="snd kbtn" id="keyOpen" type="button" aria-label="AI ideas key" title="AI ideas key" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3M16 7l3 3M14 9l2 2"/></svg></button>
   <button class="snd" id="sndBtn" type="button" aria-pressed="true" aria-label="Sounds and vibration"></button>
   <button class="plans" id="openPlans" type="button">Plans</button>
 </header>
@@ -298,12 +300,45 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
 <div class="modal" id="copyM" hidden role="dialog" aria-modal="true" aria-label="Copy text">
   <div class="box" style="max-width:560px"><p style="margin-top:0"><strong>Copy this</strong> <span class="muted small">(select all, then copy)</span></p><textarea id="copyArea" readonly style="min-height:200px"></textarea><div class="row" style="margin-top:10px"><button class="btn" type="button" id="copyClose">Done</button></div></div>
 </div>
+<div class="modal" id="keyM" hidden role="dialog" aria-modal="true" aria-labelledby="keyT">
+  <div class="box" style="max-width:520px">
+    <div class="bar"><h2 id="keyT" style="font-size:clamp(22px,5vw,30px);margin:0">AI ideas</h2><button class="btn" type="button" id="keyClose">Close</button></div>
+    <div id="keyBody"></div>
+    <p class="small muted" style="margin-bottom:0">With a key, your quiz answers, Details and the idea titles on your list are sent to the Wishwell AI service to pick new ideas. Your key, its email and a random ID for this phone are sent to check the key. Without a key, nothing is sent.</p>
+  </div>
+</div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
 {
 const CFG=window.WISHWELL_CONFIG||{};
 const APP_URL=CFG.shareBase||(location.origin+location.pathname);
+/* AI ideas with a key. With passOnly (the Play app) AI is used only after a key and its email
+   check out; without a key the app never contacts the AI service. */
+const PASS_ONLY=!!CFG.passOnly,AI_BASE=String(CFG.aiUrl||"").trim().replace(/\/+$/,"");
+let KEY=null;try{KEY=JSON.parse(localStorage.getItem("wishwell-key")||"null")}catch(e){}
+const hasKey=()=>!!(KEY&&KEY.key&&KEY.email);
+const aiOn=()=>!!sample&&(!PASS_ONLY||hasKey());
+let DEV="",aiLeft=null;
+function devId(){if(DEV)return DEV;try{DEV=localStorage.getItem("wishwell-device")||"";if(!/^[A-Za-z0-9_-]{16,64}$/.test(DEV)){DEV=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9]/g,"");localStorage.setItem("wishwell-device",DEV)}}catch(e){}return DEV}
+function aiHeaders(withKey){const h={"content-type":"application/json"};if(PASS_ONLY){const d=devId();if(d)h["x-device-id"]=d}if(withKey&&hasKey()){h["x-pass-key"]=KEY.key;h["x-pass-email"]=KEY.email}return h}
+/* tell the AI service which AI ideas were circled, ranked top 3, cut or marked as had, so later
+   ideas get better. Titles of AI ideas only, with no id, each sent once, and only while AI ideas are on. */
+let sigT=0;
+function signalLater(){if(AI_BASE&&aiOn()){clearTimeout(sigT);sigT=setTimeout(sendSignal,3000)}}
+function sendSignal(){
+  clearTimeout(sigT);if(!AI_BASE||!aiOn())return;const ai=S.items.filter(i=>i.src==="AI pick");if(!ai.length)return;
+  const ks=new Set(S.keptSent||[]),ts=new Set(S.topSent||[]),cs=new Set(S.cutSent||[]),hs=new Set(S.haveSent||[]);
+  const kept=ai.filter(i=>i.status==="kept"&&!ks.has(i.title)).map(i=>i.title).slice(0,40);
+  const top=(S.view==="rank"||S.view==="share")?S.kept.slice(0,3).map(id=>S.items.find(i=>i.id===id)).filter(i=>i&&i.src==="AI pick"&&!ts.has(i.title)).map(i=>i.title):[];
+  const cut=ai.filter(i=>i.status==="cut"&&!cs.has(i.title)).map(i=>i.title).slice(0,40);
+  const have=ai.filter(i=>i.status==="have"&&!hs.has(i.title)).map(i=>i.title).slice(0,40);
+  if(!kept.length&&!top.length&&!cut.length&&!have.length)return;
+  S.keptSent=[...ks,...kept].slice(-300);S.topSent=[...ts,...top].slice(-300);S.cutSent=[...cs,...cut].slice(-300);S.haveSent=[...hs,...have].slice(-300);
+  try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}
+  fetch(AI_BASE+"/signal",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kept,top,cut,have}),keepalive:true}).catch(()=>{});
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")sendSignal()});
 const CATS={Tech:"#2563eb",Gaming:"#7c3aed",Making:"#ea580c",Art:"#db2777",Music:"#0891b2",Sports:"#16a34a",Outdoors:"#4d7c0f",Science:"#1e3a8a",Books:"#92400e",Food:"#b91c1c",Style:"#334155",Room:"#0f766e",Experiences:"#c2410c",Beauty:"#be185d",Other:"#525252"};
 const INTS=[["Cooking","cooking food"],["Music","music audio instrument"],["Movies and shows","movies tv"],["Sports","sports fitness running"],["Outdoors","outdoors camping hiking"],["Art","art drawing painting"],["Crafts","crafts sewing knit diy"],["Books","books reading"],["Style","fashion style clothes"],["Room setup","room decor desk"],["Coffee and tea","coffee tea"],["Gaming","gaming games controller"],["Travel","travel"],["Pets","pets dog cat"],["Self-care","selfcare spa bath"],["Beauty","beauty makeup skincare"],["Jewelry","jewelry"],["Puzzles","puzzles"],["Friends and parties","party friends games"],["Tech","tech electronics gadgets phone computer"],["Making","maker build tools 3dprinting electronics"],["Cars","cars driving"],["Space and science","space science astronomy rockets"]];
 const BANK=[
@@ -951,7 +986,81 @@ const BANK=[
 ["Emergency radio and flashlight","Other",25,60,"emergency home","Light, radio and a phone charge in a storm."],
 ["Custom city map print","Room",50,200,"travel room decor custom","Their hometown or favorite city, framed."],
 ["Custom illustrated portrait","Art",75,300,"art decor room custom family","Them, drawn by a real artist and ready to hang."],
-["Portable greenhouse","Outdoors",200,800,"garden plants outdoors","Starts seedlings early and keeps plants growing longer."]
+["Portable greenhouse","Outdoors",200,800,"garden plants outdoors","Starts seedlings early and keeps plants growing longer."],
+["Webcam for streaming","Tech",40,120,"tech streaming gaming video","Clear video for calls and streams."],
+["Phone gimbal stabilizer","Tech",60,130,"tech video phone photography","Smooth phone videos, even while walking."],
+["Portable SSD drive","Tech",60,150,"tech storage photos gaming","Fast room for photos, games and projects."],
+["Laptop stand","Tech",25,60,"tech desk study work","Lifts the screen to eye level."],
+["Headphone stand with USB hub","Tech",20,45,"tech desk gaming music","A home for headphones and extra ports."],
+["Legacy campaign board game","Gaming",50,150,"gaming boardgames strategy friends","A story that changes every time you play."],
+["Gaming mouse","Gaming",30,90,"gaming pc tech","Quicker aim and extra buttons."],
+["Board game organizer insert","Gaming",20,50,"boardgames games organize","Every piece has a home, so setup is quick."],
+["Miniatures painting starter set","Gaming",30,70,"gaming tabletop painting art crafts","Paint your own heroes and monsters."],
+["Card sleeves and deck box set","Gaming",15,35,"gaming cards collecting","Keeps favorite cards safe."],
+["Bookbinding kit","Making",25,50,"crafts books diy","Sew a real hardcover notebook by hand."],
+["Terrarium building kit","Making",30,60,"plants crafts room diy","A tiny green world in a jar."],
+["Beginner whittling kit","Making",20,40,"crafts wood diy outdoors","Carve small animals and spoons."],
+["Stained glass starter kit","Making",60,150,"crafts art diy","Glowing glass art for a sunny window."],
+["Fly tying kit","Making",30,70,"fishing outdoors crafts","Tie your own flies for the next trip."],
+["Punch needle kit","Making",20,40,"crafts sewing diy decor","Fluffy wall art in an afternoon."],
+["Watercolor postcard pad","Art",12,25,"art painting travel","Paint little cards to mail to friends."],
+["Light box for tracing","Art",20,45,"art drawing tracing","Makes tracing and inking easy."],
+["Instant film multipack","Art",20,50,"photography camera friends","More shots for the instant camera."],
+["Camera bag","Art",30,80,"photography camera travel","Carries the camera and lenses safely."],
+["Paint marker set","Art",15,35,"art drawing crafts diy","Draws on wood, rocks, shoes and more."],
+["Retro radio with Bluetooth","Music",30,80,"music audio room retro","Old-school look with modern streaming."],
+["Cajon drum","Music",70,150,"music instrument percussion","A box drum you sit on and play."],
+["Bass guitar starter pack","Music",150,300,"music instrument guitar band","Everything to start playing bass."],
+["Ocarina","Music",15,40,"music instrument","A pocket flute that's easy to learn."],
+["Audio interface for recording","Music",80,180,"music recording tech","Plugs mics and guitars into a computer."],
+["Record display shelf","Music",20,45,"music vinyl room decor","Shows off the album playing now."],
+["Foldable rowing machine","Sports",150,400,"sports fitness workout","A full body workout that folds away."],
+["Agility ladder and cones set","Sports",20,40,"sports soccer fitness training","Quick feet drills for any sport."],
+["Climbing chalk bag and brush","Sports",15,35,"climbing sports","Better grip on every route."],
+["Table tennis paddle set","Sports",25,60,"sports games family friends","Ready for a rally on any table."],
+["Balance board","Sports",40,120,"sports fitness surfing skate","Builds balance for board sports."],
+["Orienteering compass","Outdoors",15,40,"outdoors hiking navigation","Find the way without a phone signal."],
+["Saucer tree swing","Outdoors",40,90,"outdoors backyard family friends","A big round swing for lazy afternoons."],
+["Metal detector","Outdoors",80,200,"outdoors treasure hiking beach","Treasure hunting at the park or beach."],
+["Bird feeder with camera","Outdoors",100,250,"birds outdoors tech nature","Snaps photos of every bird that visits."],
+["Night vision monocular","Outdoors",60,150,"outdoors camping nature tech","Spot owls and deer after dark."],
+["Fossil dig kit","Science",15,35,"science fossils dinosaurs","Chip out real fossils at home."],
+["Periodic table display with real elements","Science",60,200,"science chemistry room decor","Real element samples in every square."],
+["Night sky planisphere","Science",10,20,"stars space astronomy outdoors","Shows which stars are up tonight."],
+["Illustrated world atlas","Books",20,40,"books travel maps","Maps and stories from every country."],
+["Choose-your-path adventure book","Books",10,20,"books reading games","Every choice changes the ending."],
+["Language learning course","Books",20,60,"travel languages learning","A head start before the next trip."],
+["Tortilla press","Food",20,40,"cooking food mexican","Fresh tortillas in minutes."],
+["Hot pot set","Food",40,100,"cooking food friends party","Dinner everyone cooks at the table."],
+["Dumpling making kit","Food",20,40,"cooking food friends","Fold and steam dumplings together."],
+["Cheese making kit","Food",25,50,"cooking food diy","Fresh mozzarella in about an hour."],
+["Fancy olive oil set","Food",25,60,"cooking food","Bright olive oils for bread and salads."],
+["Milk frother","Food",15,40,"coffee tea latte","Cafe foam on lattes at home."],
+["Tea infuser bottle","Food",15,30,"tea travel","Loose leaf tea on the go."],
+["Bucket hat","Style",15,40,"fashion style summer","Easy shade with a laid back look."],
+["Varsity jacket","Style",50,120,"fashion style clothes","A classic jacket that goes with everything."],
+["Pearl necklace","Style",30,120,"jewelry style","A timeless piece for dressing up."],
+["Signet ring","Style",30,120,"jewelry style custom","Engraved with an initial or symbol."],
+["Thermal base layer set","Style",30,70,"outdoors winter warm clothes","Stays warm on the coldest days."],
+["Shadow box frame","Room",25,50,"room decor memories","Displays tickets, medals and keepsakes."],
+["Cork board with pins","Room",15,40,"room desk organize photos","Photos, notes and plans in one spot."],
+["Lava lamp","Room",20,50,"room decor retro","Slow glowing blobs for a chill room."],
+["Electric fireplace heater","Room",60,150,"room cozy warm","Cozy glow and warmth for cold nights."],
+["Surf lesson","Experiences",60,150,"surfing beach outdoors sports","Stand up on a wave with a coach."],
+["Ski or snowboard lesson","Experiences",80,200,"skiing snowboard winter sports","A day on the slopes with a pro."],
+["Jewelry making class","Experiences",40,90,"jewelry crafts friends","Make a piece to wear home."],
+["Zipline tour","Experiences",60,150,"outdoors adventure friends","Fly through the trees."],
+["Ropes course day pass","Experiences",40,80,"outdoors adventure friends","Climb, balance and swing high up."],
+["Behind-the-scenes stadium tour","Experiences",25,60,"sports team fans","Locker rooms, the field and the press box."],
+["Nail art stamping kit","Beauty",15,30,"beauty nails","Salon designs at home in minutes."],
+["Bath pillow","Beauty",20,40,"selfcare bath spa","Comfy neck support for long soaks."],
+["Build-your-own eyeshadow palette","Beauty",20,50,"beauty makeup","Only the shades they actually wear."],
+["Scalp massager brush","Beauty",8,20,"selfcare hair spa","A relaxing scrub on wash day."],
+["Jigsaw puzzle roll-up mat","Other",15,35,"puzzles","Roll up an unfinished puzzle and save it."],
+["Raised pet bowl stand","Other",20,50,"pets dog cat","Easier mealtimes for the pet."],
+["Car trunk organizer","Other",20,45,"cars organize travel","No more groceries rolling around."],
+["Cat tunnel","Other",15,30,"pets cat","Endless hiding and pouncing fun."],
+["3D crystal puzzle","Other",15,30,"puzzles decor","A clear puzzle that stands on a shelf."]
 ];
 
 const $=s=>document.querySelector(s);
@@ -960,7 +1069,7 @@ const metrics=()=>({quizDone:0,quizTaps:0,ideas:0,circled:0,cut:0,have:0,ai:0,li
 const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",age:"",lean:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],have:[],seq:0,round:0,aiRounds:0,view:"start",snd:true,listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
 let S=fresh(),sample=null,busy=false,FAM=null;
 try{const raw=localStorage.getItem("wishbook-v1");if(raw){const o=JSON.parse(raw);S=Object.assign(fresh(),o);S.m=Object.assign(metrics(),o.m||{});S.m.pay=Object.assign(metrics().pay,(o.m||{}).pay||{});S.g=Object.assign(fresh().g,o.g||{});S.opt=Object.assign(fresh().opt,o.opt||{})}}catch(e){}
-const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}};
+const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}signalLater()};
 const toast=t=>{const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400)};
 const money=(lo,hi)=>lo===hi?"$"+lo:"$"+lo+" to $"+hi;
 const est=it=>it.hi?"est. "+money(it.lo,it.hi):"";
@@ -992,7 +1101,7 @@ function tones(c,notes,gap,vol,start,len){
 function haptic(kind){if(NATIVE&&S.snd!==false)try{window.Capacitor.nativePromise("WishwellSound","haptic",{kind}).catch(()=>{})}catch(e){}}
 // Values along an eased stroke, for the marker sound.
 function curve(n,f){const a=new Float32Array(n);for(let i=0;i<n;i++)a[i]=f(i/(n-1));return a}
-// Felt-tip marker drawing one loop (matches the website): grainy noise through a bandpass that sweeps
+// Felt-tip marker drawing one loop (same as the web app): grainy noise through a bandpass that sweeps
 // 1800 up to 3400 and back to 2000 Hz, with a faint squeak gliding 1150, 1500, 1250 Hz.
 // 0.44 s to follow the circle; a 0.16 s blip when motion is reduced and the circle just appears.
 const sweep=(lo,hi,end)=>u=>u<.45?lo+(hi-lo)*Math.sin(u/.45*Math.PI/2):hi+(end-hi)*(1-Math.cos((u-.45)/.55*Math.PI/2));
@@ -1010,7 +1119,7 @@ function markerSound(c){
   og.gain.setValueCurveAtTime(curve(64,u=>.014*env(u)),t,dur);
   o.connect(og);og.connect(c.destination);o.start(t);o.stop(t+dur+.04);
 }
-// Scissors (matches the website): two 50 ms high-passed clicks 75 ms apart, with short pings at 2900 then 2400 Hz.
+// Scissors (same as the web app): two 50 ms high-passed clicks 75 ms apart, with short pings at 2900 then 2400 Hz.
 function snipSound(c){
   const t=c.currentTime+.02,sr=c.sampleRate;
   [[0,2900,.9],[.075,2400,1]].forEach(([at,ping,v])=>{
@@ -1295,6 +1404,8 @@ function bankIdeas(n){
   bankIdeas.noteMiss=!!S.notes.trim()&&!noteHit;
   return picks.length;
 }
+/* AI ideas kept since the last round, so the idea pool counts each keep once */
+const keptAiNew=()=>{const sent=new Set(S.keptSent||[]);return S.items.filter(i=>i.status==="kept"&&i.src==="AI pick"&&!sent.has(i.title)).map(i=>i.title).slice(0,40)};
 async function aiIdeas(n){
   const kept=S.items.filter(i=>i.status==="kept").map(i=>i.title);
   const cut=S.items.filter(i=>i.status==="cut").map(i=>i.title);
@@ -1312,7 +1423,7 @@ Do not repeat any of: ${seen.join("; ")||"none"}.
 Mix obvious hits with a few surprising picks that fit the details. Prefer real product types; a brand is fine when it matters. Use typical US prices.
 Use American English. Never use dashes of any kind in text.
 Reply with only a JSON array. Each element: {"title": short name under 50 characters, "category": one of ${Object.keys(CATS).join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a store search phrase}.`;
-  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,ints:S.ints,quiz:PAIRS.filter(p=>S.quiz[p.id]!=null&&p.o[S.quiz[p.id]]).map(p=>p.q+" "+p.o[S.quiz[p.id]][0]),style:S.style,notes:S.notes,budget:S.budget,kept,cut,seen,cats:Object.keys(CATS)}});
+  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.filter(p=>S.quiz[p.id]!=null&&p.o[S.quiz[p.id]]).map(p=>p.o[S.quiz[p.id]][1]+" ("+p.o[S.quiz[p.id]][2]+")"),style:S.style,notes:S.notes,budget:S.budget,kept,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
   const arr=Array.isArray(out)?out:(out&&Array.isArray(out.ideas)?out.ideas:[]);
   const have=new Set(S.items.map(i=>i.title.toLowerCase()));let c=0;
   arr.forEach(o=>{if(c<n&&o&&o.title&&!have.has(String(o.title).toLowerCase())){have.add(String(o.title).toLowerCase());addItem({title:o.title,cat:o.category,lo:o.lo,hi:o.hi,why:o.why,search:o.search,src:"AI pick"});c++}});
@@ -1320,16 +1431,24 @@ Reply with only a JSON array. Each element: {"title": short name under 50 charac
 }
 async function getIdeas(){
   if(busy)return;busy=true;S.round=(S.round||0)+1;const mb=$("#moreBtn");mb.disabled=true;
-  const msg=$("#msg");msg.innerHTML="";let got=0;
-  if(sample){
+  const msg=$("#msg");msg.innerHTML="";let got=0,note="";
+  if(aiOn()){
     mb.textContent="Thinking...";msg.innerHTML=`<p class="note">Asking AI for ideas that fit. This takes a few seconds.</p>`;
-    try{got=await aiIdeas(8);S.aiRounds++;S.m.ai++;
+    try{const ka=keptAiNew();got=await aiIdeas(8);S.aiRounds++;S.m.ai++;S.keptSent=[...(S.keptSent||[]),...ka].slice(-300);
       if(S.aiRounds===3)setTimeout(()=>openPlans("That's the 3 rounds of AI ideas a Free list gets. The Holiday Pass, coming soon, will unlock more. In this test you can keep going.","holiday"),900);
-    }catch(e){msg.innerHTML=`<p class="note err">AI ideas didn't load${e&&e.code==="rate_limited"?" (too many asks, try again in a minute)":""}. Showing starter ideas instead.</p>`;if(e&&e.code==="not_granted")sample=null}
+    }catch(e){const c=e&&e.code;
+      if(c==="pass_daily_limit")note="You've used today's 25 AI rounds. More tomorrow! These are starter ideas.";
+      else if(c==="pass_weekly_limit")note="You've used this week's 100 AI rounds. More on Monday! These are starter ideas.";
+      else if(c==="pass_device_limit")note="This key is already on 3 devices, so these are starter ideas here.";
+      else if(c==="too_many_tries")note="Too many wrong key tries from this network today. Try again tomorrow. These are starter ideas.";
+      else if(c==="pass_invalid"){setKey(null);note=`Your key didn't check out, so AI ideas are off and these are starter ideas. <button class="btn" type="button" data-key style="min-height:40px;padding:4px 10px">Check your key</button>`}
+      else msg.innerHTML=`<p class="note err">AI ideas didn't load${c==="rate_limited"?" (too many asks, try again in a minute)":c==="pass_check_failed"?" (couldn't check your key, try again in a minute)":c==="slow"?" (the AI was too slow just now)":""}. Showing starter ideas instead.</p>`;
+      if(c==="not_granted")sample=null}
   }
   if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
-  if(got&&!msg.querySelector(".err"))msg.innerHTML=!sample&&bankIdeas.noteMiss?`<p class="note">None of the starter ideas matched the words in Details, so these come from the quiz. Words like puzzles, camping or coffee match best.</p>`:"";
-  busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
+  if(got&&!msg.querySelector(".err"))msg.innerHTML=!aiOn()&&bankIdeas.noteMiss?`<p class="note">None of the starter ideas matched the words in Details, so these come from the quiz. Words like puzzles, camping or coffee match best.</p>`:"";
+  if(note)msg.innerHTML=`<p class="note">${note}</p>`;
+  setAi();busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
 }
 $("#moreBtn").addEventListener("click",getIdeas);
 
@@ -1497,6 +1616,44 @@ $("#gResult").addEventListener("click",e=>{
     copy(`Hi ${a}! For ${gn} you drew ${b}. The spending limit is $${S.g.limit}. Make your own Wishwell list here so whoever drew you knows what to get: ${APP_URL}`,"Message copied")}
 });
 
+/* key window: a key and the email it was sent to turn on AI ideas for this phone */
+function setKey(k){KEY=k;try{k?localStorage.setItem("wishwell-key",JSON.stringify(k)):localStorage.removeItem("wishwell-key")}catch(e){}aiLeft=null;setAi();if(!$("#keyM").hidden)paintKey()}
+function paintKey(){
+  $("#keyBody").innerHTML=hasKey()?`<p style="margin-top:0"><strong>AI ideas are on for this phone.</strong> Tap More ideas on the Ideas page for ideas picked for this list. A key gives up to 25 AI rounds a day and works on up to 3 devices.</p><p class="small muted">Key for ${esc(KEY.email)}</p><div class="row"><button class="btn" type="button" id="keyOff">Remove the key from this phone</button></div><p class="small muted">Removing it here doesn't free up one of its 3 devices.</p>`
+  :`<p style="margin-top:0">Have a key? Enter it with the email it was sent to, and AI ideas turn on for this phone.</p>
+<label class="field"><span>Key</span><input type="text" id="keyIn" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+<label class="field"><span>Email</span><input type="email" id="keyMail" autocomplete="email" autocapitalize="off" spellcheck="false" inputmode="email"></label>
+<div class="row"><button class="btn primary" type="button" id="keyGo">Turn on AI ideas</button></div><p class="small" id="keyMsg" role="status" aria-live="polite"></p>`;
+}
+function openKey(){paintKey();$("#keyM").hidden=false;const f=$("#keyIn")||$("#keyClose");if(f)f.focus()}
+const closeKey=()=>{$("#keyM").hidden=true};
+async function unlock(){
+  const kb=$("#keyIn"),eb=$("#keyMail"),btn=$("#keyGo"),m=$("#keyMsg");if(!kb||!btn||btn.disabled)return;
+  const key=kb.value.trim(),email=eb.value.trim().toLowerCase();
+  if(key.length<8){m.textContent="Enter your key first.";kb.focus();return}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){m.textContent="Enter the email your key was sent to.";eb.focus();return}
+  btn.disabled=true;btn.textContent="Checking...";m.textContent="";
+  try{
+    const ac=window.AbortController?new AbortController():null,tm=ac&&setTimeout(()=>ac.abort(),30000);
+    let r;try{r=await fetch(AI_BASE+"/verify",{method:"POST",headers:aiHeaders(false),body:JSON.stringify({license_key:key,email}),signal:ac?ac.signal:undefined})}finally{clearTimeout(tm)}
+    const d=await r.json().catch(()=>({}));
+    if(r.ok&&d.valid){setKey({key,email,at:Date.now()});toast("AI ideas are on");return}
+    const why=r.status===429?(d.error==="too_many_tries"?"too_many_tries":"busy"):r.ok?(d.reason||""):"busy";
+    m.textContent=why==="device_limit"?"This key is already on 3 devices, so it can't be added here."
+      :why==="too_many_tries"?"Too many wrong tries from this network today. Try again tomorrow."
+      :why==="refunded"?"This key was refunded, so it doesn't work anymore."
+      :why==="not_found"||why==="missing_key"||why==="missing_email"?"That key and email don't match. Check both and try again."
+      :"Couldn't check the key right now. Try again in a minute.";
+  }catch(e){m.textContent="Couldn't check the key right now. Check your connection and try again in a minute."}
+  btn.disabled=false;btn.textContent="Turn on AI ideas";
+}
+$("#keyOpen").addEventListener("click",openKey);
+$("#keyClose").addEventListener("click",closeKey);
+$("#keyM").addEventListener("click",e=>{if(e.target.id==="keyM")closeKey();else if(e.target.closest("#keyGo"))unlock();else if(e.target.closest("#keyOff")){setKey(null);toast("Key removed from this phone")}});
+$("#keyM").addEventListener("keydown",e=>{if((e.target.id==="keyIn"||e.target.id==="keyMail")&&e.key==="Enter"){e.preventDefault();unlock()}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#keyM").hidden)closeKey()});
+document.addEventListener("click",e=>{if(e.target.closest("[data-key]"))openKey()});
+
 /* plans and what testers would pay for */
 function openPlans(why,tier){
   $("#plansWhy").textContent=why||"The passes are coming soon. Nothing here charges you. Tap Coming soon on any pass you'd want.";
@@ -1602,11 +1759,25 @@ function runIntro(){
   o.addEventListener("click",()=>end(true));
 }
 const aiLine=$("#aiState");
-const setAi=()=>aiLine.textContent=sample?"AI ideas are on.":"Using starter ideas. AI ideas coming soon.";
+const setAi=()=>{
+  if(PASS_ONLY){
+    const kb=$("#keyOpen");kb.hidden=!sample;kb.classList.toggle("on",hasKey());
+    if(!sample){aiLine.hidden=true;return}
+    aiLine.hidden=false;
+    if(hasKey())aiLine.textContent="AI ideas are on."+(aiLeft!=null?` ${aiLeft} AI round${aiLeft===1?"":"s"} left today.`:"");
+    else aiLine.innerHTML=`Starter ideas are on. <button class="btn" type="button" data-key style="min-height:40px;padding:4px 10px;margin-left:4px">Have a key?</button>`;
+    return}
+  aiLine.textContent=sample?"AI ideas are on.":"Using starter ideas. AI ideas coming soon.";
+};
 if(CFG.aiUrl){sample={json:async(_p,o)=>{
-  const r=await fetch(CFG.aiUrl,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(o.payload)});
-  if(r.status===429){const e=new Error("busy");e.code="rate_limited";throw e}
-  if(!r.ok)throw new Error("AI service "+r.status);return r.json()}}}
+  /* give up after a minute so a slow AI never leaves the page stuck on Thinking */
+  const ac=window.AbortController?new AbortController():null,tm=ac&&setTimeout(()=>ac.abort(),60000);
+  let r;try{r=await fetch(CFG.aiUrl,{method:"POST",headers:aiHeaders(true),body:JSON.stringify(o.payload),signal:ac?ac.signal:undefined})}
+  catch(x){const e=new Error("AI service unreachable");e.code=x&&x.name==="AbortError"?"slow":"error";throw e}
+  finally{clearTimeout(tm)}
+  const pl=r.headers.get("x-pass-left");if(pl!=null&&pl!==""&&!isNaN(+pl))aiLeft=+pl;
+  if(!r.ok){const d=await r.json().catch(()=>({}));const e=new Error("AI service "+r.status);e.code=d.error||(r.status===429?"rate_limited":"error");throw e}
+  return r.json()}}}
 setAi();
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 }

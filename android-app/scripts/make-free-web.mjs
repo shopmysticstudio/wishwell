@@ -1,6 +1,7 @@
 // Builds the free Play Store version of Wishwell from the web app in ../app.
-// The free app has starter ideas only: no AI, no prices for passes, no links to buy anything
-// from Wishwell, no service worker and no Google Fonts requests (fonts are bundled).
+// The free app has starter ideas. AI ideas turn on only after someone enters a key and the email
+// it was sent to (passOnly); the app never says where keys come from, never shows a price and has
+// no links to buy anything from Wishwell. No service worker and no Google Fonts requests (fonts are bundled).
 // Every change below must match the web app exactly. If the web app changes and a match is
 // lost, this script stops with an error instead of shipping a half-changed app.
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync, existsSync } from "node:fs";
@@ -31,9 +32,8 @@ const swapRe = (re, to, label) => {
 // Website install links: the free app doesn't ship the manifest or web icons (the manifest link was a missing file).
 swapRe(/<link rel="manifest" href="manifest\.webmanifest">\s*<link rel="icon"[^>]*>\s*<link rel="apple-touch-icon"[^>]*>\s*/, "", "web app manifest and icon links");
 
-// Settings: AI is always off in the free app.
-swap('<script src="config.js"></script>', '<script>window.WISHWELL_CONFIG={aiUrl:"",shareBase:"https://shopmysticstudio.github.io/wishwell/app/",shortLinks:true};</script>', "config.js script tag");
-swap("if(CFG.aiUrl){", "if(false){", "AI switch");
+// Settings: AI ideas only with a key (passOnly). Without a key the app never contacts the AI service.
+swap('<script src="config.js"></script>', '<script>window.WISHWELL_CONFIG={aiUrl:"https://wishwell-ai-ideas.shopmysticstudio.workers.dev",passOnly:true,shareBase:"https://shopmysticstudio.github.io/wishwell/app/",shortLinks:true};</script>', "config.js script tag");
 
 // Details box: say plainly that short hobby words work best, since there's no AI to read sentences.
 swap("<p class=\"qsub\">Optional. Hobbies, favorite things, what ${S.forWho===\"me\"?\"you\":\"they\"} already have.</p>", "<p class=\"qsub\">Optional. A few hobby words help most, like puzzles, camping, baking or cats.</p>", "Details hint");
@@ -46,7 +46,7 @@ swapRe(/<link rel="preconnect" href="https:\/\/fonts\.googleapis\.com">\s*<link 
 swap('<button class="plans" id="openPlans" type="button">Plans</button>', '<button class="plans" id="openPlans" type="button" hidden>Plans</button>', "Plans button");
 swap('<div class="sub">Test draft by Wishwell</div>', "", "Test draft tag");
 
-// AI status line.
+// AI status line: hidden until the key-only code fills it in.
 swap('<p class="small muted" id="aiState">Checking for AI ideas...</p>', '<p class="small muted" id="aiState" hidden></p>', "AI status line");
 swap('aiLine.textContent=sample?"AI ideas are on.":"Using starter ideas. AI ideas coming soon."', 'aiLine.textContent=""', "AI status text");
 
@@ -65,15 +65,20 @@ swap('Buy<span class="pl">Paid link</span></a>', "Buy</a>", "Paid link label");
 swap('rel="noopener sponsored"', 'rel="noopener"', "sponsored rel");
 
 // Footer.
-swapRe(/<footer>[\s\S]*?<\/footer>/, "<footer>Free app. No accounts. Your lists stay on this phone. Prices are rough estimates, not live prices. Buy, Compare prices and Magic Coupons open a store or deals search in your browser.</footer>", "footer");
+swapRe(/<footer>[\s\S]*?<\/footer>/, "<footer>Free app. No accounts. Your lists stay on this phone. With a key, AI ideas send your quiz answers, Details and idea titles to the Wishwell AI service. Prices are rough estimates, not live prices. Buy, Compare prices and Magic Coupons open a store or deals search in your browser.</footer>", "footer");
 
 // No service worker inside the app: the files already live on the phone.
 swap('if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});', "", "service worker");
 
-// Final checks: nothing about paying Wishwell, passes or AI may be left on screen.
-for (const bad of ["Holiday Pass", "Exchange Pass", "$4.99", "$2.99", "$19.99", "$34.99", "fonts.googleapis.com", "Plans (coming soon)", "AI ideas coming soon"]) {
+// Final checks: nothing about paying Wishwell, passes, where keys come from or prices for them
+// may be left in the page (Play payments policy).
+for (const bad of ["Holiday Pass", "Exchange Pass", "$4.99", "$2.99", "$19.99", "$34.99", "fonts.googleapis.com", "Plans (coming soon)", "AI ideas coming soon", "In this test you can keep going"]) {
   if (html.includes(bad)) throw new Error(`Free app build: "${bad}" is still in the page.`);
 }
+for (const bad of [/gumroad/i, /\bbuy (a|your|the) (key|pass)/i, /\bget (a|your|the) (key|pass)/i, /\bpurchas/i, /\bwebsite\b/i, /\bcheckout\b/i]) {
+  if (bad.test(html)) throw new Error(`Free app build: ${bad} matches something in the page.`);
+}
+if (!html.includes("passOnly:true")) throw new Error("Free app build: AI must be key-only.");
 writeFileSync(join(out, "index.html"), html);
 
 // Fonts (SIL Open Font License), copied from the @fontsource packages.
