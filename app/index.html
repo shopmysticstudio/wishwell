@@ -757,6 +757,8 @@ const metrics=()=>({quizDone:0,quizTaps:0,ideas:0,circled:0,cut:0,have:0,ai:0,li
 const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",age:"",lean:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],have:[],seq:0,round:0,aiRounds:0,view:"start",listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
 let S=fresh(),sample=null,busy=false,FAM=null;
 try{const raw=localStorage.getItem("wishbook-v1");if(raw){const o=JSON.parse(raw);S=Object.assign(fresh(),o);S.m=Object.assign(metrics(),o.m||{});S.m.pay=Object.assign(metrics().pay,(o.m||{}).pay||{});S.g=Object.assign(fresh().g,o.g||{});S.opt=Object.assign(fresh().opt,o.opt||{})}}catch(e){}
+/* a "used up" note saved under a smaller free limit no longer holds, so let the server decide again */
+if(S.trialUsed&&(+S.trialFree||3)<FREE)S.trialUsed=false;
 const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}signalLater()};
 /* tell the AI service which AI ideas were circled, ranked top 3 or cut, so the best ones can become
    starter ideas. Sends idea titles only: no device id, names, notes or anything typed. Each title is sent once. */
@@ -994,7 +996,7 @@ async function getIdeas(){
     mb.textContent="Thinking...";msg.innerHTML=`<p class="note">Asking AI for ideas that fit. This takes a few seconds.</p>`;
     try{const ka=keptAiNew();got=await aiIdeas(8);S.aiRounds++;S.m.ai++;S.keptSent=[...(S.keptSent||[]),...ka].slice(-300)}
     catch(e){const c=e&&e.code;
-      if(c==="trial_used"){S.trialUsed=true;S.aiLeft=null;note=`You've used your ${FREE} free AI rounds, so these are starter ideas. ${passBtn}`;
+      if(c==="trial_used"){S.trialUsed=true;S.trialFree=FREE;S.aiLeft=null;note=`You've used your ${FREE} free AI rounds, so these are starter ideas. ${passBtn}`;
         setTimeout(()=>openPlans(PAY?`You've used your ${FREE} free AI rounds. The Holiday Pass gives you 25 AI rounds a day, plus gift exchanges of any size.`:`You've used your ${FREE} free AI rounds. The Holiday Pass, coming soon, will give you 25 AI rounds a day.`,"holiday"),600)}
       else if(c==="pass_daily_limit"){note="You've used today's 25 AI rounds. More tomorrow! These are starter ideas."}
       else if(c==="pass_invalid"){PASS=null;try{localStorage.removeItem("wishwell-pass")}catch(x){}note=`Your Holiday Pass key didn't check out (it may have been refunded), so these are starter ideas. ${passBtn}`}
