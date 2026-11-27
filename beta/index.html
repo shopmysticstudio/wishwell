@@ -248,7 +248,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"a90ebbab13d2bf1dd6cc1d5e1bb71deb",hash:"8f00cbc3423556e13d909ccd6d9cd8ad0e894067a60e880a765acedebf2cbebe",iter:200000};
+window.WISHWELL_BETA={salt:"be2ae7d41196242d3e1ebda615868d6a",hash:"747107acd950534646f0069b7311292e7283fa152e7ab43bc7ced8f77df87b53",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
@@ -1480,8 +1480,10 @@ const STORES=[
  {id:"lego",name:"LEGO",dom:"lego.com",min:35,fee:null,rule:"Free shipping on orders over $35",s:"https://www.lego.com/en-us/search?q=",deals:"https://www.lego.com/en-us/promotions",match:/\blego\b|brick|building set/i}
 ];
 const storeFor=(st,it)=>st.cats==="*"||(st.cats||[]).includes(it.cat)||!!(st.match&&st.match.test(it.title+" "+(it.search||"")));
-const slogo=st=>`<span class="slogo" data-l="${esc(st.name.charAt(0))}" aria-hidden="true"><img src="https://www.${st.dom}/favicon.ico" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`;
-document.addEventListener("error",e=>{const t=e.target;if(t&&t.tagName==="IMG"&&t.parentNode&&t.parentNode.classList&&t.parentNode.classList.contains("slogo")){const p=t.parentNode;p.textContent=p.dataset.l||""}},true);
+const slogo=st=>`<span class="slogo" data-l="${esc(st.name.charAt(0))}" data-d="${esc(st.dom)}" aria-hidden="true"><img src="https://www.${st.dom}/favicon.ico" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`;
+/* if a store's own icon won't load, try Google's icon service once, then show the store's first letter */
+document.addEventListener("error",e=>{const t=e.target;if(t&&t.tagName==="IMG"&&t.parentNode&&t.parentNode.classList&&t.parentNode.classList.contains("slogo")){const p=t.parentNode;
+  if(!t.dataset.alt&&p.dataset.d){t.dataset.alt="1";t.src="https://www.google.com/s2/favicons?sz=64&domain="+encodeURIComponent(p.dataset.d);return}p.textContent=p.dataset.l||""}},true);
 const dollars=v=>"$"+(Math.round(v*100)%100?v.toFixed(2):Math.round(v));
 const shipAt=(st,p)=>p>=st.min?0:st.fee; /* null: the store shows its fee at checkout */
 function priceRows(it){

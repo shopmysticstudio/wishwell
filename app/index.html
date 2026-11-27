@@ -1430,8 +1430,10 @@ const STORES=[
  {id:"lego",name:"LEGO",dom:"lego.com",min:35,fee:null,rule:"Free shipping on orders over $35",s:"https://www.lego.com/en-us/search?q=",deals:"https://www.lego.com/en-us/promotions",match:/\blego\b|brick|building set/i}
 ];
 const storeFor=(st,it)=>st.cats==="*"||(st.cats||[]).includes(it.cat)||!!(st.match&&st.match.test(it.title+" "+(it.search||"")));
-const slogo=st=>`<span class="slogo" data-l="${esc(st.name.charAt(0))}" aria-hidden="true"><img src="https://www.${st.dom}/favicon.ico" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`;
-document.addEventListener("error",e=>{const t=e.target;if(t&&t.tagName==="IMG"&&t.parentNode&&t.parentNode.classList&&t.parentNode.classList.contains("slogo")){const p=t.parentNode;p.textContent=p.dataset.l||""}},true);
+const slogo=st=>`<span class="slogo" data-l="${esc(st.name.charAt(0))}" data-d="${esc(st.dom)}" aria-hidden="true"><img src="https://www.${st.dom}/favicon.ico" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`;
+/* if a store's own icon won't load, try Google's icon service once, then show the store's first letter */
+document.addEventListener("error",e=>{const t=e.target;if(t&&t.tagName==="IMG"&&t.parentNode&&t.parentNode.classList&&t.parentNode.classList.contains("slogo")){const p=t.parentNode;
+  if(!t.dataset.alt&&p.dataset.d){t.dataset.alt="1";t.src="https://www.google.com/s2/favicons?sz=64&domain="+encodeURIComponent(p.dataset.d);return}p.textContent=p.dataset.l||""}},true);
 const dollars=v=>"$"+(Math.round(v*100)%100?v.toFixed(2):Math.round(v));
 const shipAt=(st,p)=>p>=st.min?0:st.fee; /* null: the store shows its fee at checkout */
 function priceRows(it){
