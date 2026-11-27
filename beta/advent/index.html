@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wishwell Advent Calendar</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="A Christmas tree of 25 drawers with a tiny holiday game behind each one.">
+<meta name="theme-color" content="#23284d">
+<link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&family=Caveat:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="advent.css">
+<style>
+body{margin:0;background:#23284d}
+html.locked body>*:not(#gate){display:none!important}
+#gate{display:none}
+html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:center;padding:24px 16px;color:#fff;font:16px/1.5 Nunito,system-ui,sans-serif;
+  background:radial-gradient(circle at 50% 30%,rgba(255,201,74,.3),transparent 260px),#23284d}
+#gate .gbox{width:100%;max-width:380px;text-align:center}
+#gate img{width:84px;height:84px;filter:drop-shadow(0 6px 18px rgba(255,201,74,.35))}
+#gate h1{font-size:30px;margin:8px 0 4px;font-weight:900}
+#gate p{margin:0 0 18px;color:#e9e6f5}
+#gate input{width:100%;font:inherit;font-size:20px;text-align:center;letter-spacing:.08em;text-transform:uppercase;padding:12px;border-radius:12px;border:2px solid #ffc94a;background:#fff;color:#141414;min-height:52px;box-sizing:border-box}
+#gate button{width:100%;margin-top:12px;font:inherit;font-weight:900;font-size:18px;border:0;border-radius:999px;padding:14px;min-height:52px;background:#e0453a;color:#fff;cursor:pointer}
+#gate button:disabled{opacity:.6}
+#gate .gmsg{min-height:1.5em;margin-top:12px;color:#ffc94a;font-weight:700}
+</style>
+<script>
+/* Same beta code as the Wishwell beta. Only a salted fingerprint of the code is here, not the code. */
+document.documentElement.classList.add("locked");
+window.WISHWELL_BETA={salt:"f717f70410c6c8008c02b919d0693294",hash:"7f27b1bebadc9d7d7705b9c7c924fae4d5c525397348be5c503098bc34b3d44c",iter:200000};
+window.wishwellBetaCheck=async function(code){
+  const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(c.length<8||!(window.crypto&&crypto.subtle))return false;
+  const B=window.WISHWELL_BETA,salt=new Uint8Array(B.salt.match(/../g).map(x=>parseInt(x,16)));
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(c),"PBKDF2",false,["deriveBits"]);
+  const bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations:B.iter},key,256);
+  const hex=[...new Uint8Array(bits)].map(b=>b.toString(16).padStart(2,"0")).join("");
+  if(hex!==B.hash)return false;
+  window.WISHWELL_ACCESS_CODE=c;return true;
+};
+(async()=>{let saved="";try{saved=localStorage.getItem("wishwell-beta-code")||""}catch(e){}
+  if(saved&&await window.wishwellBetaCheck(saved))document.documentElement.classList.remove("locked");})();
+</script>
+</head>
+<body>
+<div id="gate" role="dialog" aria-modal="true" aria-labelledby="gateT"><form class="gbox" id="gateForm" autocomplete="off">
+  <img src="../img/mark.png" alt="Wishwell logo" width="84" height="84">
+  <h1 id="gateT">Wishwell Advent</h1>
+  <p>This early version is for invited testers. Enter your access code.</p>
+  <input id="gateCode" type="text" inputmode="text" autocapitalize="characters" spellcheck="false" aria-label="Access code" placeholder="Access code">
+  <button type="submit" id="gateBtn">Enter</button>
+  <div class="gmsg" id="gateMsg" role="status"></div>
+</form></div>
+<div id="advent"></div>
+<script src="advent.js"></script>
+<script>
+document.getElementById("gateForm").addEventListener("submit",async e=>{
+  e.preventDefault();const btn=document.getElementById("gateBtn"),msg=document.getElementById("gateMsg"),v=document.getElementById("gateCode").value;
+  btn.disabled=true;msg.textContent="Checking...";
+  const ok=await window.wishwellBetaCheck(v).catch(()=>false);btn.disabled=false;
+  if(!ok){msg.textContent="That code didn't work. Check it and try again.";return}
+  try{localStorage.setItem("wishwell-beta-code",window.WISHWELL_ACCESS_CODE)}catch(err){}
+  msg.textContent="";document.documentElement.classList.remove("locked");window.scrollTo(0,0);
+});
+WishwellAdvent.mount(document.getElementById("advent"),{backHref:"../",backLabel:"Wishwell",showPreview:true});
+if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js",{scope:"./"}).catch(()=>{});
+</script>
+</body>
+</html>
