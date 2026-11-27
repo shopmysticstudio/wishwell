@@ -989,35 +989,34 @@ function tones(c,notes,gap,vol,start,len){
 function haptic(kind){if(NATIVE&&S.snd!==false)try{window.Capacitor.nativePromise("WishwellSound","haptic",{kind}).catch(()=>{})}catch(e){}}
 // Values along an eased stroke, for the marker sound.
 function curve(n,f){const a=new Float32Array(n);for(let i=0;i<n;i++)a[i]=f(i/(n-1));return a}
-// Felt-tip marker drawing one loop: scratchy noise whose pitch rises and falls as the stroke turns,
-// fast at the start and slowing at the end, like the .45s ease-out circle on the card.
+// Felt-tip marker drawing one loop (matches the website): grainy noise through a bandpass that sweeps
+// 1800 up to 3400 and back to 2000 Hz, with a faint squeak gliding 1150, 1500, 1250 Hz.
+// 0.44 s to follow the circle; a 0.16 s blip when motion is reduced and the circle just appears.
+const sweep=(lo,hi,end)=>u=>u<.45?lo+(hi-lo)*Math.sin(u/.45*Math.PI/2):hi+(end-hi)*(1-Math.cos((u-.45)/.55*Math.PI/2));
 function markerSound(c){
-  const t=c.currentTime+.02,dur=.46,len=Math.floor(c.sampleRate*(dur+.05)),buf=c.createBuffer(1,len,c.sampleRate),d=buf.getChannelData(0);
-  let last=0;for(let i=0;i<len;i++){last=last*.35+(Math.random()*2-1)*.65;d[i]=last}
-  const prog=u=>1-(1-u)*(1-u),speed=u=>.3+.7*(1-u),turn=u=>Math.sin(Math.PI*2*1.05*prog(u)-.6);
+  const t=c.currentTime+.02,dur=matchMedia("(prefers-reduced-motion: reduce)").matches?.16:.44,len=Math.floor(c.sampleRate*(dur+.05)),buf=c.createBuffer(1,len,c.sampleRate),d=buf.getChannelData(0);
+  let last=0;for(let i=0;i<len;i++){last=last*.35+(Math.random()*2-1)*.65;d[i]=last*(Math.random()<.08?1.8:1)}
+  const env=u=>Math.min(1,u*14)*Math.min(1,(1-u)*7)*(.55+.45*(1-u));
   const n=c.createBufferSource();n.buffer=buf;
   const hp=c.createBiquadFilter();hp.type="highpass";hp.frequency.value=900;
-  const bp=c.createBiquadFilter();bp.type="bandpass";bp.Q.value=2.2;
-  bp.frequency.setValueCurveAtTime(curve(64,u=>2300+800*turn(u)+600*speed(u)),t,dur);
-  const g=c.createGain();g.gain.value=0;
-  g.gain.setValueCurveAtTime(curve(64,u=>.11*speed(u)*Math.min(1,u*14)*Math.min(1,(1-u)*7)),t,dur);
+  const bp=c.createBiquadFilter();bp.type="bandpass";bp.Q.value=2.2;bp.frequency.setValueCurveAtTime(curve(64,sweep(1800,3400,2000)),t,dur);
+  const g=c.createGain();g.gain.value=0;g.gain.setValueCurveAtTime(curve(64,u=>.11*env(u)),t,dur);
   n.connect(hp);hp.connect(bp);bp.connect(g);g.connect(c.destination);n.start(t);n.stop(t+dur+.04);
   const o=c.createOscillator(),og=c.createGain();o.type="triangle";og.gain.value=0;
-  o.frequency.setValueCurveAtTime(curve(64,u=>1550+380*turn(u)+260*speed(u)),t,dur);
-  og.gain.setValueCurveAtTime(curve(64,u=>.016*speed(u)*(.6+.4*Math.max(0,turn(u)))*Math.min(1,u*14)*Math.min(1,(1-u)*7)),t,dur);
+  o.frequency.setValueCurveAtTime(curve(64,sweep(1150,1500,1250)),t,dur);
+  og.gain.setValueCurveAtTime(curve(64,u=>.014*env(u)),t,dur);
   o.connect(og);og.connect(c.destination);o.start(t);o.stop(t+dur+.04);
 }
-// Scissors: a short blade slide, then a crisp metal snip.
+// Scissors (matches the website): two 50 ms high-passed clicks 75 ms apart, with short pings at 2900 then 2400 Hz.
 function snipSound(c){
   const t=c.currentTime+.02,sr=c.sampleRate;
-  const burst=(at,ms,f,q,vol,rise)=>{const k=Math.floor(sr*ms/1000),b=c.createBuffer(1,k,sr),d=b.getChannelData(0);
-    for(let i=0;i<k;i++){const x=i/k;d[i]=(Math.random()*2-1)*(rise?Math.sin(Math.PI*x):Math.pow(1-x,3))}
-    const s=c.createBufferSource(),f1=c.createBiquadFilter(),g=c.createGain();s.buffer=b;f1.type="bandpass";f1.frequency.value=f;f1.Q.value=q;g.gain.value=vol;
-    s.connect(f1);f1.connect(g);g.connect(c.destination);s.start(at)};
-  burst(t,55,3800,1.2,.05,true);
-  burst(t+.06,14,5200,.9,.16,false);
-  const out=c.createGain();out.gain.value=.018;out.connect(c.destination);
-  [3150,4730,6290].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.frequency.value=f;g.gain.setValueAtTime(1/(i+1),t+.06);g.gain.exponentialRampToValueAtTime(.001,t+.06+.09);o.connect(g);g.connect(out);o.start(t+.06);o.stop(t+.17)});
+  [[0,2900,.9],[.075,2400,1]].forEach(([at,ping,v])=>{
+    const k=Math.floor(sr*.05),b=c.createBuffer(1,k,sr),d=b.getChannelData(0);
+    for(let i=0;i<k;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/k,4);
+    const s=c.createBufferSource(),hp=c.createBiquadFilter(),g=c.createGain();s.buffer=b;hp.type="highpass";hp.frequency.value=3000;g.gain.value=.09*v;
+    s.connect(hp);hp.connect(g);g.connect(c.destination);s.start(t+at);
+    const o=c.createOscillator(),og=c.createGain();o.frequency.value=ping;og.gain.setValueAtTime(.02*v,t+at);og.gain.exponentialRampToValueAtTime(.001,t+at+.07);
+    o.connect(og);og.connect(c.destination);o.start(t+at);o.stop(t+at+.08)});
 }
 const circleFx=()=>{haptic("tick");soundOk().then(ok=>{if(!ok)return;const c=audio();if(c)try{markerSound(c)}catch(e){}})};
 const cutFx=()=>{haptic("cut");soundOk().then(ok=>{if(!ok)return;const c=audio();if(c)try{snipSound(c)}catch(e){}})};
