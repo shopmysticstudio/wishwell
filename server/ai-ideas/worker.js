@@ -148,25 +148,35 @@ function describe(out) {
   return parts.join("; ");
 }
 
+// Collects every idea object in the reply: one JSON array, several arrays, or loose objects.
 function findArray(text) {
   const t = text.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:json)?/gi, "");
-  for (let s = t.indexOf("["); s !== -1; s = t.indexOf("[", s + 1)) {
+  const items = [];
+  const closeOf = (i) => {
     let depth = 0, inStr = false, esc = false;
-    for (let i = s; i < t.length; i++) {
-      const ch = t[i];
+    for (let j = i; j < t.length; j++) {
+      const ch = t[j];
       if (inStr) { if (esc) esc = false; else if (ch === "\\") esc = true; else if (ch === '"') inStr = false; continue; }
       if (ch === '"') inStr = true;
-      else if (ch === "[") depth++;
-      else if (ch === "]" && --depth === 0) {
-        try { const v = JSON.parse(t.slice(s, i + 1)); if (Array.isArray(v)) return v; } catch (e) {}
-        break;
-      }
+      else if (ch === "[" || ch === "{") depth++;
+      else if ((ch === "]" || ch === "}") && --depth === 0) return j;
     }
+    return -1;
+  };
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (ch !== "[" && ch !== "{") continue;
+    const end = closeOf(i);
+    const seg = end === -1 ? t.slice(i) : t.slice(i, end + 1);
+    let v;
+    try { v = JSON.parse(seg); } catch (e) { v = undefined; }
+    if (Array.isArray(v)) items.push(...v);
+    else if (v && typeof v === "object") items.push(Array.isArray(v.ideas) ? v.ideas : v);
+    else for (const m of seg.matchAll(/\{[^{}]*\}/g)) { try { items.push(JSON.parse(m[0])); } catch (e) {} }
+    if (end === -1) break;
+    i = end;
   }
-  // Last resort: pick out complete {...} objects one by one.
-  const objs = [];
-  for (const m of t.matchAll(/\{[^{}]*\}/g)) { try { objs.push(JSON.parse(m[0])); } catch (e) {} }
-  return objs;
+  return items.flat();
 }
 
 function inBudget(lo, hi, budget) {
@@ -199,6 +209,7 @@ function parseIdeas(out, q) {
     ideas.push({ title, category: cat, lo, hi, why, search });
   }
   ideas.dropped = dropped;
+  ideas.raw = raw.length;
   return ideas;
 }
 
@@ -384,7 +395,7 @@ export default {
 
     const u = out && out.usage;
     const extra = { [left[0]]: String(Math.max(0, left[1])) };
-    if (u) extra["x-ai-usage"] = "in=" + (u.prompt_tokens || 0) + "; out=" + (u.completion_tokens || 0) + "; neurons=" + (u.neurons != null ? u.neurons : "?") + "; dropped=" + JSON.stringify(ideas.dropped);
+    if (u) extra["x-ai-usage"] = "in=" + (u.prompt_tokens || 0) + "; out=" + (u.completion_tokens || 0) + "; neurons=" + (u.neurons != null ? u.neurons : "?") + "; raw=" + ideas.raw + "; dropped=" + JSON.stringify(ideas.dropped);
     return reply(ideas.slice(), 200, extra);
   }
 };
