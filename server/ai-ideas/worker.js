@@ -32,9 +32,9 @@
      BETA_CODE           optional; overrides the beta code fingerprint below
    Bindings: AI (Workers AI), KV (KV namespace), PER_MINUTE (rate limit), DB (D1, optional) */
 
-const DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash";
+const DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 // Used when the main model is slow or its reply is unusable. "off" turns it off.
-const BACKUP_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const BACKUP_MODEL = "@cf/meta/llama-3.1-8b-instruct-fp8-fast";
 const CATS = ["Tech", "Gaming", "Making", "Art", "Music", "Sports", "Outdoors", "Science",
   "Books", "Food", "Style", "Room", "Experiences", "Beauty", "Other"];
 const INTERESTS = ["Tech", "Gaming", "Making", "Art", "Music", "Sports", "Outdoors", "Space and science",
@@ -444,8 +444,9 @@ export default {
     const withTime = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error("timeout " + ms)), ms))]);
     const main = env.MODEL || DEFAULT_MODEL, backup = env.BACKUP_MODEL || BACKUP_MODEL;
     const ask = async (model, ms) => {
+      // Thinking models (GLM, Qwen, DeepSeek) are asked to answer directly; others get the plain request.
+      if (!/glm|qwen|qwq|deepseek|kimi/i.test(model)) return await withTime(env.AI.run(model, input), ms);
       try {
-        // Ask thinking models to answer directly; a model that rejects this option gets the plain request.
         return await withTime(env.AI.run(model, { ...input, chat_template_kwargs: { enable_thinking: false } }), ms);
       } catch (first) {
         if (/4006|allocation|5035|paid|timeout/i.test(String(first && first.message))) throw first;
