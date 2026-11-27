@@ -8,9 +8,11 @@ who may use AI. Cloudflare deploys it automatically from the `payments` branch
 
 - `POST /` gift ideas. Open to everyone while `BETA_ONLY` is "false" (needs the beta code when "true").
 - `POST /verify` Holiday Pass license check for the app's "I have a license key" box.
-- Free trial: 3 rounds per person, 15 with the beta code. Counted in D1 (table `ai_use`,
-  made on first use) per device (`x-device-id`) and per network (hashed IP, IPv6 by /64,
-  30 days), so clearing storage, a private window or another browser doesn't reset it.
+- Free rounds: 2 a day and 10 a week on the public site (`TRIAL_DAILY`, `TRIAL_WEEKLY`; a day
+  starts at midnight US Eastern, a week on Monday), 15 in total with the beta code. Counted in D1
+  (table `ai_use`, made on first use) per device (`x-device-id`) and per network (hashed IP,
+  IPv6 by /64), so clearing storage, a private window or another browser doesn't reset it.
+  People on the same network share one set. Test: `node server/ai-ideas/test/windows.test.mjs`.
   Rounds are reserved before the AI call and handed back if it fails.
   Then `402 {"error":"trial_used"}` and the app shows the Holiday Pass wall.
   Test: `node server/ai-ideas/test/limits.test.mjs`.

@@ -374,6 +374,21 @@ const SHOP=!!CFG.shopTools;
 const reduced=()=>!!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
 /* free AI rounds per person (the AI service enforces the real number) */
 const FREE=Math.max(1,Math.round(+CFG.freeRounds||3));
+/* public site: free rounds a day and a week instead (the AI service says when they reset) */
+const DAILY=Math.max(0,Math.round(+CFG.freeDaily||0)),WEEKLY=Math.max(0,Math.round(+CFG.freeWeekly||0)),WIN=DAILY>0||WEEKLY>0;
+const resetWhen=ms=>{if(!ms)return "soon";const d=new Date(ms),now=new Date(),t=d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
+  const tom=new Date(now);tom.setDate(now.getDate()+1);
+  if(d.getHours()===0&&d.getMinutes()===0&&d.toDateString()===tom.toDateString())return "at midnight";
+  if(d.toDateString()===now.toDateString())return "at "+t;
+  if(d.getHours()===0&&d.getMinutes()===0)return "on "+d.toLocaleDateString("en-US",{weekday:"long"});
+  return "on "+d.toLocaleDateString("en-US",{weekday:"long"})+" at "+t};
+const usedMsg=()=>WIN?(S.trialLim==="week"?`You've used this week's ${WEEKLY} free AI rounds. More ${resetWhen(S.trialUntil)}.`:`You've used today's ${DAILY} free AI rounds. More ${resetWhen(S.trialUntil)}.`):`You've used your ${FREE} free AI rounds.`;
+/* a spent daily or weekly limit ends when its window does */
+const trialTick=()=>{if(S.trialUsed&&S.trialUntil&&Date.now()>=S.trialUntil){S.trialUsed=false;S.trialUntil=0;S.trialLim=""}
+  if(S.aiLeft&&S.aiLeft.until&&Date.now()>=S.aiLeft.until)S.aiLeft=null};
+const trialHdr=r=>{const tl=r.headers.get("x-trial-left");if(tl==null)return;const rs=+r.headers.get("x-trial-reset")||0;
+  S.aiLeft={k:"trial",n:+tl,lim:r.headers.get("x-trial-limit")||"",until:rs?rs*1000:0}};
+const trialSpent=(lim,reset)=>{S.trialUsed=true;S.trialFree=FREE;S.trialLim=lim||"";S.trialUntil=reset?reset*1000:0;S.aiLeft=null};
 /* random id for this browser, so the AI service can count free trial rounds per device */
 let DEV="";try{DEV=localStorage.getItem("wishwell-device")||"";if(!/^[A-Za-z0-9_-]{16,64}$/.test(DEV)){DEV=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9]/g,"");localStorage.setItem("wishwell-device",DEV)}}catch(e){}
 const aiHeaders=withPass=>{const h={"content-type":"application/json"};if(window.WISHWELL_ACCESS_CODE)h["x-beta-code"]=window.WISHWELL_ACCESS_CODE;if(DEV)h["x-device-id"]=DEV;if(withPass&&hasPass())h["x-pass-key"]=PASS.key;return h};
@@ -852,7 +867,9 @@ const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",age:"",lean:"",ints:
 let S=fresh(),sample=null,busy=false,FAM=null;
 try{const raw=localStorage.getItem("wishbook-v1");if(raw){const o=JSON.parse(raw);S=Object.assign(fresh(),o);S.m=Object.assign(metrics(),o.m||{});S.m.pay=Object.assign(metrics().pay,(o.m||{}).pay||{});S.g=Object.assign(fresh().g,o.g||{});S.opt=Object.assign(fresh().opt,o.opt||{})}}catch(e){}
 /* a "used up" note saved under a smaller free limit no longer holds, so let the server decide again */
-if(S.trialUsed&&(+S.trialFree||3)<FREE)S.trialUsed=false;
+if(WIN){if(S.trialUsed&&!S.trialUntil)S.trialUsed=false}   /* an old "all used" note from the lifetime limit no longer holds */
+else if(S.trialUsed&&(+S.trialFree||3)<FREE)S.trialUsed=false;
+trialTick();
 const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}signalLater()};
 /* tell the AI service which AI ideas were circled, ranked top 3 or cut, so the best ones can become
    starter ideas. Sends idea titles only: no device id, names, notes or anything typed. Each title is sent once. */
@@ -1085,13 +1102,13 @@ async function getIdeas(){
   if(busy)return;busy=true;S.round=(S.round||0)+1;const mb=$("#moreBtn");mb.disabled=true;
   const msg=$("#msg");msg.innerHTML="";let got=0;
   const passBtn=`<button class="btn" type="button" id="capPlans" style="min-height:40px;padding:4px 10px">Get the Holiday Pass</button>`;
-  const trialOver=!!(sample&&S.trialUsed&&!hasPass());let note=trialOver?`You've used your ${FREE} free AI rounds, so these are starter ideas. ${passBtn}`:"";
+  trialTick();const trialOver=!!(sample&&S.trialUsed&&!hasPass());let note=trialOver?`${usedMsg()} These are starter ideas for now. ${passBtn}`:"";
   if(sample&&!trialOver){
     mb.textContent="Thinking...";msg.innerHTML=`<p class="note">Asking AI for ideas that fit. This takes a few seconds.</p>`;
     try{const ka=keptAiNew();got=await aiIdeas(8);S.aiRounds++;S.m.ai++;S.keptSent=[...(S.keptSent||[]),...ka].slice(-300)}
     catch(e){const c=e&&e.code;
-      if(c==="trial_used"){S.trialUsed=true;S.trialFree=FREE;S.aiLeft=null;note=`You've used your ${FREE} free AI rounds, so these are starter ideas. ${passBtn}`;
-        setTimeout(()=>openPlans(PAY?`You've used your ${FREE} free AI rounds. The Holiday Pass gives you 25 AI rounds a day, plus gift exchanges of any size.`:`You've used your ${FREE} free AI rounds. The Holiday Pass, coming soon, will give you 25 AI rounds a day.`,"holiday"),600)}
+      if(c==="trial_used"){trialSpent(e.limit,e.reset);note=`${usedMsg()} These are starter ideas for now. ${passBtn}`;
+        setTimeout(()=>openPlans(PAY?`${usedMsg()} The Holiday Pass gives you 25 AI rounds a day, plus gift exchanges of any size.`:`${usedMsg()} The Holiday Pass, coming soon, will give you 25 AI rounds a day.`,"holiday"),600)}
       else if(c==="pass_daily_limit"){note="You've used today's 25 AI rounds. More tomorrow! These are starter ideas."}
       else if(c==="pass_invalid"){PASS=null;try{localStorage.removeItem("wishwell-pass")}catch(x){}note=`Your Holiday Pass key didn't check out (it may have been refunded), so these are starter ideas. ${passBtn}`}
       else msg.innerHTML=`<p class="note err">AI ideas didn't load${c==="rate_limited"?" (too many asks, try again in a minute)":c==="slow"?" (the AI was too slow just now)":""}. Showing starter ideas instead.</p>`;
@@ -1314,7 +1331,7 @@ $("#passBox").addEventListener("click",e=>{if(e.target.closest("#keyBtn"))unlock
 $("#passBox").addEventListener("keydown",e=>{if(e.target.id==="keyBox"&&e.key==="Enter"){e.preventDefault();unlock()}});
 document.addEventListener("click",e=>{if(e.target.closest("#capPlans"))openPlans("","holiday")});
 /* only promise AI perks when the AI service is set up */
-if(!AI_ON){$("#perkAi").remove();$("#perkFreeAi").remove()}else $("#perkFreeAi").textContent=FREE+" free AI rounds to try";
+if(!AI_ON){$("#perkAi").remove();$("#perkFreeAi").remove()}else $("#perkFreeAi").textContent=WIN?`${DAILY} free AI rounds a day, up to ${WEEKLY} a week`:FREE+" free AI rounds to try";
 if(PAY){
   $("#plansT").textContent="Plans";
   const hb=document.querySelector('button[data-pay="holiday"]');
@@ -1484,10 +1501,10 @@ async function photoToList(file){
     const thumb=await shrink(file,128,0.7);
     const ac=window.AbortController?new AbortController():null,tm=ac&&setTimeout(()=>ac.abort(),60000);
     let r;try{r=await fetch(String(CFG.aiUrl).trim().replace(/\/+$/,"")+"/photo",{method:"POST",headers:aiHeaders(false),body:JSON.stringify({image:big}),signal:ac?ac.signal:undefined})}finally{clearTimeout(tm)}
-    const tl=r.headers.get("x-trial-left");if(tl!=null)S.aiLeft={k:"trial",n:+tl};
+    trialHdr(r);
     const d=await r.json().catch(()=>({}));
     if(!r.ok){
-      if(d.error==="trial_used"){S.trialUsed=true;S.trialFree=FREE;pmsg(`You've used your ${FREE} free AI rounds, so photos are paused for now.`,1)}
+      if(d.error==="trial_used"){trialSpent(d.limit,d.reset);pmsg(`${usedMsg()} Photos are paused until then.`,1)}
       else if(d.error==="nothing_found")pmsg("I couldn't spot anything to buy in that photo. Try a closer shot, or a screenshot of the product page.",1);
       else if(d.error==="beta_code_required"||d.error==="beta_only")pmsg("Photos work on the beta with your access code.",1);
       else pmsg("Photos aren't working right now. Try again in a minute.",1);
@@ -1570,9 +1587,10 @@ if(!openShared())show(S.view||"start");
 const aiLine=$("#aiState");
 const setAi=()=>{
   if(!sample){aiLine.textContent="Using starter ideas. AI ideas coming soon.";return}
-  const L=S.aiLeft;
+  trialTick();const L=S.aiLeft;const span=L&&L.lim==="week"?"this week":"today";
   if(hasPass())aiLine.textContent="Holiday Pass: AI ideas are on."+(L&&L.k==="pass"?` ${L.n} AI rounds left today.`:"");
-  else if(S.trialUsed)aiLine.textContent=`Your ${FREE} free AI rounds are used. Starter ideas are on.`;
+  else if(S.trialUsed)aiLine.textContent=`${usedMsg()} Starter ideas are on until then.`;
+  else if(WIN)aiLine.textContent="AI ideas are on."+(L&&L.k==="trial"?(L.n>0?` ${L.n} free AI round${L.n===1?"":"s"} left ${span}.`:` That was your last free AI round ${span==="today"?"for today":"this week"}.`):` You get ${DAILY} free AI rounds a day, up to ${WEEKLY} a week.`);
   else aiLine.textContent="AI ideas are on."+(L&&L.k==="trial"?(L.n>0?` ${L.n} free AI round${L.n===1?"":"s"} left.`:" That was your last free AI round."): ` Your first ${FREE} AI rounds are free.`);
 };
 if(CFG.aiUrl){sample={json:async(_p,o)=>{
@@ -1581,9 +1599,9 @@ if(CFG.aiUrl){sample={json:async(_p,o)=>{
   let r;try{r=await fetch(CFG.aiUrl,{method:"POST",headers:aiHeaders(true),body:JSON.stringify(o.payload),signal:ac?ac.signal:undefined})}
   catch(x){const e=new Error("AI service unreachable");e.code=x&&x.name==="AbortError"?"slow":"error";throw e}
   finally{clearTimeout(tm)}
-  const tl=r.headers.get("x-trial-left"),pl=r.headers.get("x-pass-left");
-  if(pl!=null)S.aiLeft={k:"pass",n:+pl};else if(tl!=null)S.aiLeft={k:"trial",n:+tl};
-  if(!r.ok){const d=await r.json().catch(()=>({}));const e=new Error("AI service "+r.status);e.code=d.error||(r.status===429?"rate_limited":"error");throw e}
+  const pl=r.headers.get("x-pass-left");
+  if(pl!=null)S.aiLeft={k:"pass",n:+pl};else trialHdr(r);
+  if(!r.ok){const d=await r.json().catch(()=>({}));const e=new Error("AI service "+r.status);e.code=d.error||(r.status===429?"rate_limited":"error");e.limit=d.limit;e.reset=d.reset;throw e}
   return r.json()}}}
 setAi();
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});

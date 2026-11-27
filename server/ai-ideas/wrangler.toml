@@ -21,6 +21,12 @@ ALLOWED_ORIGINS = "https://shopmysticstudio.github.io"
 BETA_ONLY = "false"
 # Free AI rounds per person, counted in D1 per device and per network (hashed IP), so clearing
 # storage or opening a private window doesn't reset them.
+# Public site: free AI rounds a day and a week, per device and per network (people on the same
+# Wi-Fi share them). A day starts at midnight US Eastern (5 AM UTC); a week starts Monday.
+TRIAL_DAILY = "2"
+TRIAL_WEEKLY = "10"
+TRIAL_DAY_START_HOUR_UTC = "5"
+# Older lifetime limit, only used if TRIAL_DAILY and TRIAL_WEEKLY are removed.
 TRIAL_ROUNDS = "3"
 TRIAL_PER_NETWORK = "3"
 TRIAL_NETWORK_DAYS = "30"

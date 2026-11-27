@@ -12,6 +12,11 @@
               Only bumps counts on ideas already in the pool. Answers 204.
 
    Who gets AI:
+     Public      when TRIAL_DAILY / TRIAL_WEEKLY are set: that many free rounds a day and a week,
+                 counted per device and per network (TRIAL_NET_DAILY / TRIAL_NET_WEEKLY, same by
+                 default). A day starts at TRIAL_DAY_START_HOUR_UTC (5 = midnight US Eastern); a week
+                 on Monday. Then 402 {"error":"trial_used","limit":"day"|"week","reset":unixSeconds}.
+                 The headers x-trial-left, x-trial-limit and x-trial-reset tell the app what's left.
      Free trial  TRIAL_ROUNDS free rounds per person. Counted in D1 per device (x-device-id header)
                  AND per network (hashed IP address, IPv6 by its /64), so clearing storage, a private
                  window or another browser on the same network does not reset it. A network gets at
@@ -458,6 +463,22 @@ async function reserve(db, counters) {
   }
   return got;
 }
+async function usedCounts(db, keys) {
+  const now = Math.floor(Date.now() / 1000), out = [];
+  for (const k of keys) {
+    const row = await db.prepare("SELECT n, exp FROM ai_use WHERE k = ?1").bind(k).first().catch(() => null);
+    out.push(row && Number(row.exp) >= now ? Number(row.n) : 0);
+  }
+  return out;
+}
+// Day and week windows for the public site's free rounds. A day starts at startHour UTC
+// (5 = midnight US Eastern standard time); a week starts on Monday at that hour.
+// Returns window ids and when each ends (unix seconds).
+function windows(startHour, nowMs) {
+  const off = startHour * 3600, t = Math.floor((nowMs ?? Date.now()) / 1000) - off;
+  const d = Math.floor(t / 86400), wk = Math.floor((d + 3) / 7);   // day 0 (Jan 1 1970) was a Thursday
+  return { day: d, week: wk, dayEnd: (d + 1) * 86400 + off, weekEnd: ((wk + 1) * 7 - 3) * 86400 + off };
+}
 async function unreserve(db, keys) {
   for (const k of keys) await db.prepare("UPDATE ai_use SET n = n - 1 WHERE k = ?1 AND n > 0").bind(k).run().catch(() => {});
 }
@@ -465,7 +486,7 @@ async function unreserve(db, keys) {
 /* ---------- handler ---------- */
 export default {
   // For tests only; not used by Cloudflare.
-  _test: { readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, parsePhoto, photoMessages },
+  _test: { readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
 
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
@@ -476,7 +497,7 @@ export default {
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "content-type, x-beta-code, x-device-id, x-pass-key",
-      "Access-Control-Expose-Headers": "x-trial-left, x-pass-left",
+      "Access-Control-Expose-Headers": "x-trial-left, x-trial-limit, x-trial-reset, x-pass-left",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin"
     } : { "Vary": "Origin" };
@@ -555,7 +576,32 @@ export default {
       if (!devOk) return reply({ error: "trial_used" }, 402, { "x-trial-left": "0" });   // no device id: no trial
       const tier = beta ? "beta" : "free";
       const capDev = beta ? num(env.BETA_ROUNDS, 15) : num(env.TRIAL_ROUNDS, 3);
-      if (env.DB) {
+      const daily = beta ? 0 : num(env.TRIAL_DAILY, 0), weekly = beta ? 0 : num(env.TRIAL_WEEKLY, 0);
+      if (env.DB && (daily > 0 || weekly > 0)) {
+        // Public site: a few rounds a day and a cap per week, per device and per network.
+        const w = windows(num(env.TRIAL_DAY_START_HOUR_UTC, 5));
+        const devH = await sha("wishwell-dev:" + dev), netH = await sha("wishwell-net:" + network(ip));
+        const netDaily = num(env.TRIAL_NET_DAILY, daily), netWeekly = num(env.TRIAL_NET_WEEKLY, weekly);
+        const counters = [], kinds = [];
+        if (daily > 0) {
+          counters.push(["dd:" + w.day + ":" + devH, daily, 2 * 86400], ["nd:" + w.day + ":" + netH, netDaily, 2 * 86400]);
+          kinds.push(["day", daily, w.dayEnd], ["day", netDaily, w.dayEnd]);
+        }
+        if (weekly > 0) {
+          counters.push(["dw:" + w.week + ":" + devH, weekly, 8 * 86400], ["nw:" + w.week + ":" + netH, netWeekly, 8 * 86400]);
+          kinds.push(["week", weekly, w.weekEnd], ["week", netWeekly, w.weekEnd]);
+        }
+        const r = await reserve(env.DB, counters);
+        if (!r) {
+          // Which limit is spent? The weekly one wins when both are, since it lasts longer.
+          const used = await usedCounts(env.DB, counters.map(c => c[0]));
+          let lim = kinds.find((k, i) => k[0] === "week" && used[i] >= k[1]) || kinds.find((k, i) => used[i] >= k[1]) || kinds[0];
+          return reply({ error: "trial_used", limit: lim[0], reset: lim[2] }, 402, { "x-trial-left": "0", "x-trial-limit": lim[0], "x-trial-reset": String(lim[2]) });
+        }
+        mode = "trial"; refund = () => unreserve(env.DB, counters.map(c => c[0]));
+        let li = 0; r.forEach((n, i) => { if (kinds[i][1] - n < kinds[li][1] - r[li]) li = i; });
+        left = ["x-trial-left", kinds[li][1] - r[li], { "x-trial-limit": kinds[li][0], "x-trial-reset": String(kinds[li][2]) }];
+      } else if (env.DB) {
         const capNet = beta ? num(env.BETA_PER_NETWORK, 30) : num(env.TRIAL_PER_NETWORK, capDev);
         const netDays = num(env.TRIAL_NETWORK_DAYS, 30);
         const devK = "dev:" + tier + ":" + await sha("wishwell-dev:" + dev);
@@ -590,7 +636,7 @@ export default {
         return reply({ error: /4006|allocation|5035|paid/i.test(err) ? "ai_unavailable" : err ? "photo_failed" : "nothing_found" }, 429);
       }
       await countIt();
-      return reply({ items }, 200, { [left[0]]: String(Math.max(0, left[1])) });
+      return reply({ items }, 200, { [left[0]]: String(Math.max(0, left[1])), ...(left[2] || {}) });
     }
 
     const input = { messages: buildMessages(q), max_tokens: 1200, temperature: 0.7 };
@@ -656,7 +702,7 @@ export default {
     }
 
     const u = out && out.usage;
-    const extra = { [left[0]]: String(Math.max(0, left[1])) };
+    const extra = { [left[0]]: String(Math.max(0, left[1])), ...(left[2] || {}) };
     if (ideas.raw < q.n) extra["x-ai-sample"] = modelText(out).replace(/\s+/g, " ").slice(0, 300).replace(/[^\x20-\x7e]/g, "?");
     if (u) extra["x-ai-usage"] = "in=" + (u.prompt_tokens || 0) + "; out=" + (u.completion_tokens || 0) + "; neurons=" + (u.neurons != null ? u.neurons : "?") + "; raw=" + ideas.raw + "; dropped=" + JSON.stringify(ideas.dropped);
     return reply(ideas.slice(), 200, extra);

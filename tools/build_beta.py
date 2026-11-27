@@ -55,6 +55,10 @@ def main():
     # Beta code holders get 15 free AI rounds (the Worker's BETA_ROUNDS enforces it).
     c = re.sub(r'freeRounds: \d+', 'freeRounds: 15', c)
     assert "freeRounds: 15" in c
+    # The beta keeps its 15 rounds in total, not the public site's daily and weekly limits.
+    c = re.sub(r"freeDaily: \d+", "freeDaily: 0", c)
+    c = re.sub(r"freeWeekly: \d+", "freeWeekly: 0", c)
+    assert "freeDaily: 0" in c and "freeWeekly: 0" in c
     # Beta only: shopping tools and the opening gift.
     c = re.sub(r"shopTools: (true|false)", "shopTools: true", c)
     c = re.sub(r"unwrap: (true|false)", "unwrap: true", c)
