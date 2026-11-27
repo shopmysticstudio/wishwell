@@ -1,0 +1,350 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wishwell</title>
+<meta name="description" content="Want it, list it, get it. A quick taste quiz, then a ranked wishlist to share.">
+<meta name="theme-color" content="#23284d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Wishwell">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&amp;family=Caveat:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+/*
+VOICE: friendly, quick, a little playful; a tool that gets out of the way.
+IDEA: a wishing well you fish gifts out of; ideas come up, you circle the keepers.
+PICTURE: the glowing well mark up top, then the catalog cards with marker circles.
+COLOUR and TYPE: night navy band, warm well-glow gold, gift coral for actions; Nunito throughout, Caveat for the marker.
+LAYOUT: one column on phones, two to three card columns wider; bottom tab bar on phones.
+*/
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#121212);--ink:light-dark(#141414,#f1f1f1);--muted:light-dark(#5c5c5c,#a9a9a9);--line:light-dark(#141414,#3a3a3a);--soft:light-dark(#f3f1ee,#1d1d1d);--red:#e0453a;--redink:light-dark(#c9362c,#ff7a6e);--tag:#ffc94a;--navy:#23284d;--teal:#2a9d8f;--tagink:#141414}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Nunito,system-ui,sans-serif;overflow-x:clip;padding-bottom:84px}
+h1,h2,h3{font-family:Nunito,system-ui,sans-serif;font-weight:900;line-height:1.05;margin:0;text-wrap:balance}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--tag);outline-offset:2px}
+.top{background:radial-gradient(circle at calc(max(5vw,16px) + 34px) 50%,rgba(255,201,74,.42),transparent 110px),var(--navy);color:#fff;padding:10px max(5vw,16px);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{width:68px;height:68px;flex:none}
+.brand{flex:1 1 auto}
+.slogan{font-weight:800;color:var(--tag);font-size:14px}
+.top h1{font-size:30px;letter-spacing:-.01em}
+.top .sub{font-size:12px;opacity:.8}
+.top .plans{background:#fff;color:#141414;border:0;border-radius:999px;padding:10px 16px;font-weight:700;min-height:44px}
+.tabs{display:flex;gap:4px;padding:0 max(5vw,16px);border-bottom:2px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:5}
+.tabs button{border:0;background:none;padding:12px 10px;min-height:48px;font-weight:700;color:var(--muted);border-bottom:4px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tabs button[aria-selected=true]{color:var(--ink);border-color:var(--red)}
+.tabs .n{display:inline-block;min-width:22px;padding:0 6px;border-radius:999px;background:var(--soft);font-size:13px;margin-left:4px}
+main{max-width:1100px;margin:0 auto;padding:20px max(5vw,16px) 24px}
+.view[hidden]{display:none}
+.lede{font-size:clamp(28px,6vw,44px);margin:6px 0 10px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.field{display:grid;gap:6px;margin:16px 0}
+.field>span{font-weight:700}
+input[type=text],select,textarea{width:100%;font-size:16px;padding:12px;border:2px solid var(--line);border-radius:10px;background:var(--bg);min-height:48px}
+textarea{min-height:84px;resize:vertical}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:2px solid var(--line);background:var(--bg);border-radius:999px;padding:8px 14px;min-height:44px;font-weight:500}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.btn{border:2px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 16px;min-height:48px;font-weight:700}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.55;cursor:wait}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row>input{flex:1 1 220px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin:4px 0 14px}
+.who{font-size:14px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:14px}
+.card{position:relative;border:2px solid var(--line);border-radius:4px;padding:14px;display:grid;grid-template-columns:56px minmax(0,1fr);gap:4px 12px;background:var(--bg);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .18s,transform .18s,border-color .15s,background-color .15s}
+.card:active{transform:scale(.99)}
+.card.on{border-color:var(--redink);box-shadow:inset 0 0 0 2px var(--redink);background:light-dark(#fff4f2,#2a1716)}
+.card.out{opacity:0;transform:scale(.96)}
+.mono{grid-row:span 3;width:56px;height:56px;border-radius:4px;display:grid;place-items:center;font-family:Nunito;font-weight:900;font-size:24px;color:#fff;position:relative}
+.no{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.02em}
+.card h3{font-size:19px;font-family:Nunito;font-weight:700;line-height:1.2}
+.price{justify-self:start;background:var(--tag);color:var(--tagink);font-weight:700;font-size:14px;padding:1px 8px;border-radius:3px;white-space:nowrap}
+.why{grid-column:1/-1;margin:6px 0 0;font-size:15px}
+.acts{grid-column:1/-1;display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.acts .btn{flex:1 1 70px;padding:8px 10px;min-height:48px}
+.acts .keep{flex:2 1 150px;display:flex;align-items:center;justify-content:center;gap:8px}
+.acts a{flex:1 1 70px;text-align:center;align-content:center;min-height:48px;color:var(--ink);font-weight:700;font-size:14px}
+.keep svg{width:20px;height:20px;flex:none}
+.keep[aria-pressed=true]{background:var(--redink);border-color:var(--redink);color:light-dark(#fff,#1d0d0b)}
+.acts .quiet{font-size:14px;font-weight:700}
+.ring{position:absolute;inset:-9px;width:calc(100% + 18px);height:calc(100% + 18px);pointer-events:none;overflow:visible}
+.ring path{fill:none;stroke:var(--redink);stroke-width:3.5;stroke-linecap:round}
+.fresh .ring path{stroke-dasharray:300;animation:draw .45s ease-out}
+@keyframes draw{from{stroke-dashoffset:300}}
+@media(prefers-reduced-motion:reduce){.fresh .ring path{animation:none}.card,.card:active{transition:none;transform:none}}
+.src{font-size:12px;color:var(--muted);grid-column:1/-1}
+.empty{border:2px dashed var(--line);border-radius:6px;padding:22px;text-align:center;color:var(--muted)}
+.note{background:var(--soft);border-radius:8px;padding:12px 14px;font-size:14px;margin:14px 0}
+.err{color:var(--redink);font-weight:700}
+details summary{cursor:pointer;font-weight:700;min-height:44px;align-content:center}
+.cutlist{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+ol.rank{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.ri{display:grid;grid-template-columns:44px 40px minmax(0,1fr) auto;align-items:center;gap:8px;border:2px solid var(--line);border-radius:4px;padding:8px;background:var(--bg)}
+.ri.drag{box-shadow:0 10px 24px rgba(0,0,0,.25);border-color:var(--red);position:relative;z-index:3}
+.handle{touch-action:none;width:44px;height:44px;border:0;background:var(--soft);border-radius:6px;display:grid;place-items:center;cursor:grab}
+.handle svg{width:20px;height:20px}
+.rn{font-family:Nunito;font-weight:900;font-size:22px;text-align:center;color:var(--redink)}
+.rt{font-weight:700;line-height:1.25}
+.rt small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.mv{display:flex;gap:4px}
+.mv button{width:44px;height:44px;border:2px solid var(--line);background:var(--bg);border-radius:6px;font-weight:700}
+.group h3{font-size:18px;margin:18px 0 8px;font-family:Nunito;font-weight:700}
+.sheet{border:2px solid var(--line);border-radius:4px;padding:clamp(16px,4vw,28px);background:var(--bg);max-width:640px}
+.sheet h2{font-size:clamp(26px,5vw,36px);color:var(--redink)}
+.sheet ol{padding-left:1.4em;margin:12px 0 0}
+.sheet li{margin:0 0 10px}
+.sheet li a{color:var(--ink);font-size:14px}
+.hand{font-family:Caveat,cursive;font-size:22px;color:var(--redink)}
+.toggles{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0}
+.toggles label{display:flex;gap:8px;align-items:center;min-height:44px}
+.toggles input{width:22px;height:22px;accent-color:var(--red)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal[hidden]{display:none}
+.box{background:var(--bg);border-radius:10px;max-width:880px;width:100%;max-height:92vh;overflow:auto;padding:clamp(16px,4vw,28px)}
+.tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px;margin:14px 0}
+.tier{border:2px solid var(--line);border-radius:6px;padding:14px;display:grid;gap:6px;align-content:start}
+.tier.best{border-color:var(--red);box-shadow:inset 0 6px 0 var(--red)}
+.tier h3{font-size:20px}
+.tier .amt{font-family:Nunito;font-weight:900;font-size:26px;white-space:nowrap}
+.tier ul{margin:0;padding-left:1.1em;font-size:14px}
+.buy{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1.1;text-decoration:none;border:2px solid var(--line);border-radius:10px;padding:6px 12px;min-height:48px;font-weight:700;color:var(--ink);background:var(--bg)}
+.buy .pl{font-size:11px;font-weight:500;color:var(--muted)}
+.deal{grid-column:1/-1;display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.deal a{flex:1 1 120px;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:6px 10px;border:2px solid var(--line);border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;color:var(--ink);background:var(--bg);position:relative}
+.deal svg{width:18px;height:18px;flex:none}
+.deal .magic{border-color:var(--teal)}
+.spark{position:fixed;width:8px;height:8px;margin:-4px 0 0 -4px;pointer-events:none;z-index:60;background:var(--tag);clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);animation:spark .7s ease-out forwards}
+@keyframes spark{from{transform:translate(0,0) scale(.4);opacity:1}to{transform:translate(var(--dx),var(--dy)) scale(1.3) rotate(140deg);opacity:0}}
+@media(prefers-reduced-motion:reduce){.spark{display:none}}
+#intro{position:fixed;inset:0;z-index:100;background:#23284d;display:grid;place-items:center;align-content:center;gap:18px;transition:opacity .35s ease;cursor:pointer}
+#intro.done{opacity:0;pointer-events:none}
+#intro svg{width:min(50vw,220px);height:auto;overflow:visible}
+#intro .spark{z-index:101}
+#intro .wm{font-family:Nunito;font-weight:900;font-size:30px;color:#fff;opacity:0;animation:wm .4s 1s ease-out forwards}
+#intro .skip{position:absolute;bottom:max(22px,env(safe-area-inset-bottom));font-size:13px;color:#c9cbe0;opacity:.8}
+#intro .gift{animation:pop .3s ease-out}
+#intro .lp,#intro .rp,#intro .lid,#intro .rv,#intro .tl,#intro .glow{transform-box:fill-box}
+#intro .lp{transform-origin:100% 80%;animation:untieL .38s .18s ease-in forwards}
+#intro .rp{transform-origin:0 80%;animation:untieR .38s .18s ease-in forwards}
+#intro .tl{transform-origin:50% 0;animation:tails .35s .3s ease-in forwards}
+#intro .lid{transform-origin:50% 100%;animation:lid .5s .56s cubic-bezier(.3,1.3,.5,1) forwards}
+#intro .rv{animation:rib .22s .5s ease-in forwards}
+#intro .glow{transform-origin:50% 100%;opacity:0;animation:glow .85s .68s ease-out forwards}
+@keyframes pop{from{transform:scale(.92)}}
+@keyframes untieL{to{transform:rotate(-70deg) scale(.3);opacity:0}}
+@keyframes untieR{to{transform:rotate(70deg) scale(.3);opacity:0}}
+@keyframes tails{to{transform:translateY(40%) scaleY(.4);opacity:0}}
+@keyframes lid{to{transform:translate(38%,-170%) rotate(28deg);opacity:0}}
+@keyframes rib{to{transform:translateY(6%);opacity:0}}
+@keyframes glow{from{opacity:0;transform:scale(.5)}35%{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.25)}}
+@keyframes wm{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.fam li{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid var(--soft)}
+.fam li.got .ft{text-decoration:line-through;color:var(--muted)}
+.fam .row .btn,.fam .row .buy{flex:0 1 auto}
+.claim[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.tier .btn{margin-top:8px}
+.tier.hl{outline:4px solid var(--tag);outline-offset:2px}
+.later{font-size:14px;color:var(--muted);margin:4px 0 12px}
+.reveal{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border:2px solid var(--line);border-radius:4px;padding:10px 12px;margin:8px 0}
+.reveal strong{font-size:17px}
+.prog{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;flex:1}
+.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--tag),var(--red));transition:width .25s}
+.qtop{display:flex;gap:12px;align-items:center;max-width:720px;margin-bottom:6px}
+.qq{font-size:clamp(28px,6vw,42px);margin:14px 0 6px}
+.qsub{color:var(--muted);margin:0 0 16px}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:720px}
+.opt{border:0;border-radius:16px;padding:18px 14px;min-height:132px;color:#fff;font-weight:800;font-size:19px;line-height:1.2;text-align:start;display:grid;align-content:end;gap:4px;position:relative;overflow:hidden;box-shadow:0 6px 0 rgba(0,0,0,.18)}
+.opt small{font-weight:600;font-size:13px;opacity:.9}
+.opt::before{content:"";position:absolute;right:-24px;top:-24px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.16)}
+.opt[aria-pressed=true]{outline:4px solid var(--tag);outline-offset:3px}
+.opt:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.18)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px;max-width:720px}
+.tile{border:2px solid var(--line);background:var(--bg);border-radius:14px;padding:14px;min-height:64px;font-weight:800;font-size:17px;text-align:start}
+.tile small{display:block;font-weight:500;font-size:13px;color:var(--muted)}
+.tile[aria-pressed=true]{background:var(--navy);color:#fff;border-color:var(--navy)}
+.tile[aria-pressed=true] small{color:#dfe3ff}
+.neither{background:none;border:0;color:var(--muted);text-decoration:underline;min-height:44px;margin-top:6px}
+.taste{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}
+.taste span{background:var(--tag);color:#141414;border-radius:99px;padding:2px 10px;font-weight:800;font-size:13px}
+@media(prefers-reduced-motion:reduce){.prog i{transition:none}}
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:30}
+.toast[hidden]{display:none}
+footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:13px;color:var(--muted)}
+@media(max-width:600px){
+ .tabs .n{margin-left:2px;padding:0 4px;min-width:18px}
+ .tabs{position:fixed;bottom:0;top:auto;left:0;right:0;border-bottom:0;border-top:2px solid var(--line);padding:0 4px env(safe-area-inset-bottom);justify-content:space-around}
+ .tabs button{flex:1;border-bottom:0;border-top:4px solid transparent;margin:-2px 0 0;padding:10px 0;font-size:13px}
+ .tabs button[aria-selected=true]{border-top-color:var(--red)}
+ .ri{grid-template-columns:44px 30px minmax(0,1fr);}
+ .mv{grid-column:2/-1;justify-content:flex-end}
+ .top h1{font-size:24px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <img class="logo" src="img/mark.png" alt="Wishwell logo: someone fishing gifts out of a glowing well" width="68" height="68">
+  <div class="brand"><h1>Wishwell</h1><div class="slogan">Want it, list it, get it.</div><div class="sub">Test draft by Wishwell</div></div>
+  <button class="plans" id="openPlans" type="button">Plans</button>
+</header>
+<nav class="tabs" id="tabs" role="tablist" aria-label="Steps">
+  <button role="tab" data-v="start" id="t-start" aria-selected="false">Start</button>
+  <button role="tab" data-v="ideas" id="t-ideas" aria-selected="true">Ideas<span class="n" id="c-ideas">7</span></button>
+  <button role="tab" data-v="rank" id="t-rank" aria-selected="false">Rank<span class="n" id="c-rank">1</span></button>
+  <button role="tab" data-v="share" id="t-share" aria-selected="false">Share</button>
+  <button role="tab" data-v="group" id="t-group" aria-selected="false">Group</button>
+</nav>
+<main>
+<section class="view" id="v-age" hidden="">
+  <h2 class="lede">When were you born?</h2>
+  <p class="muted">Just the month and year. It's only used to check your age and isn't saved.</p>
+  <form id="ageForm" style="max-width:520px">
+    <div class="row"><select id="ageM" aria-label="Birth month" style="flex:1 1 160px"><option value="">Month</option><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select><select id="ageY" aria-label="Birth year" style="flex:1 1 120px"><option value="">Year</option><option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option><option value="2019">2019</option><option value="2018">2018</option><option value="2017">2017</option><option value="2016">2016</option><option value="2015">2015</option><option value="2014">2014</option><option value="2013">2013</option><option value="2012">2012</option><option value="2011">2011</option><option value="2010">2010</option><option value="2009">2009</option><option value="2008">2008</option><option value="2007">2007</option><option value="2006">2006</option><option value="2005">2005</option><option value="2004">2004</option><option value="2003">2003</option><option value="2002">2002</option><option value="2001">2001</option><option value="2000">2000</option><option value="1999">1999</option><option value="1998">1998</option><option value="1997">1997</option><option value="1996">1996</option><option value="1995">1995</option><option value="1994">1994</option><option value="1993">1993</option><option value="1992">1992</option><option value="1991">1991</option><option value="1990">1990</option><option value="1989">1989</option><option value="1988">1988</option><option value="1987">1987</option><option value="1986">1986</option><option value="1985">1985</option><option value="1984">1984</option><option value="1983">1983</option><option value="1982">1982</option><option value="1981">1981</option><option value="1980">1980</option><option value="1979">1979</option><option value="1978">1978</option><option value="1977">1977</option><option value="1976">1976</option><option value="1975">1975</option><option value="1974">1974</option><option value="1973">1973</option><option value="1972">1972</option><option value="1971">1971</option><option value="1970">1970</option><option value="1969">1969</option><option value="1968">1968</option><option value="1967">1967</option><option value="1966">1966</option><option value="1965">1965</option><option value="1964">1964</option><option value="1963">1963</option><option value="1962">1962</option><option value="1961">1961</option><option value="1960">1960</option><option value="1959">1959</option><option value="1958">1958</option><option value="1957">1957</option><option value="1956">1956</option><option value="1955">1955</option><option value="1954">1954</option><option value="1953">1953</option><option value="1952">1952</option><option value="1951">1951</option><option value="1950">1950</option><option value="1949">1949</option><option value="1948">1948</option><option value="1947">1947</option><option value="1946">1946</option><option value="1945">1945</option><option value="1944">1944</option><option value="1943">1943</option><option value="1942">1942</option><option value="1941">1941</option><option value="1940">1940</option><option value="1939">1939</option><option value="1938">1938</option><option value="1937">1937</option><option value="1936">1936</option><option value="1935">1935</option><option value="1934">1934</option><option value="1933">1933</option><option value="1932">1932</option><option value="1931">1931</option><option value="1930">1930</option><option value="1929">1929</option><option value="1928">1928</option><option value="1927">1927</option><option value="1926">1926</option></select></div>
+    <button class="btn primary wide" type="submit" style="margin-top:16px">Continue</button>
+  </form>
+  <p id="ageMsg"></p>
+</section>
+
+<section class="view" id="v-start" hidden="">
+  <div class="qtop"><div class="prog" aria-hidden="true"><i id="qbar" style="width: 0%;"></i></div><span class="small muted" id="qstep">1 of 13</span></div>
+  <div id="qbody"><h2 class="qq">Who's this list for?</h2><p class="qsub">A few quick taps and Wishwell learns their taste.</p>
+   <div class="pair"><button type="button" class="opt" style="background:var(--teal)" data-who="me" aria-pressed="true">Me<small>Make my own wishlist</small></button><button type="button" class="opt" style="background:var(--navy)" data-who="them" aria-pressed="false">Someone else<small>Find gifts for them</small></button></div>
+   <label class="field" style="max-width:720px"><span>Your first name <span class="muted small">(optional)</span></span><input type="text" id="qName" maxlength="30" autocomplete="off" value="" placeholder="Sam"></label></div>
+  <div class="row" style="margin-top:18px;max-width:720px"><button class="btn" type="button" id="qBack" hidden="">Back</button></div>
+  <p class="small muted" id="aiState">Using starter ideas. AI ideas coming soon.</p>
+</section>
+
+<section class="view" id="v-ideas">
+  <div class="bar"><div><h2 class="lede" style="margin:0">Circle the good ones</h2><div class="who" id="whoLine">For you · Puzzles, Cozy · Any price</div></div>
+    <button class="btn" type="button" data-go="start" id="retake">Retake quiz</button></div>
+  <div class="row"><input type="text" id="addBox" placeholder="Paste a product link or type an item" aria-label="Add an item"><button class="btn" type="button" id="addBtn">Add</button></div>
+  <p class="small muted" style="margin:6px 0 16px">Links from Amazon and most shops turn into an item with the link kept.</p>
+  <div id="msg"></div>
+  <div class="grid" id="ideaGrid"><article class="card" data-id="i1_mwzbfhj3">
+<div class="mono" style="background:#7c3aed" aria-hidden="true">G</div>
+<div class="no">No. 001 · Gaming</div><h3>Wooden chess set</h3>
+<span class="price">est. $25 to $100</span>
+<p class="why">A classic that never gets old.</p>
+<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="i1_mwzbfhj3" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle></svg>Circle it</button><button type="button" class="btn quiet" data-a="have" data-id="i1_mwzbfhj3">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="i1_mwzbfhj3">Cut</button><a class="buy" href="https://www.amazon.com/s?k=Wooden%20chess%20set" target="_blank" rel="noopener sponsored">Buy<span class="pl">Paid link</span></a></div><div class="deal"><a class="cmp" href="https://www.google.com/search?udm=28&amp;q=Wooden%20chess%20set" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h11M4 12h7M4 17h5"></path><circle cx="16.5" cy="14.5" r="3.5"></circle><path d="m19 17 2.5 2.5"></path></svg>Compare prices</a><a class="magic" href="https://slickdeals.net/search?q=Wooden%20chess%20set" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 20 11-11"></path><path d="M17 3v4M15 5h4M20 9v2M19 10h2M11 3v2M10 4h2"></path></svg>Magic Coupons</a></div>
+<div class="src">Starter idea</div></article><article class="card on fresh" data-id="i2_mwzbfhj3">
+<div class="mono" style="background:#525252" aria-hidden="true">O<svg class="ring" viewBox="0 0 74 74" aria-hidden="true"><path d="M14 18 C 26 2, 60 4, 69 26 C 76 46, 62 70, 36 70 C 12 70, 2 52, 5 34 C 7 24, 12 18, 22 12"></path></svg></div>
+<div class="no">No. 002 · Other</div><h3>Speed cube set</h3>
+<span class="price">est. $15 to $40</span>
+<p class="why">Faster turning, faster solves.</p>
+<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="i2_mwzbfhj3" aria-pressed="true"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="currentColor" stroke="currentColor" stroke-width="2"></circle><path d="M6 10.5l2.6 2.6L14.2 7.4" fill="none" stroke="var(--redink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>Circled</button><button type="button" class="btn quiet" data-a="have" data-id="i2_mwzbfhj3">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="i2_mwzbfhj3">Cut</button><a class="buy" href="https://www.amazon.com/s?k=Speed%20cube%20set" target="_blank" rel="noopener sponsored">Buy<span class="pl">Paid link</span></a></div><div class="deal"><a class="cmp" href="https://www.google.com/search?udm=28&amp;q=Speed%20cube%20set" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h11M4 12h7M4 17h5"></path><circle cx="16.5" cy="14.5" r="3.5"></circle><path d="m19 17 2.5 2.5"></path></svg>Compare prices</a><a class="magic" href="https://slickdeals.net/search?q=Speed%20cube%20set" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 20 11-11"></path><path d="M17 3v4M15 5h4M20 9v2M19 10h2M11 3v2M10 4h2"></path></svg>Magic Coupons</a></div>
+<div class="src">Starter idea</div></article><article class="card" data-id="i3_mwzbfhj3">
+<div class="mono" style="background:#ea580c" aria-hidden="true">M</div>
+<div class="no">No. 003 · Making</div><h3>Wooden mechanical model kit</h3>
+<span class="price">est. $30 to $80</span>
+<p class="why">A wooden machine with gears that really move.</p>
+<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="i3_mwzbfhj3" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle></svg>Circle it</button><button type="button" class="btn quiet" data-a="have" data-id="i3_mwzbfhj3">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="i3_mwzbfhj3">Cut</button><a class="buy" href="https://www.amazon.com/s?k=Wooden%20mechanical%20model%20kit" target="_blank" rel="noopener sponsored">Buy<span class="pl">Paid link</span></a></div><div class="deal"><a class="cmp" href="https://www.google.com/search?udm=28&amp;q=Wooden%20mechanical%20model%20kit" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h11M4 12h7M4 17h5"></path><circle cx="16.5" cy="14.5" r="3.5"></circle><path d="m19 17 2.5 2.5"></path></svg>Compare prices</a><a class="magic" href="https://slickdeals.net/search?q=Wooden%20mechanical%20model%20kit" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 20 11-11"></path><path d="M17 3v4M15 5h4M20 9v2M19 10h2M11 3v2M10 4h2"></path></svg>Magic Coupons</a></div>
+<div class="src">Starter idea</div></article><article class="card" data-id="i4_mwzbfhj3">
+<div class="mono" style="background:#c2410c" aria-hidden="true">E</div>
+<div class="no">No. 004 · Experiences</div><h3>Escape room with friends</h3>
+<span class="price">est. $80 to $200</span>
+<p class="why">An hour to beat the clock together.</p>
+<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="i4_mwzbfhj3" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle></svg>Circle it</button><button type="button" class="btn quiet" data-a="have" data-id="i4_mwzbfhj3">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="i4_mwzbfhj3">Cut</button><a class="buy" href="https://www.amazon.com/s?k=Escape%20room%20with%20friends" target="_blank" rel="noopener sponsored">Buy<span class="pl">Paid link</span></a></div><div class="deal"><a class="cmp" href="https://www.google.com/search?udm=28&amp;q=Escape%20room%20with%20friends" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h11M4 12h7M4 17h5"></path><circle cx="16.5" cy="14.5" r="3.5"></circle><path d="m19 17 2.5 2.5"></path></svg>Compare prices</a><a class="magic" href="https://slickdeals.net/search?q=Escape%20room%20with%20friends" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 20 11-11"></path><path d="M17 3v4M15 5h4M20 9v2M19 10h2M11 3v2M10 4h2"></path></svg>Magic Coupons</a></div>
+<div class="src">Starter idea</div></article><article class="card" data-id="i5_mwzbfhj3">
+<div class="mono" style="background:#92400e" aria-hidden="true">B</div>
+<div class="no">No. 005 · Books</div><h3>Puzzle hunt adventure book</h3>
+<span class="price">est. $15 to $30</span>
+<p class="why">Every page hides a clue.</p>
+<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="i5_mwzbfhj3" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle></svg>Circle it</button><button type="button" class="btn quiet" data-a="have" data-id="i5_mwzbfhj3">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="i5_mwzbfhj3">Cut</button><a class="buy" href="https://www.amazon.com/s?k=Puzzle%20hunt%20adventure%20book" target="_blank" rel="noopener sponsored">Buy<span class="pl">Paid link</span></a></div><div class="deal"><a class="cmp" href="https://www.google.com/search?udm=28&amp;q=Puzzle%20hunt%20adventure%20book" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h11M4 12h7M4 17h5"></path><circle cx="16.5" cy="14.5" r="3.5"></circle><path d="m19 17 2.5 2.5"></path></svg>Compare prices</a><a class="magic" href="https://slickdeals.net/search?q=Puzzle%20hunt%20adventure%20book" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 20 11-11"></path><path d="M17 3v4M15 5h4M20 9v2M19 10h2M11 3v2M10 4h2"></path></svg>Magic Coupons</a></div>
+<div class="src">Starter idea</div></article><article class="card" data-id="i6_mwzbfhj3">
+<div class="mono" style="background:#334155" aria-hidden="true">S</div>
+<div class="no">No. 006 · Style</div><h3>Mini backpack</h3>
+<span class="price">est. $25 to $60</span>
+<p class="why">Cute and fits the basics.</p>
+<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="i6_mwzbfhj3" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle></svg>Circle it</button><button type="button" class="btn quiet" data-a="have" data-id="i6_mwzbfhj3">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="i6_mwzbfhj3">Cut</button><a class="buy" href="https://www.amazon.com/s?k=Mini%20backpack" target="_blank" rel="noopener sponsored">Buy<span class="pl">Paid link</span></a></div><div class="deal"><a class="cmp" href="https://www.google.com/search?udm=28&amp;q=Mini%20backpack" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h11M4 12h7M4 17h5"></path><circle cx="16.5" cy="14.5" r="3.5"></circle><path d="m19 17 2.5 2.5"></path></svg>Compare prices</a><a class="magic" href="https://slickdeals.net/search?q=Mini%20backpack" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 20 11-11"></path><path d="M17 3v4M15 5h4M20 9v2M19 10h2M11 3v2M10 4h2"></path></svg>Magic Coupons</a></div>
+<div class="src">Starter idea</div></article><article class="card" data-id="i7_mwzbfhj3">
+<div class="mono" style="background:#4d7c0f" aria-hidden="true">O</div>
+<div class="no">No. 007 · Outdoors</div><h3>Waterproof dry bag</h3>
+<span class="price">est. $15 to $35</span>
+<p class="why">Keeps the phone and snacks dry on the water.</p>
+<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="i7_mwzbfhj3" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle></svg>Circle it</button><button type="button" class="btn quiet" data-a="have" data-id="i7_mwzbfhj3">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="i7_mwzbfhj3">Cut</button><a class="buy" href="https://www.amazon.com/s?k=Waterproof%20dry%20bag" target="_blank" rel="noopener sponsored">Buy<span class="pl">Paid link</span></a></div><div class="deal"><a class="cmp" href="https://www.google.com/search?udm=28&amp;q=Waterproof%20dry%20bag" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h11M4 12h7M4 17h5"></path><circle cx="16.5" cy="14.5" r="3.5"></circle><path d="m19 17 2.5 2.5"></path></svg>Compare prices</a><a class="magic" href="https://slickdeals.net/search?q=Waterproof%20dry%20bag" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 20 11-11"></path><path d="M17 3v4M15 5h4M20 9v2M19 10h2M11 3v2M10 4h2"></path></svg>Magic Coupons</a></div>
+<div class="src">Starter idea</div></article><article class="card" data-id="i8_mwzbfhj3">
+<div class="mono" style="background:#16a34a" aria-hidden="true">S</div>
+<div class="no">No. 008 · Sports</div><h3>Over-the-door mini basketball hoop</h3>
+<span class="price">est. $20 to $40</span>
+<p class="why">Trick shots from the bed.</p>
+<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="i8_mwzbfhj3" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle></svg>Circle it</button><button type="button" class="btn quiet" data-a="have" data-id="i8_mwzbfhj3">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="i8_mwzbfhj3">Cut</button><a class="buy" href="https://www.amazon.com/s?k=Over-the-door%20mini%20basketball%20hoop" target="_blank" rel="noopener sponsored">Buy<span class="pl">Paid link</span></a></div><div class="deal"><a class="cmp" href="https://www.google.com/search?udm=28&amp;q=Over-the-door%20mini%20basketball%20hoop" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h11M4 12h7M4 17h5"></path><circle cx="16.5" cy="14.5" r="3.5"></circle><path d="m19 17 2.5 2.5"></path></svg>Compare prices</a><a class="magic" href="https://slickdeals.net/search?q=Over-the-door%20mini%20basketball%20hoop" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 20 11-11"></path><path d="M17 3v4M15 5h4M20 9v2M19 10h2M11 3v2M10 4h2"></path></svg>Magic Coupons</a></div>
+<div class="src">Starter idea</div></article></div>
+  <div class="row" style="margin:18px 0"><button class="btn primary" type="button" id="moreBtn">More ideas</button><button class="btn" type="button" data-go="rank">Rank my keepers</button></div>
+  <details id="cutBox" hidden=""><summary>Cut items (<span id="cutN">0</span>)</summary><div class="cutlist" id="cutList"></div></details>
+  <details id="haveBox" hidden=""><summary>Already have (<span id="haveN">0</span>)</summary><div class="cutlist" id="haveList"></div></details>
+</section>
+
+<section class="view" id="v-rank" hidden="">
+  <div class="bar"><div><h2 class="lede" style="margin:0">Put them in order</h2><div class="who">Drag the grip, or use the arrows. Number 1 is the one you want most.</div></div>
+    <button class="btn" type="button" id="groupBtn" aria-pressed="false">Group by kind</button></div>
+  <div id="rankWrap"><ol class="rank" id="rankList"><li class="ri" data-id="i2_mwzbfhj3"><button type="button" class="handle" aria-label="Drag to reorder Speed cube set"><svg viewBox="0 0 20 20" aria-hidden="true"><g fill="currentColor"><circle cx="7" cy="5" r="1.6"></circle><circle cx="13" cy="5" r="1.6"></circle><circle cx="7" cy="10" r="1.6"></circle><circle cx="13" cy="10" r="1.6"></circle><circle cx="7" cy="15" r="1.6"></circle><circle cx="13" cy="15" r="1.6"></circle></g></svg></button><span class="rn">1</span><span class="rt">Speed cube set<small>Other · est. $15 to $40</small></span><span class="mv"><button type="button" data-m="-1" aria-label="Move up">↑</button><button type="button" data-m="1" aria-label="Move down">↓</button><button type="button" data-m="x" aria-label="Remove from list">×</button></span></li></ol></div>
+  <div class="row" style="margin:18px 0"><button class="btn primary" type="button" data-go="share">Make the list</button></div>
+</section>
+
+<section class="view" id="v-share" hidden="">
+  <div class="bar"><h2 class="lede" style="margin:0">Send it to family</h2></div>
+  <label class="field" style="max-width:640px"><span>List title</span><input type="text" id="listName" maxlength="50"></label>
+  <div class="toggles"><label><input type="checkbox" id="optPrice" checked=""> Show estimated prices</label><label><input type="checkbox" id="optWhy"> Include notes</label></div>
+  <div class="sheet" id="sheet"><div class="hand">for the family</div><h2>My wishlist</h2><p class="small muted" style="margin:4px 0 0">1 is the one wanted most</p><ol><li><strong>Speed cube set</strong> <span class="price">est. $15 to $40</span></li></ol></div>
+  <div class="row" style="margin:16px 0"><button class="btn primary" type="button" id="linkBtn">Copy share link</button><button class="btn" type="button" id="copyBtn">Copy as text</button><button class="btn" type="button" id="famBtn">See what family sees</button></div>
+  <p class="note">The share link opens your list for family, where they can buy and mark things as already bought. Paste it in a text or family chat.</p>
+  <div class="note"><strong>Testing this?</strong> When you're done, copy your test report and send it back to whoever sent you Wishwell. It has counts only, none of your list.<div class="row" style="margin-top:10px"><button class="btn reportBtn" type="button">Copy my test report</button></div></div>
+</section>
+
+<section class="view" id="v-group" hidden="">
+  <h2 class="lede">Group gift exchange</h2>
+  <p class="muted">Draw names for a club, team or family. Everyone makes a Wishwell list, so whoever draws your name knows what to get.</p>
+  <div style="max-width:640px">
+  <label class="field"><span>Group name</span><input type="text" id="gName" maxlength="40" placeholder="Robotics team"></label>
+  <label class="field"><span>Spending limit</span><select id="gLimit"><option value="15">$15</option><option value="25" selected="">$25</option><option value="50">$50</option><option value="100">$100</option></select></label>
+  <div class="field"><span>Who's in? (<span id="gCount">0</span>)</span>
+    <div class="row"><input type="text" id="gAdd" maxlength="30" placeholder="Add a name" aria-label="Add a name"><button class="btn" type="button" id="gAddBtn">Add</button></div>
+    <div class="cutlist" id="gPeople"></div></div>
+  <p class="small muted">Free for up to 4 people. Groups of 5 or more will use the $2.99 Exchange Pass, coming soon. For now, any size group is free.</p>
+  <button class="btn primary wide" type="button" id="gDraw">Draw names</button>
+  <div id="gResult"></div>
+  </div>
+</section>
+
+<section class="view" id="v-family" hidden="">
+  <div class="sheet fam" id="famSheet"></div>
+  <p class="note" id="famNote">Marking something as bought is saved on this phone in this draft. At launch, other gift givers will see it too, and the list owner never will, so surprises stay surprises.</p>
+  <div class="row" style="max-width:640px"><button class="btn primary" type="button" id="makeOwn">Make your own Wishwell list</button><button class="btn" type="button" id="famBack" hidden="">Back to my list</button></div>
+</section>
+</main>
+<footer>Test draft. No accounts and no payments. Your lists save in this browser only. Prices are rough estimates, not live prices. Buy links are plain store searches for now; at launch they'd be paid links that may earn Wishwell a small commission at no extra cost to you.</footer>
+
+<div class="modal" id="plans" hidden="" role="dialog" aria-modal="true" aria-labelledby="plansT">
+  <div class="box">
+    <div class="bar"><h2 id="plansT" style="font-size:clamp(24px,5vw,34px)">Plans (coming soon)</h2><button class="btn" type="button" id="closePlans">Close</button></div>
+    <p class="muted" id="plansWhy"></p>
+    <div class="tiers">
+      <div class="tier" data-t="free"><h3>Free</h3><div class="amt">$0</div><ul><li>Taste quiz, lists, ranking and share links</li><li>3 rounds of AI ideas per list</li><li>Group exchange for up to 4 people</li></ul></div>
+      <div class="tier best" data-t="holiday"><h3>Holiday Pass</h3><div class="amt">$4.99</div><div class="small muted">one time, this season</div><ul><li>Unlimited AI ideas and lists</li><li>Price drop alerts on your picks</li><li>No subscription</li></ul><button class="btn pay" type="button" data-pay="holiday">Coming soon</button></div>
+      <div class="tier" data-t="exchange"><h3>Exchange Pass</h3><div class="amt">$2.99</div><div class="small muted">per group, one time</div><ul><li>Groups of 5 or more</li><li>Everyone's list in one place</li><li>Reminders before the swap</li></ul><button class="btn pay" type="button" data-pay="exchange">Coming soon</button></div>
+    </div>
+    <p class="later">Later, in 2027: Plus at $19.99 a year and Family at $34.99 a year. <button class="btn pay" type="button" data-pay="plus" style="min-height:40px;padding:4px 10px;margin-left:4px">I'd want Plus</button></p>
+    <p class="small muted" id="payNote">The passes are coming soon. Tap Coming soon on any pass you'd want, and it goes in your test report.</p>
+    <div class="row"><button class="btn reportBtn" type="button">Copy my test report</button></div>
+    <p class="note">How Free stays free: at launch, buy links may earn Wishwell a small commission from the store. The price you pay stays the same.</p>
+  </div>
+</div>
+<div class="modal" id="copyM" hidden="" role="dialog" aria-modal="true" aria-label="Copy text">
+  <div class="box" style="max-width:560px"><p style="margin-top:0"><strong>Copy this</strong> <span class="muted small">(select all, then copy)</span></p><textarea id="copyArea" readonly="" style="min-height:200px"></textarea><div class="row" style="margin-top:10px"><button class="btn" type="button" id="copyClose">Done</button></div></div>
+</div>
+<div class="toast" id="toast" hidden=""></div>
+
+
+
+
+</body></html>
