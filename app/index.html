@@ -1453,6 +1453,12 @@ function shownInterest(P,b,re){ // circles on ideas like this one
   for(const x of tasteWords(b))if(re.test(x)&&lo(P.word,x)>0.3)return true;
   return false;
 }
+/* What testers cut most: generic personalized items, subscriptions, classes, lessons and gift
+   cards, and food when they didn't pick Cooking or Coffee and tea. These sink in the ranking
+   (never removed) unless the person's own Details mention them; at most one custom or
+   personalized idea per batch. */
+const PLAIN_RE=/\b(subscriptions?|class(es)?|courses?|lessons?|gift cards?|membership)\b/i;
+const CUSTOM_RE=/^(custom|personalized)\b/i;
 const jac=(a,b)=>{let n=0;a.forEach(x=>{if(b.has(x))n++});return n/(a.size+b.size-n||1)};
 function bankIdeas(n){
   const seen=new Set([...S.items.map(i=>i.title.toLowerCase()),...S.have]);const sig=signals();const mb=maxB();
@@ -1461,7 +1467,7 @@ function bankIdeas(n){
   const pool=BANK.filter(b=>!seen.has(b[0].toLowerCase())&&b[2]<=mb&&(S.budget!=="9999"||b[3]>=150)).filter(b=>{const w=tasteWords(b);return!owned.some(g=>jac(w,g)>=0.5)&&!cutW.some(g=>jac(w,g)>=0.6)});
   const SB={Practical:["Making","Food","Sports","Tech"],"Wow factor":["Tech","Experiences"],Cozy:["Room","Food","Books"],"Surprise me":["Experiences","Other","Art"]}[S.style]||[];
   const P=tasteProfile();const learn=Math.min(1,P.n/4);
-  let noteHit=false;
+  let noteHit=false;const foodOk=S.ints.includes("Cooking")||S.ints.includes("Coffee and tea");
   const scored=pool.map(b=>{const iw=ideaWords(b);const hit=new Map();let note=false;
     let strong=false,light=false;
     sig.forEach(g=>{for(const x of g.set)if(iw.has(x)){hit.set(g.key,Math.max(hit.get(g.key)||0,g.w));if(g.note)note=true;if(g.strong)strong=true;else light=true;break}});
@@ -1471,25 +1477,27 @@ function bankIdeas(n){
     const gen=isGen(b),niche=isNiche(b);let gate=0;
     let held=false;
     s+=ageFit(b);
+    const custom=CUSTOM_RE.test(b[0]);
+    if(!note){if(PLAIN_RE.test(b[0]))s-=3;if(custom)s-=2.5;if(b[1]==="Food"&&!foodOk&&lo(P.cat,"Food")<=0.3)s-=2.5}
     const leanOk=gen&&((S.lean==="fem"&&FEM_RE.test(ideaText(b)))||(S.lean==="masc"&&MASC_RE.test(ideaText(b))));if(leanOk)s+=1;
     if(gen&&!strong&&!leanOk&&!shownInterest(P,b,GEN_RE))held=true;
     else if(niche&&!strong&&!shownInterest(P,b,NICHE_RE)){if(light)gate=1;else held=true}
     const r=Math.random()*(S.style==="Surprise me"?4:1.5);
-    return{b,s:s+r-(held?50:0),s0:s+r,w:tasteWords(b),gate,held}}).sort((a,b)=>b.s-a.s);
+    return{b,s:s+r-(held?50:0),s0:s+r,w:tasteWords(b),gate,held,custom}}).sort((a,b)=>b.s-a.s);
   const picks=[],cats={},left=scored.slice();
-  let gated=0;const take=i=>{const x=left.splice(i,1)[0];cats[x.b[1]]=(cats[x.b[1]]||0)+1;if(x.gate)gated++;picks.push(x)};
+  let gated=0,customs=0;const take=i=>{const x=left.splice(i,1)[0];cats[x.b[1]]=(cats[x.b[1]]||0)+1;if(x.gate)gated++;if(x.custom)customs++;picks.push(x)};
   // exploration: once there is something to learn from, try a category they haven't seen and haven't turned down
   const explore=P.n>=3?(S.style==="Surprise me"?2:1):0;
   const main=n-explore;
   const cap=Math.max(2,Math.ceil(n*0.6));// never more than 5 of 8 from one category
-  while(picks.length<main&&left.length){let bi=-1,bv=-1e9;left.forEach((x,i)=>{if((cats[x.b[1]]||0)>=cap||(x.gate&&gated>=1))return;const v=x.s-2*(cats[x.b[1]]||0)-(picks.some(p=>jac(p.w,x.w)>=0.4)?4:0);if(v>bv){bv=v;bi=i}});if(bi<0)break;take(bi)}
+  while(picks.length<main&&left.length){let bi=-1,bv=-1e9;left.forEach((x,i)=>{if((cats[x.b[1]]||0)>=cap||(x.gate&&gated>=1)||(x.custom&&customs>=1))return;const v=x.s-2*(cats[x.b[1]]||0)-(picks.some(p=>jac(p.w,x.w)>=0.4)?4:0);if(v>bv){bv=v;bi=i}});if(bi<0)break;take(bi)}
   for(let e=0;e<explore&&picks.length<n&&left.length;e++){
     if(e===0&&(S.round||0)>=3&&(S.round%2)===1){const hs=left.map((x,i)=>[x,i]).filter(([x])=>x.held&&!cats[x.b[1]]);if(hs.length){take(hs.sort((a,b)=>b[0].s0-a[0].s0)[0][1]);continue}}
-    const fresh=left.map((x,i)=>[x,i]).filter(([x])=>!P.cat[x.b[1]]&&!cats[x.b[1]]&&x.s>-20&&!(x.gate&&gated));
-    const from=fresh.length?fresh:left.map((x,i)=>[x,i]).filter(([x])=>lo(P.cat,x.b[1])>=0&&(cats[x.b[1]]||0)<cap&&x.s>-20&&!(x.gate&&gated));
+    const fresh=left.map((x,i)=>[x,i]).filter(([x])=>!P.cat[x.b[1]]&&!cats[x.b[1]]&&x.s>-20&&!(x.gate&&gated)&&!(x.custom&&customs));
+    const from=fresh.length?fresh:left.map((x,i)=>[x,i]).filter(([x])=>lo(P.cat,x.b[1])>=0&&(cats[x.b[1]]||0)<cap&&x.s>-20&&!(x.gate&&gated)&&!(x.custom&&customs));
     if(!from.length)break;take(from.sort((a,b)=>b[0].s-a[0].s)[0][1]);
   }
-  while(picks.length<n&&left.length){const i=left.findIndex(x=>(cats[x.b[1]]||0)<cap);take(i<0?0:i)}
+  while(picks.length<n&&left.length){let i=left.findIndex(x=>(cats[x.b[1]]||0)<cap&&!(x.custom&&customs));if(i<0)i=left.findIndex(x=>(cats[x.b[1]]||0)<cap);take(i<0?0:i)}
   picks.forEach(({b})=>addItem({title:b[0],cat:b[1],lo:b[2],hi:b[3],why:b[5],src:"Starter idea"}));
   bankIdeas.noteMiss=!!S.notes.trim()&&!noteHit;
   return picks.length;
