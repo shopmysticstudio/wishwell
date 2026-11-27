@@ -14,15 +14,39 @@ who may use AI. Cloudflare deploys it automatically from the `payments` branch
 - Every other problem answers 429, and the app quietly shows starter ideas.
 - Ideas over the budget or with brand names are dropped; the model is asked for a
   few extra to make up for it.
-- Each round's ideas (no notes, names, IPs or device ids) go to the idea pool in
-  KV for `tools/export_pool.py`.
+- `POST /signal` `{kept, top, cut}`: which AI ideas people circled, ranked in
+  their top 3, or cut. Only titles already in the pool are counted. No device id.
+- Idea pool: each round's ideas go to the D1 database `wishwell-ideas` (binding
+  `DB`): title, category, why, search words, price range, and the taste tags that
+  produced them (interest, budget, style, me/them). Never notes, names, IPs or
+  device ids, and ideas that mention a name from the notes are skipped. Without
+  `DB` the Worker falls back to the old KV `pool:` keys.
 
 Settings live in `wrangler.toml` `[vars]`. Secrets (dashboard > Settings >
 Variables and Secrets > Type: Secret): `GUMROAD_PRODUCT_ID` (needed for passes),
 `BETA_CODE` (optional, overrides the beta code fingerprint in `worker.js`).
 
 Bindings: `AI` (Workers AI), `KV` (namespace `wishwell-ai-ideas-data`),
-`PER_MINUTE` (5 requests a minute per IP).
+`DB` (D1 `wishwell-ideas`, tables in `migrations/`), `PER_MINUTE` (5 requests
+a minute per IP).
+
+Test the pool locally: `node server/ai-ideas/test/pool.test.mjs` (Node 22+).
+
+### Growing the starter ideas from the pool
+
+From the repo root:
+
+```
+cd server/ai-ideas
+npx wrangler d1 execute wishwell-ideas --remote --json --command "SELECT i.*, (SELECT json_group_object(tag, n) FROM idea_tags t WHERE t.key = i.key) AS tags FROM ideas i" > ../../pool.json
+cd ../..
+python3 tools/export_pool.py --from-d1-json pool.json --top 40
+```
+
+That prints the best ideas (kept by at least 2 people, no brands, under $1000,
+no near-duplicates of each other or of the starter list). Add `--write` to
+append them to `BANK` in `app/index.html`, then review the diff before
+committing. Delete `pool.json` afterwards.
 
 Manual deploy, if ever needed: `npx wrangler login`, then `npx wrangler deploy`
 in `server/ai-ideas`.

@@ -541,7 +541,25 @@ const metrics=()=>({quizDone:0,quizTaps:0,ideas:0,circled:0,cut:0,ai:0,linkCopie
 const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],seq:0,round:0,aiRounds:0,view:"start",listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
 let S=fresh(),sample=null,busy=false,FAM=null;
 try{const raw=localStorage.getItem("wishbook-v1");if(raw){const o=JSON.parse(raw);S=Object.assign(fresh(),o);S.m=Object.assign(metrics(),o.m||{});S.m.pay=Object.assign(metrics().pay,(o.m||{}).pay||{});S.g=Object.assign(fresh().g,o.g||{});S.opt=Object.assign(fresh().opt,o.opt||{})}}catch(e){}
-const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}};
+const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}signalLater()};
+/* tell the AI service which AI ideas were circled, ranked top 3 or cut, so the best ones can become
+   starter ideas. Sends idea titles only: no device id, names, notes or anything typed. Each title is sent once. */
+const SIG_URL=AI_ON?String(CFG.aiUrl).trim().replace(/\/+$/,"")+"/signal":"";
+let sigT=0;
+function signalLater(){if(SIG_URL){clearTimeout(sigT);sigT=setTimeout(sendSignal,3000)}}
+function sendSignal(){
+  clearTimeout(sigT);const ai=S.items.filter(i=>i.src==="AI pick");if(!SIG_URL||!ai.length)return;
+  const ks=new Set(S.keptSent||[]),ts=new Set(S.topSent||[]),cs=new Set(S.cutSent||[]);
+  const kept=ai.filter(i=>i.status==="kept"&&!ks.has(i.title)).map(i=>i.title).slice(0,40);
+  const top=(S.view==="rank"||S.view==="share")?S.kept.slice(0,3).map(id=>S.items.find(i=>i.id===id)).filter(i=>i&&i.src==="AI pick"&&!ts.has(i.title)).map(i=>i.title):[];
+  const cut=ai.filter(i=>i.status==="cut"&&!cs.has(i.title)).map(i=>i.title).slice(0,40);
+  if(!kept.length&&!top.length&&!cut.length)return;
+  S.keptSent=[...ks,...kept].slice(-300);S.topSent=[...ts,...top].slice(-300);S.cutSent=[...cs,...cut].slice(-300);
+  try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}
+  const h={"content-type":"application/json"};if(window.WISHWELL_ACCESS_CODE)h["x-beta-code"]=window.WISHWELL_ACCESS_CODE;
+  fetch(SIG_URL,{method:"POST",headers:h,body:JSON.stringify({kept,top,cut}),keepalive:true}).catch(()=>{});
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")sendSignal()});
 const toast=t=>{const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400)};
 const money=(lo,hi)=>lo===hi?"$"+lo:"$"+lo+" to $"+hi;
 const est=it=>it.hi?"est. "+money(it.lo,it.hi):"";

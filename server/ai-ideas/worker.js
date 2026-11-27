@@ -5,6 +5,8 @@
      /        gift ideas. Body: the app's payload (n, forWho, ints, quiz, style, notes, budget,
               kept, keptAi, cut, seen). Answers a JSON array of {title, category, lo, hi, why, search}.
      /verify  Holiday Pass license check. Body: {"license_key": "..."}. Answers {"valid": true|false}.
+     /signal  which AI ideas people liked. Body: {"kept": [titles], "top": [titles], "cut": [titles]}.
+              Only bumps counts on ideas already in the pool. Answers 204.
 
    Who gets AI:
      Free trial  TRIAL_ROUNDS rounds per device (x-device-id header), and at most TRIAL_PER_IP
@@ -17,16 +19,18 @@
    Only rounds that return ideas are counted. Every other failure answers 429, so the app quietly
    shows its starter ideas.
 
-   Idea pool: each round's ideas (title, category, prices, why, search only) and the titles of AI
-   ideas people kept are saved to KV under "pool:", for tools/export_pool.py. Notes, names, IPs and
-   device ids are never saved there.
+   Idea pool: each round's ideas (title, category, prices, why, search only), the taste tags that
+   produced them (interests, budget, gift style, for me or someone else) and counts of how often
+   each idea was circled, ranked top 3 or cut. With the DB binding (D1, see migrations/) they go to
+   the "ideas" and "idea_tags" tables; without it, to KV under "pool:" as before. Either way they
+   feed tools/export_pool.py. Notes, names, IPs, device ids and license keys are never saved there.
 
    Settings ([vars] in wrangler.toml, or the dashboard):
      MODEL, ALLOWED_ORIGINS, BETA_ONLY, TRIAL_ROUNDS, TRIAL_PER_IP, PASS_DAILY, POOL
    Secrets (dashboard > Settings > Variables and Secrets > Type: Secret):
      GUMROAD_PRODUCT_ID  the Holiday Pass product ID (passes can't be checked without it)
      BETA_CODE           optional; overrides the beta code fingerprint below
-   Bindings: AI (Workers AI), KV (KV namespace), PER_MINUTE (rate limit) */
+   Bindings: AI (Workers AI), KV (KV namespace), PER_MINUTE (rate limit), DB (D1, optional) */
 
 const DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash";
 const CATS = ["Tech", "Gaming", "Making", "Art", "Music", "Sports", "Outdoors", "Science",
@@ -244,6 +248,46 @@ function poolRecord(ideas, q) {
   };
 }
 
+// Same key for the same idea however it is capitalized or punctuated.
+const ideaKey = t => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().slice(0, 80);
+const STYLES = ["Practical", "Wow factor", "Cozy", "Surprise me"];
+
+// Saves one round's ideas and taste tags to D1. rec is poolRecord(), q the payload.
+function poolStatements(db, rec, q) {
+  const tags = [...rec.ints.map(i => "int:" + i), "budget:" + rec.budget, "for:" + q.forWho];
+  if (STYLES.includes(q.style)) tags.push("style:" + q.style);
+  const out = [];
+  for (const i of rec.ideas) {
+    const key = ideaKey(i.title);
+    if (!key) continue;
+    out.push(db.prepare(
+      `INSERT INTO ideas (key, title, category, why, search, lo_sum, hi_sum, shown, first_day, last_day)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, ?8)
+       ON CONFLICT(key) DO UPDATE SET shown = shown + 1, lo_sum = lo_sum + ?6, hi_sum = hi_sum + ?7, last_day = ?8`
+    ).bind(key, i.title, i.category, i.why, i.search, i.lo, i.hi, rec.d));
+    for (const t of tags) {
+      out.push(db.prepare(
+        "INSERT INTO idea_tags (key, tag, n) VALUES (?1, ?2, 1) ON CONFLICT(key, tag) DO UPDATE SET n = n + 1"
+      ).bind(key, t));
+    }
+  }
+  // Titles of AI ideas kept since the last round (pages without /signal still report these).
+  for (const t of rec.kept) out.push(db.prepare("UPDATE ideas SET kept = kept + 1 WHERE key = ?1").bind(ideaKey(t)));
+  return out;
+}
+
+// /signal: bump counts for ideas already in the pool. Unknown titles are ignored, so nothing a
+// person typed themselves is ever stored.
+function signalStatements(db, raw) {
+  const p = raw && typeof raw === "object" ? raw : {};
+  const out = [];
+  for (const [field, col] of [["kept", "kept"], ["top", "top"], ["cut", "cut"]]) {
+    const keys = [...new Set(list(p[field], 40, 60).map(ideaKey).filter(Boolean))];
+    for (const k of keys) out.push(db.prepare(`UPDATE ideas SET ${col} = ${col} + 1 WHERE key = ?1`).bind(k));
+  }
+  return out;
+}
+
 /* ---------- access ---------- */
 // Codes match in any letter case, with or without spaces and dashes.
 const codeOf = v => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -300,7 +344,7 @@ const kvNum = async (env, key) => Number(await env.KV.get(key, { cacheTtl: 30 })
 /* ---------- handler ---------- */
 export default {
   // For tests only; not used by Cloudflare.
-  _test: { readPayload, buildMessages, parseIdeas, poolRecord },
+  _test: { readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey },
 
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
@@ -324,7 +368,7 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (request.method !== "POST") return reply({ error: "use_post" }, 405);
     const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
-    if (path !== "/" && path !== "/verify") return reply({ error: "not_found" }, 404);
+    if (path !== "/" && path !== "/verify" && path !== "/signal") return reply({ error: "not_found" }, 404);
 
     const len = Number(request.headers.get("content-length") || 0);
     if (len > MAX_BODY) return reply({ error: "too_large" }, 413);
@@ -347,6 +391,15 @@ export default {
     if (path === "/verify") {
       const r = await checkLicense(raw && raw.license_key, env, true);
       return reply({ valid: r.valid, reason: r.reason || "" }, 200);
+    }
+
+    /* /signal: which AI ideas were circled, ranked top 3 or cut */
+    if (path === "/signal") {
+      if (env.DB && String(env.POOL || "on") !== "off") {
+        const st = signalStatements(env.DB, raw);
+        if (st.length) later(env.DB.batch(st));
+      }
+      return new Response(null, { status: 204, headers: cors });
     }
 
     /* / : gift ideas */
@@ -403,7 +456,10 @@ export default {
     for (const [key, used, ttl] of counterKeys) await env.KV.put(key, String(used + 1), { expirationTtl: ttl }).catch(() => {});
     if (String(env.POOL || "on") !== "off") {
       const rec = poolRecord(ideas, q);
-      if (rec.ideas.length || rec.kept.length) {
+      if (env.DB) {
+        const st = poolStatements(env.DB, rec, q);
+        if (st.length) later(env.DB.batch(st));
+      } else if (rec.ideas.length || rec.kept.length) {
         later(env.KV.put("pool:" + day + ":" + crypto.randomUUID().slice(0, 8), JSON.stringify(rec), { expirationTtl: 15552000 }));
       }
     }

@@ -32,3 +32,11 @@ id = "9e7e866afc6e4d1ca50c4a86f30169e7"
 name = "PER_MINUTE"
 namespace_id = "1101"
 simple = { limit = 5, period = 60 }
+
+# Idea pool in D1 (anonymous idea text and counts; tables in migrations/).
+# Remove this block to go back to the KV pool.
+[[d1_databases]]
+binding = "DB"
+database_name = "wishwell-ideas"
+database_id = "43981f5d-4653-4ec4-8261-0b493b3020a8"
+migrations_dir = "migrations"
