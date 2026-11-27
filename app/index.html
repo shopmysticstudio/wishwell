@@ -285,7 +285,7 @@ let DEV="";try{DEV=localStorage.getItem("wishwell-device")||"";if(!/^[A-Za-z0-9_
 const aiHeaders=withPass=>{const h={"content-type":"application/json"};if(window.WISHWELL_ACCESS_CODE)h["x-beta-code"]=window.WISHWELL_ACCESS_CODE;if(DEV)h["x-device-id"]=DEV;if(withPass&&hasPass())h["x-pass-key"]=PASS.key;return h};
 const APP_URL=CFG.shareBase||(location.origin+location.pathname);
 const CATS={Tech:"#2563eb",Gaming:"#7c3aed",Making:"#ea580c",Art:"#db2777",Music:"#0891b2",Sports:"#16a34a",Outdoors:"#4d7c0f",Science:"#1e3a8a",Books:"#92400e",Food:"#b91c1c",Style:"#334155",Room:"#0f766e",Experiences:"#c2410c",Beauty:"#be185d",Other:"#525252"};
-const INTS=[["Style","fashion style clothes"],["Beauty","beauty selfcare makeup spa"],["Cooking","cooking food"],["Sports","sports fitness running"],["Music","music audio instrument"],["Books","books reading"],["Travel","travel"],["Room setup","room decor desk"],["Outdoors","outdoors camping hiking"],["Art","art drawing painting"],["Gaming","gaming games controller"],["Pets","pets dog cat"],["Making","maker build tools crafts diy"],["Jewelry","jewelry"],["Puzzles","puzzles"],["Cars","cars driving"],["Tech","tech electronics gadgets phone computer"],["Space and science","space science astronomy rockets"]];
+const INTS=[["Cooking","cooking food"],["Music","music audio instrument"],["Movies and shows","movies tv"],["Sports","sports fitness running"],["Outdoors","outdoors camping hiking"],["Art","art drawing painting"],["Crafts","crafts sewing knit diy"],["Books","books reading"],["Style","fashion style clothes"],["Room setup","room decor desk"],["Coffee and tea","coffee tea"],["Gaming","gaming games controller"],["Travel","travel"],["Pets","pets dog cat"],["Self-care","selfcare spa bath"],["Beauty","beauty makeup skincare"],["Jewelry","jewelry"],["Puzzles","puzzles"],["Friends and parties","party friends games"],["Tech","tech electronics gadgets phone computer"],["Making","maker build tools 3dprinting electronics"],["Cars","cars driving"],["Space and science","space science astronomy rockets"]];
 const BANK=[
 ["Beginner camera drone","Tech",60,300,"drone fly camera rc aerospace","Fly it, film it, learn to land it."],
 ["Mechanical keyboard kit","Tech",60,150,"keyboard computer gaming build","Swap switches and keycaps until it sounds right."],
@@ -754,7 +754,7 @@ const BANK=[
 const $=s=>document.querySelector(s);
 const esc=v=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const metrics=()=>({quizDone:0,quizTaps:0,ideas:0,circled:0,cut:0,have:0,ai:0,linkCopies:0,textCopies:0,previews:0,buy:0,famBuy:0,famOpens:0,claims:0,makeOwn:0,draws:0,biggest:0,pay:{holiday:0,exchange:0,plus:0}});
-const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],have:[],seq:0,round:0,aiRounds:0,view:"start",listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
+const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",age:"",lean:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],have:[],seq:0,round:0,aiRounds:0,view:"start",listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
 let S=fresh(),sample=null,busy=false,FAM=null;
 try{const raw=localStorage.getItem("wishbook-v1");if(raw){const o=JSON.parse(raw);S=Object.assign(fresh(),o);S.m=Object.assign(metrics(),o.m||{});S.m.pay=Object.assign(metrics().pay,(o.m||{}).pay||{});S.g=Object.assign(fresh().g,o.g||{});S.opt=Object.assign(fresh().opt,o.opt||{})}}catch(e){}
 const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}signalLater()};
@@ -813,16 +813,18 @@ function renderAge(){
 /* taste quiz: quick taps that seed the first wishlist */
 const CAT2INT={Making:"Making",Outdoors:"Outdoors",Tech:"Tech",Art:"Art",Music:"Music",Gaming:"Gaming",Room:"Room setup",Science:"Space and science",Books:"Books",Sports:"Sports",Food:"Cooking",Style:"Style",Experiences:"",Beauty:"Beauty",Other:""};
 const PAIRS=[
- {id:"sat",q:"Free Saturday. You'd rather...",o:[["Get outside","Outdoorsy","outdoors hiking camping nature","Outdoors"],["See friends","Social","party friends games experiences","Experiences"],["Make something","Crafty","crafts diy art make","Making"],["Stay in and recharge","Homebody","cozy relax sleep room selfcare","Room"]]},
- {id:"spot",q:"Pick a happy place",o:[["The kitchen","Foodie","cooking food baking coffee","Food"],["A game or a workout","Sporty","sports fitness running","Sports"],["A bookstore","Reader","books reading journal","Books"],["Out shopping","Shopper","fashion style clothes sneakers","Style"]]},
- {id:"ears",q:"What's on in the background?",o:[["A playlist","Music lover","music audio","Music"],["A game","Gamer","gaming games controller","Gaming"],["A show or movie","Binge watcher","movies tv series cozy","Room"],["Nothing, I'm out and about","On the go","travel outdoors experiences","Experiences"]]},
- {id:"treat",q:"The best little treat is...",o:[["A self-care night","Self-care fan","beauty selfcare spa bath","Beauty"],["Something good to eat","Snacker","snacks dessert food coffee","Food"],["Something new to wear","Trendy","fashion style clothes jewelry","Style"],["A cool new gadget","Gadget fan","tech gadgets","Tech"]]},
- {id:"mind",q:"Down a rabbit hole about...",o:[["A great story or series","Story lover","books reading movies comics","Books"],["Places to travel","Traveler","travel experiences","Experiences"],["Art, design or music","Creative","art drawing painting music","Art"],["How things work","Curious mind","science space tech","Science"]]},
- {id:"home",q:"Your space is all about...",o:[["Cozy vibes","Cozy","cozy room decor blanket candle","Room"],["Plants and fresh air","Plant lover","plants garden home","Room"],["Getting things done","Organized","desk organize practical","Other"],["Showing off what I love","Collector","decor display collect fans","Room"]]}
+ {id:"sat2",q:"Free Saturday. You'd rather...",o:[["Go out with friends","Social","friends party games","Experiences"],["Stay in and get cozy","Cozy","cozy room decor sleep blanket","Room"]]},
+ {id:"aft",q:"A good afternoon is...",o:[["Outside, on the move","Outdoorsy","outdoors hiking bike beach","Outdoors"],["Making something","Creative","art crafts drawing painting diy","Art"]]},
+ {id:"ears",q:"Headphones on or controller in hand?",o:[["Headphones on","Music lover","music audio","Music"],["Controller in hand","Gamer","gaming games controller","Gaming"]]},
+ {id:"treat2",q:"Pick a treat",o:[["Something to wear","Style","clothes fashion shoes cozy","Style"],["A handy gadget","Gadgets","tech gadgets phone","Tech"]]},
+ {id:"mind2",q:"Down a rabbit hole about...",o:[["A great story or show","Story lover","books reading movies manga","Books"],["How things work","Curious","science space experiments","Science"]]},
+ {id:"move",q:"Weekend energy",o:[["Sweat it out","Sporty","sports fitness running","Sports"],["Cook up something good","Foodie","cooking food","Food"]]}
 ];
 const STYLES=[["Practical","Stuff they'll use every day"],["Wow factor","The gift they'll show off"],["Cozy","Comfort and good vibes"],["Surprise me","Mix in some wild cards"]];
 const BUDGETS=[["25","Under $25"],["75","Up to $75"],["200","Up to $200"],["9999","$200 and up"],["any","Any price"]];
-const STEPS=["who",...PAIRS.map(p=>p.id),"ints","style","budget","notes"];
+const AGES=[["teen","13 to 17","Gen Z or Gen Alpha"],["young","18 to 29","Gen Z"],["adult","30 to 44","Millennial"],["mid","45 to 59","Gen X"],["older","60 and up","Boomer or older"]];
+const LEANS=[["fem","Lean feminine","Jewelry, makeup and the like can show up"],["masc","Lean masculine","Beard care, cologne and the like can show up"],["neutral","Keep it neutral","Everyday ideas for anyone"]];
+const STEPS=["who","age","lean",...PAIRS.map(p=>p.id),"ints","style","budget","notes"];
 let qi=0;
 const tasteTags=()=>{const t=[];PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k])t.push(p.o[k][1])});return t};
 function seedInts(){const set=new Set(S.ints);PAIRS.forEach(p=>{const k=S.quiz[p.id];if(k!=null&&p.o[k]){const n=CAT2INT[p.o[k][3]];if(n)set.add(n)}});S.ints=[...set]}
@@ -832,6 +834,8 @@ function renderQuiz(){
   if(id==="who"){h=`<h2 class="qq">Who's this list for?</h2><p class="qsub">A few quick taps and Wishwell learns their taste.</p>
    <div class="pair"><button type="button" class="opt" style="background:var(--teal)" data-who="me" aria-pressed="${S.forWho==="me"}">Me<small>Make my own wishlist</small></button><button type="button" class="opt" style="background:var(--navy)" data-who="them" aria-pressed="${S.forWho==="them"}">Someone else<small>Find gifts for them</small></button></div>
    <label class="field" style="max-width:720px"><span>${S.forWho==="me"?"Your":"Their"} first name <span class="muted small">(optional)</span></span><input type="text" id="qName" maxlength="30" autocomplete="off" value="${esc(S.name)}" placeholder="Sam"></label>`}
+  else if(id==="age"){const me=S.forWho==="me";h=`<h2 class="qq">${me?"How old are you?":"About how old are they?"}</h2><p class="qsub">Optional. It helps the first ideas fit the stage of life.</p><div class="tiles">${AGES.map(([v,n,d])=>`<button type="button" class="tile" data-age="${v}" aria-pressed="${S.age===v}">${esc(n)}<small>${esc(d)}</small></button>`).join("")}</div><button type="button" class="neither" data-age="">Skip</button>`}
+  else if(id==="lean"){h=`<h2 class="qq">Lean any ideas by gender?</h2><p class="qsub">Optional. Most ideas are for anyone either way.</p><div class="tiles">${LEANS.map(([v,n,d])=>`<button type="button" class="tile" data-lean="${v}" aria-pressed="${S.lean===v}">${esc(n)}<small>${esc(d)}</small></button>`).join("")}</div><button type="button" class="neither" data-lean="">Skip</button>`}
   else if(PAIRS.some(p=>p.id===id)){const p=PAIRS.find(p=>p.id===id);const cur=S.quiz[id];
    h=`<h2 class="qq">${esc(p.q)}</h2><p class="qsub">Go with your gut.</p><div class="pair">${p.o.map((o,k)=>`<button type="button" class="opt" style="background:${CATS[o[3]]}" data-k="${k}" aria-pressed="${cur===k}">${esc(o[0])}<small>${esc(o[1])}</small></button>`).join("")}</div><button type="button" class="neither" data-k="-1">Neither, skip</button>`}
   else if(id==="ints"){seedInts();h=`<h2 class="qq">Anything else ${S.forWho==="me"?"you're":"they're"} into?</h2><p class="qsub">We picked some from your answers. Tap to add or remove.</p><div class="seg" id="ints">${INTS.map(([n])=>`<button type="button" class="chip" data-i="${esc(n)}" aria-pressed="${S.ints.includes(n)}">${esc(n)}</button>`).join("")}</div><button type="button" class="btn primary" style="margin-top:18px" data-next="1">Next</button>`}
@@ -844,6 +848,8 @@ function renderQuiz(){
 const qNext=()=>{if(qi<STEPS.length-1){qi++;save();renderQuiz();window.scrollTo(0,0)}};
 $("#qbody").addEventListener("click",e=>{
   const id=STEPS[qi];const t=e.target;
+  const ag=t.closest("[data-age]");if(ag){S.age=ag.dataset.age;qNext();return}
+  const ln=t.closest("[data-lean]");if(ln){S.lean=ln.dataset.lean;qNext();return}
   const who=t.closest("[data-who]");if(who){S.forWho=who.dataset.who;const n=$("#qName");if(n)S.name=n.value.trim();qNext();return}
   const k=t.closest("[data-k]");if(k){const v=+k.dataset.k;if(v<0)delete S.quiz[id];else S.quiz[id]=v;S.m.quizTaps=(S.m.quizTaps||0)+1;qNext();return}
   const c=t.closest("#ints .chip");if(c){const n=c.dataset.i;S.ints=S.ints.includes(n)?S.ints.filter(x=>x!==n):[...S.ints,n];c.setAttribute("aria-pressed",S.ints.includes(n));save();return}
@@ -855,7 +861,7 @@ $("#qbody").addEventListener("click",e=>{
 $("#qbody").addEventListener("input",e=>{if(e.target.id==="qName"){S.name=e.target.value.trim();save()}if(e.target.id==="qNotes"){S.notes=e.target.value;save()}});
 $("#qBack").addEventListener("click",()=>{if(qi>0){qi--;renderQuiz()}});
 function finishQuiz(){
-  seedInts();if(!S.ints.length&&!S.notes)S.ints=["Room setup","Cooking","Books","Music"];
+  seedInts();
   S.m.quizDone=(S.m.quizDone||0)+1;
   S.items=S.items.filter(i=>i.status==="kept"||i.status==="have"||i.mine);
   $("#qbar").style.width="100%";const tags=tasteTags();
@@ -920,6 +926,20 @@ function addItem(o){
   S.seq++;const it={id:"i"+S.seq+"_"+Date.now().toString(36),no:S.seq,title:String(o.title).slice(0,80),cat:CATS[o.cat]?o.cat:"Other",lo:Math.max(0,Math.round(+o.lo||0)),hi:Math.max(0,Math.round(+o.hi||+o.lo||0)),why:String(o.why||"").slice(0,140),search:String(o.search||o.title).slice(0,80),url:o.url||"",src:o.src||"",status:o.status||"new",mine:!!o.mine,round:S.round||0};
   if(it.hi<it.lo)it.hi=it.lo;S.items.push(it);if(!it.mine)S.m.ideas++;return it;
 }
+const NICHE_RE=/robot|coding|electronic(?! drum)|arduino|raspberry|solder|3d ?print|telescope|microscope|chemistr|experiment|rocket|aerospace|astronom|meteorite|mineral|circuit|\bdna\b|science|drone|caliper|machining|laser engrav|linux|engine kit|model railroad|balsa/;
+const GEN_RE=/makeup|lip gloss|nail polish|nail care|curling|straighten|hair dryer|earring|necklace|bracelet|stackable ring|jewelry|perfume|cologne|beard|shav|scrunchie|claw clip|crossbody|legging|gua sha|nail salon/;
+const FEM_RE=/makeup|lip gloss|nail polish|nail care|curling|straighten|hair dryer|earring|necklace|bracelet|stackable ring|jewelry|perfume|scrunchie|claw clip|crossbody|legging|gua sha|nail salon/;
+const MASC_RE=/beard|shav|cologne/;
+/* Optional age range: a light nudge toward what fits that stage of life, and away from what rarely does. */
+const AGE_FIT={
+ teen:["gaming games school desk room decor lights skateboard sneakers friends party phone anime manga trampoline arcade concert hoodie","kitchen cooker grilling bbq mattress car cars espresso knife skillet beard cologne golf"],
+ young:["room decor desk coffee travel concert friends party fitness gym fashion sneakers plants","kids slime"],
+ adult:["kitchen cooking coffee home travel outdoors garden plants fitness books sleep","kids slime school dorm anime manga trampoline arcade"],
+ mid:["kitchen cooking garden plants books travel outdoors coffee tea home grilling golf","kids slime school dorm anime manga controller skateboard trampoline arcade streaming"],
+ older:["garden plants books reading puzzles photos memories birds tea cozy sleep family travel","kids slime school dorm anime manga controller skateboard vr streaming trampoline arcade sneakers drone"]};
+const AGE_SETS={};for(const k in AGE_FIT)AGE_SETS[k]=AGE_FIT[k].map(t=>new Set(t.split(" ").map(stem)));
+function ageFit(b){const a=AGE_SETS[S.age];if(!a)return 0;const w=ideaWords(b);let plus=0,minus=false;w.forEach(x=>{if(a[0].has(x))plus++;if(a[1].has(x))minus=true});return minus?-4:Math.min(3,plus*1.5)}
+const ideaText=b=>(b[0]+" "+b[4]).toLowerCase();
 function bankIdeas(n){
   const seen=new Set([...S.items.map(i=>i.title.toLowerCase()),...S.have]);const sig=signals();const mb=maxB();
   const pool=BANK.filter(b=>!seen.has(b[0].toLowerCase())&&b[2]<=mb&&(S.budget!=="9999"||b[3]>=150));
@@ -928,7 +948,10 @@ function bankIdeas(n){
   const scored=pool.map(b=>{const iw=ideaWords(b);const hit=new Map();let note=false;
     sig.forEach(g=>{for(const x of g.set)if(iw.has(x)){hit.set(g.key,Math.max(hit.get(g.key)||0,g.w));if(g.note)note=true;break}});
     let s=0;hit.forEach(w=>s+=w);if(hit.size>1)s+=3*(hit.size-1);if(note){s+=4;noteHit=true}
-    if(SB.includes(b[1]))s+=2;if(!hit.size&&(b[1]==="Tech"||b[1]==="Science"||b[1]==="Beauty"))s-=3;if(S.style==="Wow factor"&&b[3]>=200)s+=1;
+    if(SB.includes(b[1]))s+=2;s+=ageFit(b);
+    {const tx=ideaText(b),asked=note||(b[1]==="Beauty"&&S.ints.some(i=>i==="Beauty"||i==="Self-care"))||(/jewel|necklace|earring|bracelet/.test(tx)&&S.ints.includes("Jewelry"));
+     if(GEN_RE.test(tx)){if((S.lean==="fem"&&FEM_RE.test(tx))||(S.lean==="masc"&&MASC_RE.test(tx)))s+=1;else if(!asked)s-=50}
+     else if((b[1]==="Science"||NICHE_RE.test(tx))&&!note&&!S.ints.some(i=>i==="Tech"||i==="Making"||i==="Space and science"))s-=50}if(S.style==="Wow factor"&&b[3]>=200)s+=1;
     return{b,s:s+Math.random()*(S.style==="Surprise me"?4:1.5)}}).sort((a,b)=>b.s-a.s);
   // a little variety: each extra pick from the same category costs a bit
   const picks=[],cats={};const left=scored.slice();
@@ -954,7 +977,7 @@ Do not repeat any of: ${seen.join("; ")||"none"}.
 Mix obvious hits with a few surprising picks that fit the details. Prefer real product types; a brand is fine when it matters. Use typical US prices.
 Use American English. Never use dashes of any kind in text.
 Reply with only a JSON array. Each element: {"title": short name under 50 characters, "category": one of ${Object.keys(CATS).join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a store search phrase}.`;
-  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,ints:S.ints,quiz:PAIRS.filter(p=>S.quiz[p.id]!=null&&p.o[S.quiz[p.id]]).map(p=>p.q+" "+p.o[S.quiz[p.id]][0]),style:S.style,notes:S.notes,budget:S.budget,kept,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
+  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.filter(p=>S.quiz[p.id]!=null&&p.o[S.quiz[p.id]]).map(p=>p.q+" "+p.o[S.quiz[p.id]][0]),style:S.style,notes:S.notes,budget:S.budget,kept,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
   const arr=Array.isArray(out)?out:(out&&Array.isArray(out.ideas)?out.ideas:[]);
   const have=new Set(S.items.map(i=>i.title.toLowerCase()));let c=0;
   arr.forEach(o=>{if(c<n&&o&&o.title&&!have.has(String(o.title).toLowerCase())){have.add(String(o.title).toLowerCase());addItem({title:o.title,cat:o.category,lo:o.lo,hi:o.hi,why:o.why,search:o.search,src:"AI pick"});c++}});
