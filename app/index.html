@@ -121,6 +121,13 @@ ol.rank{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .tier ul{margin:0;padding-left:1.1em;font-size:14px}
 .buy{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1.1;text-decoration:none;border:2px solid var(--line);border-radius:10px;padding:6px 12px;min-height:48px;font-weight:700;color:var(--ink);background:var(--bg)}
 .buy .pl{font-size:11px;font-weight:500;color:var(--muted)}
+.deal{grid-column:1/-1;display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.deal a{flex:1 1 120px;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:6px 10px;border:2px solid var(--line);border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;color:var(--ink);background:var(--bg);position:relative}
+.deal svg{width:18px;height:18px;flex:none}
+.deal .magic{border-color:var(--teal)}
+.spark{position:fixed;width:8px;height:8px;margin:-4px 0 0 -4px;pointer-events:none;z-index:60;background:var(--tag);clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);animation:spark .7s ease-out forwards}
+@keyframes spark{from{transform:translate(0,0) scale(.4);opacity:1}to{transform:translate(var(--dx),var(--dy)) scale(1.3) rotate(140deg);opacity:0}}
+@media(prefers-reduced-motion:reduce){.spark{display:none}}
 .fam li{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid var(--soft)}
 .fam li.got .ft{text-decoration:line-through;color:var(--muted)}
 .fam .row .btn,.fam .row .buy{flex:0 1 auto}
@@ -929,6 +936,29 @@ const toast=t=>{const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeo
 const money=(lo,hi)=>lo===hi?"$"+lo:"$"+lo+" to $"+hi;
 const est=it=>it.hi?"est. "+money(it.lo,it.hi):"";
 const shopUrl=it=>it.url||("https://www.amazon.com/s?k="+encodeURIComponent(it.search||it.title));
+const dealQ=it=>encodeURIComponent(it.search||it.title);
+const dealLinks=it=>`<div class="deal"><a class="cmp" href="https://www.google.com/search?udm=28&amp;q=${dealQ(it)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h11M4 12h7M4 17h5"/><circle cx="16.5" cy="14.5" r="3.5"/><path d="m19 17 2.5 2.5"/></svg>Compare prices</a><a class="magic" href="https://slickdeals.net/search?q=${dealQ(it)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 20 11-11"/><path d="M17 3v4M15 5h4M20 9v2M19 10h2M11 3v2M10 4h2"/></svg>Magic Coupons</a></div>`;
+let chimeCtx=null;
+function magicChime(){
+  try{
+    if(navigator.audioSession)navigator.audioSession.type="ambient";
+    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+    chimeCtx=chimeCtx||new AC();const c=chimeCtx;if(c.state==="suspended")c.resume();
+    const t0=c.currentTime+.02,out=c.createGain();out.gain.value=.05;out.connect(c.destination);
+    [1318.5,1568,1975.5,2637].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain(),t=t0+i*.07;
+      o.type="sine";o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(1,t+.01);g.gain.exponentialRampToValueAtTime(.001,t+.5);
+      o.connect(g);g.connect(out);o.start(t);o.stop(t+.55)});
+  }catch(e){}
+}
+function sparkle(el){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const r=el.getBoundingClientRect(),x=r.left+r.width*.25,y=r.top+r.height/2;
+  for(let i=0;i<10;i++){const s=document.createElement("i");s.className="spark";const a=Math.PI*2*i/10+Math.random()*.5,d=26+Math.random()*24;
+    s.style.left=x+"px";s.style.top=y+"px";s.style.setProperty("--dx",Math.cos(a)*d+"px");s.style.setProperty("--dy",Math.sin(a)*d+"px");
+    if(i%3===1)s.style.background="var(--teal)";if(i%3===2)s.style.background="var(--red)";
+    document.body.appendChild(s);setTimeout(()=>s.remove(),800)}
+}
+document.addEventListener("click",e=>{const m=e.target.closest&&e.target.closest(".deal .magic");if(m){magicChime();sparkle(m)}});
 const buyLink=(it,extra)=>`<a class="buy" href="${esc(shopUrl(it))}" target="_blank" rel="noopener sponsored" ${extra||""}>Buy<span class="pl">Paid link</span></a>`;
 const byId=id=>S.items.find(i=>i.id===id);
 const nm=()=>S.name.trim()||(S.forWho==="me"?"My":"Their");
@@ -1301,7 +1331,10 @@ const unb64u=h=>new TextDecoder().decode(Uint8Array.from(atob(h.replace(/-/g,"+"
 const shareLink=()=>{const j=JSON.stringify(packList());return CFG.shortLinks?APP_URL+"#l-"+b64u(j):APP_URL+"#list-"+hex(j)};
 function readHash(){
   const h=location.hash||"";const short=h.startsWith("#l-");if(!short&&!h.startsWith("#list-"))return null;
-  try{const o=JSON.parse(short?unb64u(h.slice(3)):unhex(h.slice(6)));if(!o||!Array.isArray(o.i))return null;
+  try{return unpackList(JSON.parse(short?unb64u(h.slice(3)):unhex(h.slice(6))))}catch(e){return null}
+}
+function unpackList(o){
+  try{if(!o||!Array.isArray(o.i))return null;
     const items=o.i.slice(0,40).map(a=>Array.isArray(a)?{title:String(a[0]||"").slice(0,80),lo:Math.max(0,+a[1]||0),hi:Math.max(0,+a[2]||0),url:/^https:\/\//.test(a[3]||"")?String(a[3]).slice(0,400):"",search:String(a[4]||a[0]||"").slice(0,80)}:null).filter(x=>x&&x.title);
     return{t:String(o.t||"A wishlist").slice(0,60),p:!!o.p,i:items};
   }catch(e){return null}
@@ -1321,14 +1354,14 @@ $("#listName").addEventListener("input",e=>{S.listName=e.target.value;save();ren
 [["#optPrice","price"],["#optWhy","why"]].forEach(([s,k])=>$(s).addEventListener("change",e=>{S.opt[k]=e.target.checked;save();renderShare()}));
 $("#linkBtn").addEventListener("click",()=>{if(!S.kept.length){toast("Circle some ideas first");return}S.m.linkCopies++;save();copy(shareLink(),"Link copied. Paste it to family.")});
 $("#copyBtn").addEventListener("click",()=>{if(!S.kept.length){toast("Circle some ideas first");return}S.m.textCopies++;save();copy(shareText(),"Copied. Paste it in a text.")});
-$("#famBtn").addEventListener("click",()=>{if(!S.kept.length){toast("Circle some ideas first");return}S.m.previews++;FAM={data:JSON.parse(JSON.stringify(packList())),preview:true};show("family")});
+$("#famBtn").addEventListener("click",()=>{if(!S.kept.length){toast("Circle some ideas first");return}S.m.previews++;FAM={data:unpackList(packList()),preview:true};show("family")});
 
 /* family view of a shared list */
 const famKey=d=>{let h=0;const s=d.t+d.i.map(x=>x.title).join("|");for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return "k"+(h>>>0).toString(36)};
 function renderFamily(){
   if(!FAM)return;const d=FAM.data;const key=famKey(d);const got=S.claims[key]||[];
   $("#famSheet").innerHTML=`<div class="hand">${FAM.preview?"what family sees":"a wishlist for you to shop from"}</div><h2>${esc(d.t)}</h2><p class="small muted" style="margin:4px 0 0">1 is the one wanted most. Buy from the list, then mark it so nobody doubles up.</p>`+
-    (d.i.length?`<ol>${d.i.map((it,i)=>{const g=got.includes(i);return `<li class="${g?"got":""}"><span class="ft"><strong>${esc(it.title)}</strong>${d.p&&it.hi?` <span class="price">${esc(est(it))}</span>`:""}</span><div class="row">${buyLink(it,'data-fam="1"')}<button type="button" class="btn claim" data-c="${i}" aria-pressed="${g}">${g?"Bought":"Mark as bought"}</button></div></li>`}).join("")}</ol>`:`<div class="empty">This list is empty.</div>`);
+    (d.i.length?`<ol>${d.i.map((it,i)=>{const g=got.includes(i);return `<li class="${g?"got":""}"><span class="ft"><strong>${esc(it.title)}</strong>${d.p&&it.hi?` <span class="price">${esc(est(it))}</span>`:""}</span><div class="row">${buyLink(it,'data-fam="1"')}<button type="button" class="btn claim" data-c="${i}" aria-pressed="${g}">${g?"Bought":"Mark as bought"}</button></div>${dealLinks(it)}</li>`}).join("")}</ol>`:`<div class="empty">This list is empty.</div>`);
   $("#famBack").hidden=!FAM.preview;$("#makeOwn").hidden=FAM.preview;
 }
 $("#famSheet").addEventListener("click",e=>{
@@ -1410,7 +1443,7 @@ function card(it){
 <div class="no">No. ${String(it.no).padStart(3,"0")} · ${esc(it.cat)}</div><h3>${esc(it.title)}</h3>
 ${it.hi?`<span class="price">${esc(est(it))}</span>`:`<span class="small muted">Price not set</span>`}
 ${it.why?`<p class="why">${esc(it.why)}</p>`:""}
-<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="${esc(it.id)}" aria-pressed="${k}">${keepIcon(k)}${k?"Circled":"Circle it"}</button><button type="button" class="btn quiet" data-a="have" data-id="${esc(it.id)}">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="${esc(it.id)}">Cut</button>${buyLink(it)}</div>
+<div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="${esc(it.id)}" aria-pressed="${k}">${keepIcon(k)}${k?"Circled":"Circle it"}</button><button type="button" class="btn quiet" data-a="have" data-id="${esc(it.id)}">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="${esc(it.id)}">Cut</button>${buyLink(it)}</div>${dealLinks(it)}
 <div class="src">${esc(it.src)}</div></article>`;
 }
 function render(){

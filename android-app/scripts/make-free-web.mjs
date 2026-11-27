@@ -60,7 +60,7 @@ swap('Buy<span class="pl">Paid link</span></a>', "Buy</a>", "Paid link label");
 swap('rel="noopener sponsored"', 'rel="noopener"', "sponsored rel");
 
 // Footer.
-swapRe(/<footer>[\s\S]*?<\/footer>/, "<footer>Free app. No accounts. Your lists stay on this phone. Prices are rough estimates, not live prices. Buy links open a store search in your browser.</footer>", "footer");
+swapRe(/<footer>[\s\S]*?<\/footer>/, "<footer>Free app. No accounts. Your lists stay on this phone. Prices are rough estimates, not live prices. Buy, Compare prices and Magic Coupons open a store or deals search in your browser.</footer>", "footer");
 
 // No service worker inside the app: the files already live on the phone.
 swap('if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});', "", "service worker");
