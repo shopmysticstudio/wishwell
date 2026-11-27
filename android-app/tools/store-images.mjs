@@ -15,6 +15,7 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
 await page.addInitScript(() => {
   if (!localStorage.getItem("wishbook-v1")) localStorage.setItem("wishbook-v1", JSON.stringify({ ageOk: true, view: "start" }));
+  localStorage.setItem("wishwell-intro", new Date().toDateString()); // skip the gift intro
 });
 await page.goto(appUrl);
 await page.waitForTimeout(800);
@@ -24,12 +25,12 @@ await page.fill("#qName", "Sam").catch(() => {});
 await shot("1-quiz.png");
 for (let i = 0; i < 25; i++) {
   if (await page.$("#qGo")) {
-    await page.fill("#qNotes", "Builds drones, plays trombone");
+    await page.fill("#qNotes", "baking, hiking, movie nights");
     await page.click("#qGo");
     break;
   }
   if (i === 2) await shot("2-taste.png");
-  await page.click('#qbody [data-who="me"], #qbody [data-k="0"], #qbody [data-next], #qbody [data-style], #qbody [data-b]');
+  await page.click('#qbody [data-who="me"], #qbody [data-age="young"], #qbody [data-lean=""], #qbody [data-k="0"], #qbody [data-next], #qbody [data-style], #qbody [data-b]');
   await page.waitForTimeout(150);
 }
 await page.waitForTimeout(1500);
