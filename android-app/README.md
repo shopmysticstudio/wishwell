@@ -41,3 +41,20 @@ npm ci
 npm run sync
 cd android && ./gradlew bundleRelease
 ```
+
+## Releasing an update (checklist)
+
+1. **At least 50 new starter ideas, across at least 8 categories** (Galileo's rule for
+   every update). The build's "Count new starter ideas" step prints the count and the
+   categories. Run it yourself with `node scripts/count-new-ideas.mjs` (add `--strict` to
+   make it fail when the rule isn't met). New ideas follow the usual rules: no brand
+   names, prices between $1 and $1000, no near-duplicates.
+2. **Saved lists must survive the update.** Keep the app id, `capacitor.config.json`
+   and the `wishbook-v1` storage key as they are. New saved fields need a default in
+   `fresh()` in `app/index.html`, so old saved lists still load.
+3. Push to `android-app`. GitHub Actions builds `wishwell-N-signed.aab`, where N is the
+   version code.
+4. Upload that `.aab` in Play Console and add release notes.
+5. After uploading, save the idea list as the new baseline and commit it:
+   `node scripts/count-new-ideas.mjs --mark-released N`
+
