@@ -21,20 +21,27 @@ ALLOWED_ORIGINS = "https://shopmysticstudio.github.io"
 APP_ORIGINS = "https://localhost"
 # "true": every request needs the beta code. "false": AI is open on the public site too.
 BETA_ONLY = "false"
-# Free AI rounds per person, counted in D1 per device and per network (hashed IP), so clearing
-# storage or opening a private window doesn't reset them.
-# Public site: free AI rounds a day and a week, per device and per network (people on the same
-# Wi-Fi share them). A day starts at midnight US Eastern (5 AM UTC); a week starts Monday.
+# Free AI rounds per device (x-device-id), counted in D1. People on the same Wi-Fi each get their own.
+# Public site: free AI rounds a day and a week per device. A day starts at midnight US Eastern
+# (5 AM UTC); a week starts Monday.
 TRIAL_DAILY = "2"
 TRIAL_WEEKLY = "10"
 TRIAL_DAY_START_HOUR_UTC = "5"
+# Per-network caps, off. If one network abuses the free rounds, set these to numbers
+# (for example "6" and "30") to cap that network's free rounds a day and a week.
+TRIAL_NET_DAILY = "off"
+TRIAL_NET_WEEKLY = "off"
+# Free and beta-code rounds for everyone together, a day. Past this the site shows starter ideas
+# until tomorrow, so the free Workers AI allowance (10,000 Neurons a day, about 60 rounds) always
+# has room left for Holiday Pass rounds.
+TRIAL_GLOBAL_DAILY = "40"
 # Older lifetime limit, only used if TRIAL_DAILY and TRIAL_WEEKLY are removed.
 TRIAL_ROUNDS = "3"
-TRIAL_PER_NETWORK = "3"
+TRIAL_PER_NETWORK = "off"
 TRIAL_NETWORK_DAYS = "30"
-# People with the beta code get this many instead (counted separately).
+# People with the beta code get this many per device instead (counted separately).
 BETA_ROUNDS = "15"
-BETA_PER_NETWORK = "30"
+BETA_PER_NETWORK = "off"
 # Only used if the DB binding is removed (KV fallback): trial rounds per IP per day.
 TRIAL_PER_IP = "6"
 # Holiday Pass: AI rounds per key a day and a week (same day and week start as above), shared

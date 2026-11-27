@@ -27,8 +27,9 @@
 
    Who gets AI:
      Public      when TRIAL_DAILY / TRIAL_WEEKLY are set: that many free rounds a day and a week,
-                 counted per device and per network (TRIAL_NET_DAILY / TRIAL_NET_WEEKLY, same by
-                 default). A day starts at TRIAL_DAY_START_HOUR_UTC (5 = midnight US Eastern); a week
+                 counted per device. TRIAL_NET_DAILY / TRIAL_NET_WEEKLY add a per-network cap when
+                 set to a number ("off" by default). TRIAL_GLOBAL_DAILY caps free and beta rounds for
+                 everyone together a day; past it, 429 {"error":"ai_busy"}. A day starts at TRIAL_DAY_START_HOUR_UTC (5 = midnight US Eastern); a week
                  on Monday. Then 402 {"error":"trial_used","limit":"day"|"week","reset":unixSeconds}.
                  The headers x-trial-left, x-trial-limit and x-trial-reset tell the app what's left.
      Free trial  TRIAL_ROUNDS free rounds per person. Counted in D1 per device (x-device-id header)
@@ -543,6 +544,8 @@ function cleanHit(raw, startHourUtc) {
   const day = new Date(Date.now() - startHourUtc * 3600000).toISOString().slice(0, 10);
   return { day, page, event, ref, dev };
 }
+// A per-network cap setting: a number turns it on, "off" or empty leaves it off (0).
+const netCap = v => { const t = String(v == null ? "" : v).trim(); return t && t !== "off" && Number.isFinite(Number(t)) ? Math.max(0, Number(t)) : 0; };
 const kvNum = async (env, key) => Number(await env.KV.get(key, { cacheTtl: 30 }).catch(() => 0)) || 0;
 
 /* ---------- free round counts (D1) ---------- */
@@ -852,38 +855,51 @@ export default {
       const capDev = beta ? num(env.BETA_ROUNDS, 15) : num(env.TRIAL_ROUNDS, 3);
       const daily = beta ? 0 : num(env.TRIAL_DAILY, 0), weekly = beta ? 0 : num(env.TRIAL_WEEKLY, 0);
       if (env.DB && (daily > 0 || weekly > 0)) {
-        // Public site: a few rounds a day and a cap per week, per device and per network.
+        // Public site: a few rounds a day and a cap per week, per device. People on the same Wi-Fi
+        // don't share them; TRIAL_NET_DAILY / TRIAL_NET_WEEKLY (off by default) add a per-network cap
+        // if one network abuses it. TRIAL_GLOBAL_DAILY caps free rounds for everyone together, so the
+        // free Workers AI allowance is never used up.
         const w = windows(num(env.TRIAL_DAY_START_HOUR_UTC, 5));
-        const devH = await sha("wishwell-dev:" + dev), netH = await sha("wishwell-net:" + network(ip));
-        const netDaily = num(env.TRIAL_NET_DAILY, daily), netWeekly = num(env.TRIAL_NET_WEEKLY, weekly);
+        const devH = await sha("wishwell-dev:" + dev);
+        const netDaily = netCap(env.TRIAL_NET_DAILY), netWeekly = netCap(env.TRIAL_NET_WEEKLY);
+        const netH = netDaily || netWeekly ? await sha("wishwell-net:" + network(ip)) : "";
         const counters = [], kinds = [];
-        if (daily > 0) {
-          counters.push(["dd:" + w.day + ":" + devH, daily, 2 * 86400], ["nd:" + w.day + ":" + netH, netDaily, 2 * 86400]);
-          kinds.push(["day", daily, w.dayEnd], ["day", netDaily, w.dayEnd]);
-        }
-        if (weekly > 0) {
-          counters.push(["dw:" + w.week + ":" + devH, weekly, 8 * 86400], ["nw:" + w.week + ":" + netH, netWeekly, 8 * 86400]);
-          kinds.push(["week", weekly, w.weekEnd], ["week", netWeekly, w.weekEnd]);
-        }
+        if (daily > 0) { counters.push(["dd:" + w.day + ":" + devH, daily, 2 * 86400]); kinds.push(["day", daily, w.dayEnd]); }
+        if (weekly > 0) { counters.push(["dw:" + w.week + ":" + devH, weekly, 8 * 86400]); kinds.push(["week", weekly, w.weekEnd]); }
+        if (netDaily) { counters.push(["nd:" + w.day + ":" + netH, netDaily, 2 * 86400]); kinds.push(["day", netDaily, w.dayEnd]); }
+        if (netWeekly) { counters.push(["nw:" + w.week + ":" + netH, netWeekly, 8 * 86400]); kinds.push(["week", netWeekly, w.weekEnd]); }
+        const globalCap = num(env.TRIAL_GLOBAL_DAILY, 40);
+        if (globalCap > 0) { counters.push(["gd:" + w.day, globalCap, 2 * 86400]); kinds.push(["global", globalCap, w.dayEnd]); }
         const r = await reserve(env.DB, counters);
         if (!r) {
-          // Which limit is spent? The weekly one wins when both are, since it lasts longer.
+          // Which limit is spent? A person's own limit wins over the everyone-together one, and the
+          // weekly one over the daily one, since it lasts longer.
           const used = await usedCounts(env.DB, counters.map(c => c[0]));
-          let lim = kinds.find((k, i) => k[0] === "week" && used[i] >= k[1]) || kinds.find((k, i) => used[i] >= k[1]) || kinds[0];
+          const mine = kinds.map((k, i) => [k, i]).filter(([k, i]) => k[0] !== "global" && used[i] >= k[1]).map(([k]) => k);
+          if (!mine.length) return reply({ error: "ai_busy", reset: w.dayEnd }, 429);
+          const lim = mine.find(k => k[0] === "week") || mine[0];
           return reply({ error: "trial_used", limit: lim[0], reset: lim[2] }, 402, { "x-trial-left": "0", "x-trial-limit": lim[0], "x-trial-reset": String(lim[2]) });
         }
         mode = "trial"; refund = () => unreserve(env.DB, counters.map(c => c[0]));
-        let li = 0; r.forEach((n, i) => { if (kinds[i][1] - n < kinds[li][1] - r[li]) li = i; });
+        let li = 0; r.forEach((n, i) => { if (kinds[i][0] !== "global" && kinds[i][1] - n < kinds[li][1] - r[li]) li = i; });
         left = ["x-trial-left", kinds[li][1] - r[li], { "x-trial-limit": kinds[li][0], "x-trial-reset": String(kinds[li][2]) }];
       } else if (env.DB) {
-        const capNet = beta ? num(env.BETA_PER_NETWORK, 30) : num(env.TRIAL_PER_NETWORK, capDev);
+        // Per device; a per-network cap only if BETA_PER_NETWORK / TRIAL_PER_NETWORK is set to a number.
+        const capNet = netCap(beta ? env.BETA_PER_NETWORK : env.TRIAL_PER_NETWORK);
         const netDays = num(env.TRIAL_NETWORK_DAYS, 30);
         const devK = "dev:" + tier + ":" + await sha("wishwell-dev:" + dev);
-        const netK = "net:" + tier + ":" + await sha("wishwell-net:" + network(ip));
-        const r = await reserve(env.DB, [[devK, capDev, 400 * 86400], [netK, capNet, netDays * 86400]]);
-        if (!r) return reply({ error: "trial_used" }, 402, { "x-trial-left": "0" });
-        mode = "trial"; refund = () => unreserve(env.DB, [devK, netK]);
-        left = ["x-trial-left", Math.min(capDev - r[0], capNet - r[1])];
+        const counters = [[devK, capDev, 400 * 86400]];
+        if (capNet) counters.push(["net:" + tier + ":" + await sha("wishwell-net:" + network(ip)), capNet, netDays * 86400]);
+        const w = windows(num(env.TRIAL_DAY_START_HOUR_UTC, 5)), globalCap = num(env.TRIAL_GLOBAL_DAILY, 40);
+        if (globalCap > 0) counters.push(["gd:" + w.day, globalCap, 2 * 86400]);
+        const r = await reserve(env.DB, counters);
+        if (!r) {
+          const used = await usedCounts(env.DB, counters.map(c => c[0]));
+          if (used[0] < capDev && !(capNet && used[1] >= capNet)) return reply({ error: "ai_busy", reset: w.dayEnd }, 429);
+          return reply({ error: "trial_used" }, 402, { "x-trial-left": "0" });
+        }
+        mode = "trial"; refund = () => unreserve(env.DB, counters.map(c => c[0]));
+        left = ["x-trial-left", Math.min(capDev - r[0], capNet ? capNet - r[1] : Infinity)];
       } else {
         // Fallback without D1: KV counts (not atomic, so a burst can slip past by a round or two).
         const perIp = num(env.TRIAL_PER_IP, 6);

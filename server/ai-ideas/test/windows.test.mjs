@@ -1,4 +1,4 @@
-// Public site limits: 2 a day and 10 a week per device and network. Run: node server/ai-ideas/test/windows.test.mjs
+// Public site limits: 2 a day and 10 a week per device, an optional per-network cap, and a cap for everyone together. Run: node server/ai-ideas/test/windows.test.mjs
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
@@ -16,7 +16,7 @@ const KV = { async get(k) { return store.get(k) ?? null }, async put(k, v) { sto
 let fail = false;
 const AI = { async run() { if (fail) throw new Error("boom"); return { response: JSON.stringify([{ title: "Cozy throw blanket " + Math.random(), category: "Room", lo: 20, hi: 40, why: "Warm nights in", search: "throw blanket" }]) } } };
 const env = { AI, KV, DB, BETA_ONLY: "false", BACKUP_MODEL: "off", TRIAL_DAILY: "2", TRIAL_WEEKLY: "10", TRIAL_DAY_START_HOUR_UTC: "5",
-  TRIAL_ROUNDS: "3", TRIAL_PER_NETWORK: "3", BETA_ROUNDS: "15", BETA_PER_NETWORK: "30", BETA_CODE: "TEST-CODE-1234", ALLOWED_ORIGINS: "https://shopmysticstudio.github.io" };
+  TRIAL_ROUNDS: "3", TRIAL_PER_NETWORK: "off", TRIAL_NET_DAILY: "off", TRIAL_NET_WEEKLY: "off", BETA_ROUNDS: "15", BETA_PER_NETWORK: "off", BETA_CODE: "TEST-CODE-1234", ALLOWED_ORIGINS: "https://shopmysticstudio.github.io" };
 const ctx = { waitUntil() {} };
 const realNow = Date.now;
 let clock = Date.UTC(2026, 10, 30, 15, 0, 0);   // Monday Nov 30 2026, 10 AM Eastern
@@ -37,7 +37,7 @@ let r = await ask(A, ip); assert.equal(r.status, 200); assert.equal(r.headers.ge
 r = await ask(A, ip); assert.equal(r.status, 200); assert.equal(r.headers.get("x-trial-left"), "0");
 r = await ask(A, ip); assert.equal(r.status, 402, "3rd round in a day");
 let b = await r.json(); assert.equal(b.limit, "day"); assert.equal(b.reset, w.dayEnd); assert.equal(r.headers.get("x-trial-reset"), String(w.dayEnd));
-assert.equal((await ask("deviceBBBBBBBBBBBBBB", ip)).status, 402, "cleared storage, same network, same day");
+assert.equal((await ask("deviceBBBBBBBBBBBBBB", ip)).status, 200, "another device on the same Wi-Fi has its own rounds");
 assert.equal((await ask(A, "5.6.7.8")).status, 402, "same device, other network, same day");
 // A failed round is handed back.
 clock += 86400e3; fail = true; assert.equal((await ask(A, ip)).status, 429); fail = false;
@@ -52,7 +52,7 @@ for (let d = 2; d <= 5; d++) {
 clock += 86400e3;
 r = await ask(A, ip); assert.equal(r.status, 402, "11th round in a week");
 b = await r.json(); assert.equal(b.limit, "week"); assert.equal(b.reset, w.weekEnd);
-assert.equal((await ask("deviceCCCCCCCCCCCCCC", ip)).status, 402, "new device, same network, week used up");
+assert.equal((await ask("deviceCCCCCCCCCCCCCC", ip)).status, 200, "another device on the same network, week used up on the first");
 // Next Monday: fresh.
 clock = Date.UTC(2026, 11, 7, 5, 1);
 r = await ask(A, ip); assert.equal(r.status, 200, "new week"); assert.equal(r.headers.get("x-trial-left"), "1");
@@ -63,6 +63,20 @@ assert.equal(ok, 15, "beta rounds");
 // Parallel burst can't get past 2 in a day.
 const burst = await Promise.all(Array.from({ length: 6 }, () => ask("deviceEEEEEEEEEEEEEE", "10.0.0.1")));
 assert.equal(burst.filter(x => x.status === 200).length, 2, "burst");
+// The per-network switch: set to a number, a network's devices share that many a day.
+env.TRIAL_NET_DAILY = "3";
+assert.equal((await ask("deviceNET1NET1NET1NE1", "20.0.0.1")).status, 200);
+assert.equal((await ask("deviceNET1NET1NET1NE1", "20.0.0.1")).status, 200);
+assert.equal((await ask("deviceNET2NET2NET2NE2", "20.0.0.1")).status, 200);
+r = await ask("deviceNET2NET2NET2NE2", "20.0.0.1"); assert.equal(r.status, 402, "network cap on"); assert.equal((await r.json()).limit, "day");
+env.TRIAL_NET_DAILY = "off";
+// Everyone together: past TRIAL_GLOBAL_DAILY, ai_busy (429) even for a fresh device, and beta too.
+clock += 86400e3; env.TRIAL_GLOBAL_DAILY = "3";
+for (const d of ["deviceG1G1G1G1G1G1G1G1", "deviceG2G2G2G2G2G2G2G2", "deviceG3G3G3G3G3G3G3G3"]) assert.equal((await ask(d, "30.0.0." + d.length)).status, 200);
+r = await ask("deviceG4G4G4G4G4G4G4G4", "30.0.0.9"); assert.equal(r.status, 429); assert.equal((await r.json()).error, "ai_busy");
+assert.equal((await ask("deviceG5G5G5G5G5G5G5G5", "30.0.0.9", "test-code-1234")).status, 429, "beta shares the cap");
+r = await ask("deviceG1G1G1G1G1G1G1G1", "30.0.0.9"); assert.equal(r.status, 429, "busy before own limit");
+env.TRIAL_GLOBAL_DAILY = "40";
 const rows = sql.prepare("SELECT k FROM ai_use").all().map(r => r.k).join(" ");
 assert.ok(!/device|1\.2\.3\.4/.test(rows), rows);
 Date.now = realNow;
