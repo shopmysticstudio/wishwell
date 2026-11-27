@@ -87,6 +87,9 @@ def main():
     h = sub(h, "<title>Wishwell</title>", '<title>Wishwell Beta</title>\n<meta name="robots" content="noindex, nofollow">')
     h = sub(h, '<meta name="apple-mobile-web-app-title" content="Wishwell">', '<meta name="apple-mobile-web-app-title" content="Wishwell Beta">')
     h = sub(h, "Test draft by Wishwell", "Beta by Wishwell")
+    # Link to the beta's Advent calendar (beta/advent, kept in the main branch beside the build).
+    h = sub(h, '<button class="plans" id="openPlans" type="button">Plans</button>',
+            '<a class="plans" href="advent/" style="text-decoration:none;display:inline-flex;align-items:center;background:#ffc94a">\U0001F384 Advent</a>\n  <button class="plans" id="openPlans" type="button">Plans</button>')
     h = sub(h, '"wishbook-v1"', '"wishbook-beta-v1"', None)
     h = sub(h, '"wishwell-pass"', '"wishwell-beta-pass"', None)
     gate_head = GATE_HEAD.replace("@SALT@", salt).replace("@HASH@", digest).replace("@ITER@", str(ITERATIONS))
