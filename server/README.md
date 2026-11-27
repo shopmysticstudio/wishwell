@@ -6,10 +6,14 @@ A Cloudflare Worker that makes the app's AI gift ideas with Workers AI and decid
 who may use AI. Cloudflare deploys it automatically from the `payments` branch
 (Workers Builds, root directory `server/ai-ideas`).
 
-- `POST /` gift ideas. Needs the beta code while `BETA_ONLY` is "true".
+- `POST /` gift ideas. Open to everyone while `BETA_ONLY` is "false" (needs the beta code when "true").
 - `POST /verify` Holiday Pass license check for the app's "I have a license key" box.
-- Free trial: 3 rounds per device (`x-device-id`), 6 trial rounds per IP per day.
+- Free trial: 3 rounds per person, 15 with the beta code. Counted in D1 (table `ai_use`,
+  made on first use) per device (`x-device-id`) and per network (hashed IP, IPv6 by /64,
+  30 days), so clearing storage, a private window or another browser doesn't reset it.
+  Rounds are reserved before the AI call and handed back if it fails.
   Then `402 {"error":"trial_used"}` and the app shows the Holiday Pass wall.
+  Test: `node server/ai-ideas/test/limits.test.mjs`.
 - Holiday Pass: a valid Gumroad key (`x-pass-key`) gets 25 rounds a day.
 - Every other problem answers 429, and the app quietly shows starter ideas.
 - Ideas over the budget or with brand names are dropped; the model is asked for a

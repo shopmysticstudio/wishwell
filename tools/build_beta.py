@@ -52,6 +52,9 @@ def main():
     c = re.sub(r'shareBase: "[^"]*"', 'shareBase: "%s"' % SHARE_BASE, c)
     # GUMROAD_URL (optional) turns on the Holiday Pass Buy button in the beta.
     c = re.sub(r'gumroadUrl: "[^"]*"', 'gumroadUrl: "%s"' % os.environ.get("GUMROAD_URL", "").strip(), c)
+    # Beta code holders get 15 free AI rounds (the Worker's BETA_ROUNDS enforces it).
+    c = re.sub(r'freeRounds: \d+', 'freeRounds: 15', c)
+    assert "freeRounds: 15" in c
     for k in ("gumroadProductId", "licenseCheckUrl"):
         c = re.sub(k + r': "[^"]*"', k + ': ""', c)
     with open(cfg, "w", encoding="utf-8") as f:
@@ -62,7 +65,7 @@ def main():
     with open(sw, encoding="utf-8") as f:
         s = f.read()
     s = re.sub(r'const VERSION = "wishwell-v(\d+)";', r'const VERSION = "wishwell-beta-v\1";', s)
-    s = sub(s, "ks.filter(k => k !== VERSION)", 'ks.filter(k => k.startsWith("wishwell-beta-") && k !== VERSION)')
+    s = sub(s, 'ks.filter(k => !k.startsWith("wishwell-beta-") && k !== VERSION)', 'ks.filter(k => k.startsWith("wishwell-beta-") && k !== VERSION)')
     with open(sw, "w", encoding="utf-8") as f:
         f.write(s)
 

@@ -6,11 +6,12 @@ const dir = process.argv[2] || new URL("..", import.meta.url).pathname.replace(/
 const worker = (await import(dir + "/worker.js")).default;
 const sql = new DatabaseSync(":memory:");
 for (const f of ["0001_idea_pool.sql", "0002_have.sql"]) sql.exec(readFileSync(dir + "/migrations/" + f, "utf8"));
-const conv = s => s.replace(/\?(\d+)/g, "?$1");
-const DB = {
-  prepare(q) { const st = { q, args: [], bind(...a) { st.args = a; return st; }, run() { const p = sql.prepare(q); const named = {}; st.args.forEach((v, i) => named[String(i + 1)] = v); return p.run(...st.args.length && /\?\d/.test(q) ? [] : st.args, ...[]); } }; return st; },
-  async batch(sts) { sql.exec("BEGIN"); try { for (const st of sts) { const p = sql.prepare(st.q); if (/\?\d/.test(st.q)) { const o = {}; st.args.forEach((v, i) => o["?" + (i + 1)] = v); p.run(o) } else p.run(...st.args) } sql.exec("COMMIT") } catch (e) { sql.exec("ROLLBACK"); throw e } }
-};
+const named = args => { const o = {}; args.forEach((v, i) => o["?" + (i + 1)] = v); return o; };
+const stmt = q => { const st = { q, args: [], bind(...a) { st.args = a; return st; },
+  async run() { return /\?\d/.test(q) ? sql.prepare(q).run(named(st.args)) : sql.prepare(q).run(...st.args); },
+  async first() { const r = /\?\d/.test(q) ? sql.prepare(q).get(named(st.args)) : sql.prepare(q).get(...st.args); return r ?? null; } }; return st; };
+const DB = { prepare: stmt,
+  async batch(sts) { sql.exec("BEGIN"); try { for (const st of sts) await st.run(); sql.exec("COMMIT") } catch (e) { sql.exec("ROLLBACK"); throw e } } };
 const store = new Map();
 const KV = { async get(k) { return store.get(k) ?? null }, async put(k, v) { store.set(k, v) } };
 const ideasReply = [

@@ -17,10 +17,17 @@ AI_TIMEOUT_MS = "20000"
 BACKUP_TIMEOUT_MS = "25000"
 # Only this site may call the Worker.
 ALLOWED_ORIGINS = "https://shopmysticstudio.github.io"
-# "true": every request needs the beta code. Set to "false" when AI goes public on /app.
-BETA_ONLY = "true"
-# Free trial: AI rounds per device, and most trial rounds per IP address per day.
+# "true": every request needs the beta code. "false": AI is open on the public site too.
+BETA_ONLY = "false"
+# Free AI rounds per person, counted in D1 per device and per network (hashed IP), so clearing
+# storage or opening a private window doesn't reset them.
 TRIAL_ROUNDS = "3"
+TRIAL_PER_NETWORK = "3"
+TRIAL_NETWORK_DAYS = "30"
+# People with the beta code get this many instead (counted separately).
+BETA_ROUNDS = "15"
+BETA_PER_NETWORK = "30"
+# Only used if the DB binding is removed (KV fallback): trial rounds per IP per day.
 TRIAL_PER_IP = "6"
 # Holiday Pass: AI rounds per pass per day (UTC).
 PASS_DAILY = "25"
