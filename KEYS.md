@@ -74,6 +74,10 @@ or a price, and never says where to buy (Google Play's rule on steering buyers).
 
 ## Still Leo's to do before any sale
 
-- Make the Gumroad product (license keys on) and send the product link and ID.
+- The Gumroad product "Wishwell Holiday Pass" ($4.99) exists as an unpublished
+  draft. Turn on "Generate a unique license key per sale" in its settings, and
+  keep it unpublished until the test passes.
+- Put its product ID in the Worker as the Secret `GUMROAD_PRODUCT_ID` (Cloudflare
+  dashboard), so the Worker can check keys.
 - Decide on the AI budget (see AI cost above).
 - Run the 100% off test purchase on /beta.
