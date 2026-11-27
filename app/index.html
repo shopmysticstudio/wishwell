@@ -1098,7 +1098,10 @@ const unb64u=h=>new TextDecoder().decode(Uint8Array.from(atob(h.replace(/-/g,"+"
 const shareLink=()=>{const j=JSON.stringify(packList());return CFG.shortLinks?APP_URL+"#l-"+b64u(j):APP_URL+"#list-"+hex(j)};
 function readHash(){
   const h=location.hash||"";const short=h.startsWith("#l-");if(!short&&!h.startsWith("#list-"))return null;
-  try{const o=JSON.parse(short?unb64u(h.slice(3)):unhex(h.slice(6)));if(!o||!Array.isArray(o.i))return null;
+  try{return unpackList(JSON.parse(short?unb64u(h.slice(3)):unhex(h.slice(6))))}catch(e){return null}
+}
+function unpackList(o){
+  try{if(!o||!Array.isArray(o.i))return null;
     const items=o.i.slice(0,40).map(a=>Array.isArray(a)?{title:String(a[0]||"").slice(0,80),lo:Math.max(0,+a[1]||0),hi:Math.max(0,+a[2]||0),url:/^https:\/\//.test(a[3]||"")?String(a[3]).slice(0,400):"",search:String(a[4]||a[0]||"").slice(0,80)}:null).filter(x=>x&&x.title);
     return{t:String(o.t||"A wishlist").slice(0,60),p:!!o.p,i:items};
   }catch(e){return null}
@@ -1118,7 +1121,7 @@ $("#listName").addEventListener("input",e=>{S.listName=e.target.value;save();ren
 [["#optPrice","price"],["#optWhy","why"]].forEach(([s,k])=>$(s).addEventListener("change",e=>{S.opt[k]=e.target.checked;save();renderShare()}));
 $("#linkBtn").addEventListener("click",()=>{if(!S.kept.length){toast("Circle some ideas first");return}S.m.linkCopies++;save();copy(shareLink(),"Link copied. Paste it to family.")});
 $("#copyBtn").addEventListener("click",()=>{if(!S.kept.length){toast("Circle some ideas first");return}S.m.textCopies++;save();copy(shareText(),"Copied. Paste it in a text.")});
-$("#famBtn").addEventListener("click",()=>{if(!S.kept.length){toast("Circle some ideas first");return}S.m.previews++;FAM={data:JSON.parse(JSON.stringify(packList())),preview:true};show("family")});
+$("#famBtn").addEventListener("click",()=>{if(!S.kept.length){toast("Circle some ideas first");return}S.m.previews++;FAM={data:unpackList(packList()),preview:true};show("family")});
 
 /* family view of a shared list */
 const famKey=d=>{let h=0;const s=d.t+d.i.map(x=>x.title).join("|");for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return "k"+(h>>>0).toString(36)};
