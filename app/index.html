@@ -230,7 +230,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <h2 class="lede">Group gift exchange</h2>
   <p class="muted">Draw names for a club, team or family. Everyone makes a Wishwell list, so whoever draws your name knows what to get.</p>
   <div style="max-width:640px">
-  <label class="field"><span>Group name</span><input type="text" id="gName" maxlength="40" placeholder="Robotics team"></label>
+  <label class="field"><span>Group name</span><input type="text" id="gName" maxlength="40" placeholder="Book club"></label>
   <label class="field"><span>Spending limit</span><select id="gLimit"><option value="15">$15</option><option value="25" selected>$25</option><option value="50">$50</option><option value="100">$100</option></select></label>
   <div class="field"><span>Who's in? (<span id="gCount">0</span>)</span>
     <div class="row"><input type="text" id="gAdd" maxlength="30" placeholder="Add a name" aria-label="Add a name"><button class="btn" type="button" id="gAddBtn">Add</button></div>
@@ -842,7 +842,7 @@ function renderQuiz(){
   else if(id==="style"){h=`<h2 class="qq">What kind of gifts?</h2><div class="tiles">${STYLES.map(([n,d])=>`<button type="button" class="tile" data-style="${esc(n)}" aria-pressed="${S.style===n}">${esc(n)}<small>${esc(d)}</small></button>`).join("")}</div>`}
   else if(id==="budget"){h=`<h2 class="qq">Budget per gift?</h2><div class="tiles">${BUDGETS.map(([v,n])=>`<button type="button" class="tile" data-b="${v}" aria-pressed="${S.budget===v}">${esc(n)}</button>`).join("")}</div>`}
   else{const tags=tasteTags();h=`<h2 class="qq">Anything specific?</h2><p class="qsub">Optional. Hobbies, favorite things, what ${S.forWho==="me"?"you":"they"} already have.</p>${tags.length?`<div class="taste" aria-label="Taste so far">${tags.map(t=>`<span>${esc(t)}</span>`).join("")}</div>`:""}
-   <label class="field" style="max-width:720px"><span class="small muted">Details</span><textarea id="qNotes" maxlength="400" placeholder="Builds drones, plays trombone, already has a 3D printer">${esc(S.notes)}</textarea></label><button type="button" class="btn primary wide" style="max-width:720px" id="qGo">Fish out my ideas</button>`}
+   <label class="field" style="max-width:720px"><span class="small muted">Details</span><textarea id="qNotes" maxlength="400" placeholder="Loves baking and true crime shows, already has a stand mixer">${esc(S.notes)}</textarea></label><button type="button" class="btn primary wide" style="max-width:720px" id="qGo">Fish out my ideas</button>`}
   $("#qbody").innerHTML=h;
 }
 const qNext=()=>{if(qi<STEPS.length-1){qi++;save();renderQuiz();window.scrollTo(0,0)}};
@@ -977,7 +977,7 @@ Do not repeat any of: ${seen.join("; ")||"none"}.
 Mix obvious hits with a few surprising picks that fit the details. Prefer real product types; a brand is fine when it matters. Use typical US prices.
 Use American English. Never use dashes of any kind in text.
 Reply with only a JSON array. Each element: {"title": short name under 50 characters, "category": one of ${Object.keys(CATS).join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a store search phrase}.`;
-  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.filter(p=>S.quiz[p.id]!=null&&p.o[S.quiz[p.id]]).map(p=>p.q+" "+p.o[S.quiz[p.id]][0]),style:S.style,notes:S.notes,budget:S.budget,kept,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
+  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.filter(p=>S.quiz[p.id]!=null&&p.o[S.quiz[p.id]]).map(p=>p.o[S.quiz[p.id]][1]+" ("+p.o[S.quiz[p.id]][2]+")"),style:S.style,notes:S.notes,budget:S.budget,kept,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
   const arr=Array.isArray(out)?out:(out&&Array.isArray(out.ideas)?out.ideas:[]);
   const have=new Set(S.items.map(i=>i.title.toLowerCase()));let c=0;
   arr.forEach(o=>{if(c<n&&o&&o.title&&!have.has(String(o.title).toLowerCase())){have.add(String(o.title).toLowerCase());addItem({title:o.title,cat:o.category,lo:o.lo,hi:o.hi,why:o.why,search:o.search,src:"AI pick"});c++}});
