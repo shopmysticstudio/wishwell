@@ -91,7 +91,7 @@ function readPayload(raw) {
 function budgetRule(b) {
   if (b === "any") return "Any price is fine.";
   if (b === "9999") return "Every gift must typically cost at least $150, and most should be $200 or more.";
-  return `Hard limit: every gift must typically cost $${b} or less. Both "lo" and "hi" must be at or under ${b}. Leave out anything that usually costs more.`;
+  return `Hard limit: every gift must typically cost $${b} or less. Both "lo" and "hi" must be at or under ${b}. Use honest typical store prices: if something usually costs more than $${b}, leave it out instead of lowering its price.`;
 }
 
 function buildMessages(q) {
@@ -115,7 +115,7 @@ They kept (want more like these): ${q.kept.join("; ") || "nothing yet"}.
 They cut (avoid things like these): ${q.cut.join("; ") || "nothing yet"}.
 Do not repeat any of: ${q.seen.join("; ") || "none"}.
 Every idea must clearly connect to at least one interest, quiz pick, detail or kept item above. No generic filler.
-Use typical current US prices.
+Use honest, typical current US store prices.
 Each element: {"title": generic product name under 50 characters, "category": one of ${CATS.join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a generic store search phrase}.`;
   return [{ role: "system", content: system }, { role: "user", content: user }];
 }
@@ -366,22 +366,26 @@ export default {
       left = ["x-trial-left", trial - usedDev - 1];
     }
 
-    let out;
     const input = { messages: buildMessages(q), max_tokens: 1500, temperature: 0.7 };
-    try {
+    const ask = async () => {
       try {
         // Ask thinking models to answer directly; a model that rejects this option gets the plain request.
-        out = await env.AI.run(env.MODEL || DEFAULT_MODEL, { ...input, chat_template_kwargs: { enable_thinking: false } });
+        return await env.AI.run(env.MODEL || DEFAULT_MODEL, { ...input, chat_template_kwargs: { enable_thinking: false } });
       } catch (first) {
         if (/4006|allocation|5035|paid/i.test(String(first && first.message))) throw first;
-        out = await env.AI.run(env.MODEL || DEFAULT_MODEL, input);
+        return await env.AI.run(env.MODEL || DEFAULT_MODEL, input);
       }
+    };
+    let out, ideas;
+    try {
+      out = await ask();
+      ideas = parseIdeas(out, q);
+      if (!ideas.length) { out = await ask(); ideas = parseIdeas(out, q); }   // one retry for an unusable reply
     } catch (e) {
       // Includes the daily free amount running out.
       return reply({ error: "ai_unavailable", detail: String(e && e.message || e).slice(0, 200) }, 429);
     }
 
-    const ideas = parseIdeas(out, q);
     if (!ideas.length) return reply({ error: "no_usable_ideas", detail: describe(out), dropped: ideas.dropped }, 429);
 
     // Count the round only now that it produced ideas.
