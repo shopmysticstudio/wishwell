@@ -20,11 +20,12 @@ const { AI_ON, CFG, $, BANK, INTS, STOP, stem, CATS, PAIRS, picks, byId, ageFit,
 const BASE = AI_ON ? String(CFG.aiUrl).trim().replace(/\/+$/, "") : "";
 const code = () => window.WISHWELL_ACCESS_CODE || "";
 const ML = new URL("ml/", location.href).href;
-const POOL_KEY = "wishwell-beta-pool-v1", VEC_KEY = "wishwell-beta-vec-v1", PAST_KEY = "wishwell-beta-past-v1";
+const POOL_KEY = "wishwell-beta-pool-v1", VEC_KEY = "wishwell-beta-vec-v2", PAST_KEY = "wishwell-beta-past-v1";
 const POOL_HOURS = 6;
-const TH = 0.42;        // a term and an idea this close count as a real match
-const DUP = 0.86;       // this close is the same idea
-const OWNED = 0.72;     // this close to something they already have: leave it out
+// Scores are on centered vectors (see MEAN): unrelated gift ideas sit near 0, a clear match is 0.3 and up.
+const TH = 0.3;         // a term and an idea this close count as a real match
+const DUP = 0.75;       // this close, and most of the words shared, is the same idea (0.95 and up always is)
+const OWNED = 0.6;      // this close to something they already have: leave it out
 const WEAK_MS = 60;     // one embedding slower than this: the phone is too slow, use server ranking
 const W = { emb: null, embState: "", slow: false, pool: null, f: {}, seeds: {}, vec: new Map(), tvec: new Map(),
   found: { dups: [], gaps: new Set(), m: [] }, pre: null };
@@ -100,15 +101,24 @@ function loadEmbedder() {
     } catch (err) { W.embState = "off"; return null; }
   })();
 }
+// The model scores almost any two gift ideas 0.7 or more alike. Taking away the average gift idea (worked out once
+// from the starter ideas) spreads them out: unrelated ideas land near 0 and real matches stand out.
+const MEAN = Float32Array.from([0.1361,-0.0323,-0.0621,0.1438,0.0423,0.0634,-0.1085,-0.1528,0.2101,0.0053,-0.0803,-0.0659,0.1199,-0.173,0.1259,0.1119,-0.0153,-0.0632,-0.0048,-0.1244,-0.1228,0.1087,0.0916,-0.0277,0.11,0.117,0.0068,-0.1162,0.0203,0.0694,-0.036,-0.1117,-0.012,-0.0157,0.0241,0.0886,-0.0658,-0.0553,-0.0091,0.0046,-0.0634,0.073,0.101,0.1054,-0.0695,0.0786,-0.0936,0.1185,0.0864,0.0125,-0.0441,0.1266,0.0715,0.061,0.0881,0.0417,0.0467,0.0589,0.0102,0.1515,-0.0828,-0.133,0.1277,0.0335,0.0192,0.1955,-0.0225,0.0044,-0.0316,0.1089,-0.007,-0.0567,-0.0651,0.0044,-0.0246,-0.1164,0.1023,-0.0205,0.0227,0.0116,0.1023,-0.0321,0.1216,0.01,-0.0486,0.04,0.2687,0.0436,-0.098,0.0127,-0.1339,0.0269,-0.063,-0.1799,-0.0712,0.0202,0.1166,0.112,0.0181,-0.0327]);
 function vec(text) {
   const k = normalize(text); if (!k || !W.emb) return null;
   let v = W.tvec.get(k);
-  if (!v) { try { v = unit(W.emb.embed(k).embeddings[0].floatEmbedding); } catch (e) { return null; } if (W.tvec.size > 400) W.tvec.clear(); W.tvec.set(k, v); }
+  if (!v) { try { v = unit(Array.from(W.emb.embed(k).embeddings[0].floatEmbedding, (x, i) => x - (MEAN[i] || 0))); } catch (e) { return null; } if (W.tvec.size > 400) W.tvec.clear(); W.tvec.set(k, v); }
   return v;
 }
 // Word overlap when the model isn't there, on the same 0 to 1 scale (roughly).
 const words = t => new Set(normalize(t).split(" ").filter(x => x.length > 2 && !STOP.has(x)).map(stem));
 function wsim(a, b) { const A = words(a), B = words(b); if (!A.size || !B.size) return 0; let n = 0; for (const x of A) if (B.has(x)) n++; return n ? Math.min(0.9, 0.35 + 0.2 * n) : 0; }
+// Same idea: very close, or close with most words shared ("Moon lamp" and "Glowing moon lamp", not "Gaming headset" and "VR headset").
+function isDup(a, b, s) {
+  if (s >= 0.95) return true; if (s < DUP) return false;
+  const A = words(a), B = words(b); if (!A.size || !B.size) return false;
+  let n = 0; for (const x of A) if (B.has(x)) n++; return n / Math.min(A.size, B.size) >= 0.75;
+}
 function sim(a, b, va, vb) { if (va && vb) return dot(va, vb); return wsim(a, b); }
 
 /* ---------- the pool ---------- */
@@ -180,7 +190,7 @@ function terms() {
   noteParts().likes.forEach(l => t.push({ kind: "note", text: l.text, w: 1.25, label: l.text.toLowerCase(), orig: l.orig, one: /^[A-Za-z]+$/.test(l.text) ? l.text : "" }));
   A.S.kept.map(byId).filter(i => i && !i.mine).slice(0, 12).forEach((i, k) => t.push({ kind: "kept", text: i.title, w: k < 3 ? 1.35 : 1.1, label: i.title, rep: "kept", id: i.id }));
   (W.swipes || []).forEach(s => t.push({ kind: "swipe", text: s, w: 1.3, label: s, rep: "swipe" }));
-  t.forEach(x => x.v = vec(x.text));
+  t.forEach(x => { x.v = vec(x.text); x.ow = x.one ? [...words(x.one)][0] || "" : ""; });
   return t;
 }
 const cutTerms = () => A.S.items.filter(i => i.status === "cut").slice(-30).map(i => ({ text: i.title, v: vec(i.title) }));
@@ -189,7 +199,10 @@ const cutTerms = () => A.S.items.filter(i => i.status === "cut").slice(-30).map(
 function score(p, T, C, cutP) {
   const pv = W.vec.get(p.k) || null;
   let best = 0, second = 0, bt = null;
-  for (const t of T) { const s = sim(p.t, t.text, pv, t.v) * t.w; if (s > best) { second = best; best = s; bt = t; } else if (s > second) second = s; }
+  for (const t of T) { let s = sim(p.t, t.text, pv, t.v);
+    // One typed word (often a name like a show or a game) only counts weakly unless the idea uses that word.
+    if (t.ow && s < 0.55 && !(p.ws || (p.ws = words(p.t + " " + p.b[4]))).has(t.ow)) s *= 0.5;
+    s *= t.w; if (s > best) { second = best; best = s; bt = t; } else if (s > second) second = s; }
   let cutS = 0; for (const c of C) cutS = Math.max(cutS, sim(p.t, c.text, pv, c.v));
   const f = W.f[p.k] || {};
   let s = best + 0.25 * second + 0.12 * (p.kept + 2 * p.top - p.cut) / (p.kept + p.top + p.cut + 4) + 0.03 * ageFit(p.b) - 0.04 * cutP(p.b);
@@ -214,7 +227,7 @@ function why(t, p) {
 // Everything already on the list, and what they own, so near repeats are left out.
 function shownTexts() { return A.S.items.map(i => ({ t: i.title, v: vec(i.title), src: i.src })); }
 function nearRepeat(p, pv, shown, record) {
-  for (const s of shown) { const x = sim(p.t, s.t, pv, s.v); if (x >= DUP) { if (record && s.src !== "Added by you") record.push([p.t, s.t, Math.round(x * 100)]); return true; } }
+  for (const s of shown) { const x = sim(p.t, s.t, pv, s.v); if (isDup(p.t, s.t, x)) { if (record && s.src !== "Added by you") record.push([p.t, s.t, Math.round(x * 100)]); return true; } }
   return false;
 }
 function ownedHit(t, v, own) { for (const o of own) { const x = sim(t, o.t, v, o.v); if (x >= OWNED || (!v && wsim(t, o.t) >= 0.55)) return true; } return false; }
@@ -234,14 +247,14 @@ function rankRound(n) {
   for (const x of scored) {
     if (picks.length >= n - wn) break;
     if ((cats[x.p.c] || 0) >= cap) { skip.cap++; continue; }
-    if (nearRepeat(x.p, x.pv, shown, dups) || picks.some(y => sim(x.p.t, y.p.t, x.pv, y.pv) >= DUP)) { skip.rep++; continue; }
+    if (nearRepeat(x.p, x.pv, shown, dups) || picks.some(y => isDup(x.p.t, y.p.t, sim(x.p.t, y.p.t, x.pv, y.pv)))) { skip.rep++; continue; }
     if (own.length && ownedHit(x.p.t, x.pv, own)) { skip.own++; continue; }
     cats[x.p.c] = (cats[x.p.c] || 0) + 1; picks.push(x);
   }
   const good = picks.filter(x => x.best >= TH).length;
   // Wildcard: something well loved that nothing they said points to.
   if (wn) {
-    const wild = scored.filter(x => x.best < 0.3 && x.p.kept + x.p.top >= 2 && x.p.kept + x.p.top > x.p.cut && !picks.includes(x) && (cats[x.p.c] || 0) < cap && !nearRepeat(x.p, x.pv, shown) && !(own.length && ownedHit(x.p.t, x.pv, own)))
+    const wild = scored.filter(x => x.best < 0.15 && x.p.kept + x.p.top >= 2 && x.p.kept + x.p.top > x.p.cut && !picks.includes(x) && (cats[x.p.c] || 0) < cap && !nearRepeat(x.p, x.pv, shown) && !(own.length && ownedHit(x.p.t, x.pv, own)))
       .sort((a, b) => (b.p.kept + 2 * b.p.top) - (a.p.kept + 2 * a.p.top))[0];
     if (wild) { wild.wild = true; picks.splice(Math.min(3, picks.length), 0, wild); }
   }
@@ -251,7 +264,7 @@ function rankRound(n) {
     let bundle = null;
     for (let i = 0; i < small.length && !bundle; i++) for (let j = i + 1; j < small.length; j++) {
       const a = small[i], b = small[j], s = sim(a.p.t, b.p.t, a.pv, b.pv);
-      if (s >= 0.35 && s < 0.8 && a.p.hi + b.p.hi <= lim && a.p.c !== "Other") { bundle = { a, b }; break; }
+      if (s >= 0.35 && !isDup(a.p.t, b.p.t, s) && a.p.hi + b.p.hi <= lim && a.p.c !== "Other") { bundle = { a, b }; break; }
     }
     if (bundle && picks.length >= n - wn) {
       const { a, b } = bundle; picks.pop();
@@ -259,7 +272,13 @@ function rankRound(n) {
     }
   }
   W.skip = skip;
-  return { picks, confident: good >= Math.min(n - wn, 6) || (!T.length && seedT.length > 0 && picks.length >= n - wn), T, seed: !T.length };
+  // Something they typed that no saved idea matches: let the AI have a go (and the word goes to the gap list).
+  const missed = T.filter(t => t.kind === "note" && !W.pool.some(p => {
+    let x = sim(p.t, t.text, W.vec.get(p.k) || null, t.v);
+    if (t.ow && x < 0.55 && !(p.ws || (p.ws = words(p.t + " " + p.b[4]))).has(t.ow)) x *= 0.5;
+    return x >= TH; }));
+  W.missed = missed.map(t => t.label);
+  return { picks, missed, confident: !missed.length && good >= Math.min(n - wn, 6) || (!T.length && seedT.length > 0 && picks.length >= n - wn), T, seed: !T.length };
 }
 function seedTerms() {
   const s = W.seeds || {}, rows = s[(A.S.age || "") + "|" + (A.S.budget || "")] || s[(A.S.age || "") + "|"] || s["|" + (A.S.budget || "")] || [];
@@ -284,8 +303,8 @@ async function noteGaps(T) {
   for (const t of T) {
     if (t.kind !== "note" && t.kind !== "int") continue;
     let best = 0;
-    for (const p of W.pool) { best = Math.max(best, sim(p.t, t.text, W.vec.get(p.k), t.v)); if (best >= 0.35) break; }
-    if (best >= 0.35) continue;
+    for (const p of W.pool) { best = Math.max(best, sim(p.t, t.text, W.vec.get(p.k), t.v)); if (best >= TH) break; }
+    if (best >= TH) continue;
     if (t.kind === "int") { W.found.gaps.add(t.rep); continue; }
     for (const w of String(t.orig || t.text).split(/\s+/).slice(0, 4)) { const s = await safeTerm(w.replace(/[^A-Za-z]/g, "")); if (s) W.found.gaps.add(s); }
   }
@@ -298,7 +317,7 @@ function labelBecause(round) {
   A.S.items.filter(i => (i.round || 0) === round && i.status === "new" && !i.bc && !i.mine).forEach(i => {
     const v = vec(i.title); let best = 0, bt = null;
     for (const k of kept) { const s = sim(i.title, k.t, v, k.v); if (s > best) { best = s; bt = k; } }
-    if (bt && best >= (v ? 0.5 : 0.55) && best < DUP) i.bc = bt.t;
+    if (bt && best >= 0.55 && !isDup(i.title, bt.t, best)) i.bc = bt.t;
   });
 }
 // After an AI round: drop near repeats of earlier ideas and things they already have.
@@ -309,7 +328,7 @@ function cleanRound(round) {
   const keep = [];
   for (const i of mine) {
     const v = vec(i.title);
-    const rep = older.find(o => sim(i.title, o.t, v, o.v) >= DUP) || keep.find(o => sim(i.title, o.t, v, o.v) >= DUP);
+    const rep = older.find(o => isDup(i.title, o.t, sim(i.title, o.t, v, o.v))) || keep.find(o => isDup(i.title, o.t, sim(i.title, o.t, v, o.v)));
     if (rep) { if (rep.src !== "Added by you") W.found.dups.push([i.title, rep.t, Math.round(sim(i.title, rep.t, v, rep.v) * 100)]); A.S.items = A.S.items.filter(x => x !== i); continue; }
     if (own.length && ownedHit(i.title, v, own)) { A.S.items = A.S.items.filter(x => x !== i); continue; }
     keep.push({ t: i.title, v });
@@ -443,7 +462,7 @@ async function round(n, opt) {
   }
   const r = rankRound(n);
   if (r.T) await noteGaps(r.T);
-  W.last = "round " + (A.S.round || 0) + ": " + r.picks.length + " picks, " + r.picks.filter(x => x.best >= TH).length + " good, top " + r.picks.slice(0, 3).map(x => x.p.t + " " + x.best.toFixed(2)).join("; ") + (r.confident ? "" : " (AI)") + " " + JSON.stringify(W.skip || {});
+  W.last = "round " + (A.S.round || 0) + ": " + r.picks.length + " picks, " + r.picks.filter(x => x.best >= TH).length + " good, top " + r.picks.slice(0, 3).map(x => x.p.t + " " + x.best.toFixed(2)).join("; ") + (r.confident ? "" : " (AI)") + " " + JSON.stringify(W.skip || {}) + (W.missed && W.missed.length ? " missed: " + W.missed.join(", ") : "");
   if (!r.confident && !opt.force) return { got: 0, why: "few_matches" };
   return { got: addPicks(r.picks.slice(0, n), A.S.round || 0) };
 }
