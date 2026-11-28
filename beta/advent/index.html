@@ -68,7 +68,7 @@ document.getElementById("gateForm").addEventListener("submit",async e=>{
 });
 /* Games Pass: buyUrl is the Gumroad checkout link (blank = "coming soon"). rewards: turn on once the AI service has /reward. */
 WishwellAdvent.mount(document.getElementById("advent"),{backHref:"../",backLabel:"Wishwell",showPreview:true,
-  net:{url:(window.WISHWELL_CONFIG||{}).aiUrl||"",buyUrl:"",price:"$1.99",rewards:false}});
+  net:{url:(window.WISHWELL_CONFIG||{}).aiUrl||"",buyUrl:"",price:"$1.99",rewards:true}});
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js",{scope:"./"}).catch(()=>{});
 </script>
 <script src="../../count.js" defer></script>
