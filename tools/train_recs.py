@@ -55,6 +55,7 @@ def example(r):
     o = r.get("outcome", "none")
     if o == "have": return None
     y, wt = {"top": (1, 2.0), "kept": (1, 1.0), "cut": (0, 1.0), "none": (0, 0.3)}.get(o, (0, 0.3))
+    if r.get("backfill"): wt *= 0.5   # shared later; its quiz answers may be newer than the round
     j = lambda v: json.loads(v) if isinstance(v, str) and v.startswith("[") else (v or [])
     ctx = {"fw": r.get("for_who"), "age": r.get("age"), "style": r.get("style"), "budget": r.get("budget"),
            "ints": j(r.get("ints")), "quiz": j(r.get("quiz"))}

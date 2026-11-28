@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS round_ideas (
   PRIMARY KEY (list_id, round, pos)
 );
 
--- Export for training, one row per idea shown (copy into the D1 console, or save as JSON with
+-- Export for training (see 0011 for the newer query with the backfill column), one row per idea shown (copy into the D1 console, or save as JSON with
 --   npx wrangler d1 execute wishwell-ideas --remote --json --command "<the query>" > rounds.json):
 -- SELECT r.list_id, r.round, r.day, r.hour, r.surface, r.source, r.for_who, r.age, r.lean, r.style, r.budget, r.ints, r.quiz, r.has_details,
 --   i.pos, i.idea_key, i.title, i.category, i.src, i.lo, i.hi, i.outcome, i.rank

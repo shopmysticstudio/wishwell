@@ -716,7 +716,7 @@ async function codeLimit(env, kind, dev, ip) {
 const LOG_SURFACES = ["web", "beta", "app"], LOG_SOURCES = ["ai", "starter", "mixed"], LOG_OUT = ["none", "kept", "top", "cut", "have"];
 const LOG_STYLES = ["Practical", "Wow factor", "Cozy", "Surprise me"];
 const LOG_TABLES = [
-  "CREATE TABLE IF NOT EXISTS rounds (list_id TEXT NOT NULL, round INTEGER NOT NULL, day TEXT NOT NULL, hour INTEGER NOT NULL, surface TEXT NOT NULL, source TEXT NOT NULL, for_who TEXT NOT NULL DEFAULT '', age TEXT NOT NULL DEFAULT '', lean TEXT NOT NULL DEFAULT '', style TEXT NOT NULL DEFAULT '', budget TEXT NOT NULL DEFAULT '', ints TEXT NOT NULL DEFAULT '[]', quiz TEXT NOT NULL DEFAULT '[]', has_details INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (list_id, round))",
+  "CREATE TABLE IF NOT EXISTS rounds (list_id TEXT NOT NULL, round INTEGER NOT NULL, day TEXT NOT NULL, hour INTEGER NOT NULL, surface TEXT NOT NULL, source TEXT NOT NULL, for_who TEXT NOT NULL DEFAULT '', age TEXT NOT NULL DEFAULT '', lean TEXT NOT NULL DEFAULT '', style TEXT NOT NULL DEFAULT '', budget TEXT NOT NULL DEFAULT '', ints TEXT NOT NULL DEFAULT '[]', quiz TEXT NOT NULL DEFAULT '[]', has_details INTEGER NOT NULL DEFAULT 0, backfill INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (list_id, round))",
   "CREATE TABLE IF NOT EXISTS round_ideas (list_id TEXT NOT NULL, round INTEGER NOT NULL, pos INTEGER NOT NULL, idea_key TEXT NOT NULL, title TEXT NOT NULL, category TEXT NOT NULL, src TEXT NOT NULL, lo INTEGER NOT NULL DEFAULT 0, hi INTEGER NOT NULL DEFAULT 0, outcome TEXT NOT NULL DEFAULT 'none', rank INTEGER NOT NULL DEFAULT 0, changed_day TEXT NOT NULL DEFAULT '', PRIMARY KEY (list_id, round, pos))"];
 const intIn = (v, a, b) => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n >= a && n <= b ? n : null; };
 function cleanLog(raw) {
@@ -736,7 +736,8 @@ function cleanLog(raw) {
       budget: Object.prototype.hasOwnProperty.call(BUDGETS, String(c.budget)) ? String(c.budget) : "any",
       ints: JSON.stringify([...new Set((Array.isArray(c.ints) ? c.ints : []).filter(i => INTERESTS.includes(i)))].slice(0, 20)),
       quiz: JSON.stringify([...new Set((Array.isArray(c.quiz) ? c.quiz : []).map(String).filter(q => /^[a-z0-9_]{1,20}=[0-2]$/.test(q)))].slice(0, 20)),
-      details: c.det ? 1 : 0
+      details: c.det ? 1 : 0,
+      backfill: p.bf ? 1 : 0   // picks made before the log started, shared later with a yes
     };
     for (const it of p.ideas.slice(0, 24)) {
       const pos = intIn(it && it.p, 0, 23), title = clean(it && it.t, 60);
@@ -757,8 +758,8 @@ function logStatements(db, L, day, hour) {
   const st = [];
   if (L.round) {
     const R = L.round;
-    st.push(db.prepare("INSERT OR IGNORE INTO rounds (list_id, round, day, hour, surface, source, for_who, age, lean, style, budget, ints, quiz, has_details) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)")
-      .bind(L.lid, R.round, day, hour, R.surface, R.source, R.forWho, R.age, R.lean, R.style, R.budget, R.ints, R.quiz, R.details));
+    st.push(db.prepare("INSERT OR IGNORE INTO rounds (list_id, round, day, hour, surface, source, for_who, age, lean, style, budget, ints, quiz, has_details, backfill) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)")
+      .bind(L.lid, R.round, day, hour, R.surface, R.source, R.forWho, R.age, R.lean, R.style, R.budget, R.ints, R.quiz, R.details, R.backfill));
     for (const i of L.ideas) st.push(db.prepare("INSERT OR IGNORE INTO round_ideas (list_id, round, pos, idea_key, title, category, src, lo, hi) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)")
       .bind(L.lid, R.round, i.pos, i.key, i.title, i.cat, i.src, i.lo, i.hi));
   }

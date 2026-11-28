@@ -57,6 +57,9 @@ textarea{min-height:84px;resize:vertical}
 .btn{border:2px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 16px;min-height:48px;font-weight:700}
 .btn.primary{background:var(--red);border-color:var(--red);color:#fff}
 .btn.wide{width:100%}
+.bfask{position:fixed;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));max-width:520px;margin:0 auto;background:var(--bg);color:var(--ink);border:2px solid var(--ink);border-radius:16px;padding:14px 16px;z-index:40;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.bfask p{margin:0 0 8px}
+.bfrow{display:flex;gap:8px}.bfrow .btn{flex:1}
 .btn:disabled{opacity:.55;cursor:wait}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .row>input{flex:1 1 220px}
@@ -953,14 +956,18 @@ const newLid=()=>{const a=new Uint8Array(16);crypto.getRandomValues(a);return [.
 function logSend(body){if(!LOG_URL)return;try{const b=JSON.stringify(body);if(!(navigator.sendBeacon&&navigator.sendBeacon(LOG_URL,new Blob([b],{type:"text/plain"}))))fetch(LOG_URL,{method:"POST",body:b,keepalive:true,mode:"no-cors"}).catch(()=>{})}catch(e){}}
 const logCtx=()=>({fw:S.forWho,age:S.age,lean:S.lean,style:S.style,budget:S.budget,ints:S.ints,quiz:Object.keys(S.quiz).filter(id=>PAIRS.some(p=>p.id===id)).map(id=>id+"="+S.quiz[id]),det:!!String(S.notes||"").trim()});
 const logSrc=i=>i.like?"rec":i.src==="AI pick"?"ai":"starter";
+/* Ideas whose title shares a word with a name or a capitalized word from Details are never logged. */
+const logNames=()=>{const w=new Set(),words=t=>String(t||"").split(/\s+/).forEach(x=>{x=x.toLowerCase().replace(/[^a-z]/g,"");if(x.length>1)w.add(x)});
+  String(S.notes||"").replace(/\b[A-Z][a-z]{2,}\b/g,m=>{w.add(m.toLowerCase());return m});words(S.name);((S.g&&S.g.people)||[]).forEach(p=>words(p&&typeof p==="object"?p.name:p));return w};
+const logSafe=(t,n)=>!String(t).toLowerCase().split(/[^a-z]+/).some(x=>x&&n.has(x));
 function logRound(){
   const r=S.round||0;if(!LOG_URL||r<1||r>200)return;if(!S.lid)S.lid=newLid();
-  const its=S.items.filter(i=>(i.round||0)===r&&!i.mine&&(i.src==="AI pick"||i.src==="Starter idea")&&i.lr==null);if(!its.length)return;
+  const nms=logNames(),its=S.items.filter(i=>(i.round||0)===r&&!i.mine&&(i.src==="AI pick"||i.src==="Starter idea")&&i.lr==null&&logSafe(i.title,nms)).slice(0,24);if(!its.length)return;
   its.forEach((i,k)=>{i.ll=S.lid;i.lr=r;i.lp=k;i.lx="none:0"});const ai=its.some(i=>i.src==="AI pick"),st=its.some(i=>i.src!=="AI pick");
   logSend({lid:S.lid,r,s:LOG_SURF,src:ai&&st?"mixed":ai?"ai":"starter",ctx:logCtx(),ideas:its.map(i=>({p:i.lp,t:i.title,c:i.cat,src:logSrc(i),lo:i.lo,hi:i.hi}))});
 }
 function logAdded(ni,from){
-  if(!LOG_URL||!from||from.lr==null||!from.ll)return;const same=S.items.filter(i=>i.ll===from.ll&&i.lr===from.lr);const p=Math.max(...same.map(i=>i.lp))+1;if(p>23)return;
+  if(!LOG_URL||!from||from.lr==null||!from.ll||!logSafe(ni.title,logNames()))return;const same=S.items.filter(i=>i.ll===from.ll&&i.lr===from.lr);const p=Math.max(...same.map(i=>i.lp))+1;if(p>23)return;
   ni.ll=from.ll;ni.lr=from.lr;ni.lp=p;ni.lx="none:0";
   logSend({lid:ni.ll,r:ni.lr,s:LOG_SURF,src:"mixed",ctx:logCtx(),ideas:[{p,t:ni.title,c:ni.cat,src:logSrc(ni),lo:ni.lo,hi:ni.hi}]});
 }
@@ -975,6 +982,26 @@ function logFlush(){
   ids.forEach(lid=>{for(let j=0;j<by[lid].length;j+=200)logSend({lid,out:by[lid].slice(j,j+200)})});
   try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}
 }
+/* One-time ask for people who used Wishwell before the log started: share those earlier picks the same
+   anonymous way, only after they tap Share. Marked as backfill; each idea is sent once. */
+function bfItems(){const n=logNames();return S.items.filter(i=>i.lr==null&&!i.mine&&(i.src==="AI pick"||i.src==="Starter idea")&&logSafe(i.title,n))}
+function logBackfill(){
+  const its=bfItems();if(!its.length)return;const lid=newLid(),by={};
+  its.forEach(i=>{const r=Math.min(200,Math.max(1,i.round||1));(by[r]=by[r]||[]).push(i)});
+  Object.keys(by).forEach(r=>{const list=by[r].slice(0,24);list.forEach((i,k)=>{i.ll=lid;i.lr=+r;i.lp=k;i.lx="none:0"});
+    const ai=list.some(i=>i.src==="AI pick"),st=list.some(i=>i.src!=="AI pick");
+    logSend({lid,r:+r,s:LOG_SURF,bf:1,src:ai&&st?"mixed":ai?"ai":"starter",ctx:logCtx(),ideas:list.map(i=>({p:i.lp,t:i.title,c:i.cat,src:logSrc(i),lo:i.lo,hi:i.hi}))})});
+  setTimeout(logFlush,3000);
+}
+function askBackfill(){
+  if(!LOG_URL||S.bf||bfItems().length<3||document.querySelector(".bfask"))return;
+  if(document.querySelector(".unwrap:not([hidden]):not(.gone)")){setTimeout(askBackfill,2500);return}
+  const d=document.createElement("div");d.className="bfask";d.setAttribute("role","dialog");d.setAttribute("aria-label","Share your past picks");
+  d.innerHTML=`<p><b>Share your past picks?</b> It's anonymous, and it helps train Wishwell to suggest better gifts.</p><p class="small muted">Only the ideas you saw and what you did with them, plus your quiz answers. Never your name, Details or items you added.</p><div class="bfrow"><button type="button" class="btn primary" data-bf="yes">Share</button><button type="button" class="btn" data-bf="no">No thanks</button></div>`;
+  d.addEventListener("click",e=>{const b=e.target.closest("[data-bf]");if(!b)return;S.bf=b.dataset.bf==="yes"?"shared":"no";if(S.bf==="shared")logBackfill();save();d.remove();if(S.bf==="shared")toast("Thanks! Shared anonymously.")});
+  document.body.appendChild(d);
+}
+setTimeout(askBackfill,2500);
 const toast=t=>{const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400)};
 const money=(lo,hi)=>lo===hi?"$"+lo:"$"+lo+" to $"+hi;
 const est=it=>it.hi?"est. "+money(it.lo,it.hi):"";

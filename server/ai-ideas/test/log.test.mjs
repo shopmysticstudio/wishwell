@@ -45,6 +45,11 @@ assert.equal(sql.prepare("SELECT surface FROM rounds WHERE list_id = ?1").get({ 
 assert.equal(await log({ lid, r: 2, ideas: [{ p: 0, t: "x y" }] }, "https://evil.example"), 403);
 await log({ lid: "not-hex", r: 1, ideas: [{ p: 0, t: "Lamp", c: "Room" }] });
 assert.equal(sql.prepare("SELECT COUNT(*) c FROM rounds").get().c, 2);
+// Past picks shared later are marked as backfill.
+await log({ lid: "d".repeat(32), r: 2, bf: 1, s: "web", src: "ai", ctx: {}, ideas: [{ p: 0, t: "Star atlas", c: "Books", src: "ai" }] });
+assert.equal(sql.prepare("SELECT backfill FROM rounds WHERE list_id = ?").get("d".repeat(32)).backfill, 1);
+assert.equal(sql.prepare("SELECT backfill FROM rounds WHERE list_id = ?").get(lid).backfill, 0);
+sql.exec("DELETE FROM rounds WHERE list_id = '" + "d".repeat(32) + "'");
 // Past the per-network limit, quietly dropped.
 hitsLeft = 0; await log({ lid: "c".repeat(32), r: 1, ideas: [{ p: 0, t: "Lamp", c: "Room" }] });
 assert.equal(sql.prepare("SELECT COUNT(*) c FROM rounds").get().c, 2);
