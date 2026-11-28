@@ -310,6 +310,14 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
     <p class="small muted" style="margin-bottom:0">With a key, your quiz answers, Details and the idea titles on your list are sent to the Wishwell AI service to pick new ideas. Your key, its email and a random ID for this phone are sent to check the key. Without a key, AI ideas are off. Either way, unless you turn it off under the ideas, anonymous choices are sent: your interests, quiz answers and which ideas you circled, starred, cut or already have, with no name, email or ID.</p>
   </div>
 </div>
+<div class="modal" id="pastM" hidden role="dialog" aria-modal="true" aria-labelledby="pastH">
+  <div class="box" style="max-width:520px">
+    <h2 id="pastH" style="font-size:clamp(22px,5vw,30px);margin:0 0 8px">Share your past picks?</h2>
+    <p>It's anonymous, and it helps train Wishwell to suggest better gifts.</p>
+    <p class="small muted">Only the ideas you circled, cut or already have, with their kind and price range, plus your interests and quiz answers. No name, email, Details or device ID.</p>
+    <div class="row"><button class="btn primary" type="button" id="pastYes">Share</button><button class="btn" type="button" id="pastNo">No thanks</button></div>
+  </div>
+</div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -341,23 +349,46 @@ function sendSignal(){
   try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}
   fetch(AI_BASE+"/signal",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kept,top,cut,have}),keepalive:true}).catch(()=>{});
 }
-/* Anonymous round log, to train better picks later: for each round, the interest chips and quiz
-   answers, then every idea shown with its place and what happened to it (circled, starred, cut, have
-   or none). A random id per round, and no device id, key, email, name or Details text. On by
-   default for everyone; the switch under the ideas turns it off. A round is sent when the next one
-   starts or the app goes to the background, and sent again (same id) only if its outcomes changed. */
-const trackOn=()=>!!AI_BASE&&S.track!==false;
-function newRid(){const c="abcdefghijklmnopqrstuvwxyz0123456789";let a;try{a=crypto.getRandomValues(new Uint8Array(16))}catch(e){a=Array.from({length:16},()=>Math.floor(Math.random()*256))}return Array.from(a,x=>c[x%36]).join("")}
-function noteRound(){if(!trackOn())return;const L=S.rlog=S.rlog||{};
-  L[S.round]={rid:newRid(),q:{forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints.slice(0,20),quiz:PAIRS.flatMap(p=>picks(p).map(o=>o[1]+" ("+o[2]+")")).slice(0,12),style:S.style||"",budget:S.budget},sent:""};
-  Object.keys(L).map(Number).sort((a,b)=>b-a).slice(10).forEach(k=>delete L[k])}
-function roundBody(r,m){const its=S.items.filter(i=>!i.mine&&(i.round||0)===r).slice(0,24);if(!its.length)return null;const top=new Set(S.kept.slice(0,3));
-  return Object.assign({rid:m.rid,src:"app",v:"4.0"},m.q,{ideas:its.map((i,p)=>({t:i.title,c:i.cat,pos:p,ai:i.src==="AI pick",o:i.status==="kept"?(top.has(i.id)?"starred":"circled"):i.status==="cut"?"cut":i.status==="have"?"have":"none"}))})}
-function sendRounds(){if(!trackOn()||!S.rlog)return;let any=false;
-  Object.keys(S.rlog).forEach(k=>{const m=S.rlog[k],b=roundBody(+k,m);if(!b)return;const h=b.ideas.map(x=>x.o).join(",");if(h===m.sent)return;m.sent=h;any=true;
-    fetch(AI_BASE+"/rounds",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(b),keepalive:true}).catch(()=>{})});
-  if(any)try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}}
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"){sendSignal();sendRounds()}});
+/* Anonymous round log, to train better picks later (same /log format as the web app): each round's
+   interest chips and quiz answers (never Details text or a name) and every idea shown with what was
+   done with it: circled, top 3, cut, have or nothing. Keyed by a random list id made for each quiz,
+   not the device id, a key or an email. On for everyone unless the switch under the ideas is off. */
+const LOG_URL=AI_BASE?AI_BASE+"/log":"";
+const logOn=()=>!!LOG_URL&&S.track!==false;
+function newLid(){let a;try{a=crypto.getRandomValues(new Uint8Array(16))}catch(e){a=Array.from({length:16},()=>Math.floor(Math.random()*256))}return Array.from(a,x=>x.toString(16).padStart(2,"0")).join("")}
+function logSend(body){try{fetch(LOG_URL,{method:"POST",headers:{"content-type":"text/plain"},body:JSON.stringify(body),keepalive:true}).catch(()=>{})}catch(e){}}
+const logCtx=()=>({fw:S.forWho,age:S.age,lean:S.lean,style:S.style,budget:S.budget,ints:S.ints,quiz:Object.keys(S.quiz).filter(id=>PAIRS.some(p=>p.id===id)).map(id=>id+"="+S.quiz[id]),det:!!String(S.notes||"").trim()});
+const logIdea=i=>({p:i.lp,t:i.title,c:i.cat,src:i.src==="AI pick"?"ai":"starter",lo:i.lo,hi:i.hi});
+const logSrc=its=>{const ai=its.some(i=>i.src==="AI pick"),st=its.some(i=>i.src!=="AI pick");return ai&&st?"mixed":ai?"ai":"starter"};
+const logOut=i=>{const k=S.kept.indexOf(i.id);const o=i.status==="kept"?(k>=0&&k<3?"top":"kept"):i.status==="cut"||i.status==="have"?i.status:"none";return[o,i.status==="kept"&&k>=0?k+1:0]};
+function logRound(){
+  const r=S.round||0;if(!logOn()||r<1||r>200)return;if(!S.lid)S.lid=newLid();
+  const its=S.items.filter(i=>(i.round||0)===r&&!i.mine&&(i.src==="AI pick"||i.src==="Starter idea")&&i.lr==null).slice(0,24);if(!its.length)return;
+  its.forEach((i,k)=>{i.ll=S.lid;i.lr=r;i.lp=k;i.lx="none:0"});
+  logSend({lid:S.lid,r,s:"app",src:logSrc(its),ctx:logCtx(),ideas:its.map(logIdea)});
+}
+let logT=0;
+function logLater(){if(logOn()){clearTimeout(logT);logT=setTimeout(logFlush,4000)}}
+function logFlush(){
+  clearTimeout(logT);if(!logOn())return;const by={};
+  S.items.forEach(i=>{if(i.lr==null||!i.ll)return;const [o,rk]=logOut(i),v=o+":"+rk;if(i.lx===v)return;i.lx=v;(by[i.ll]=by[i.ll]||[]).push([i.lr,i.lp,o,rk])});
+  const ids=Object.keys(by);if(!ids.length)return;
+  ids.forEach(lid=>{for(let j=0;j<by[lid].length;j+=200)logSend({lid,out:by[lid].slice(j,j+200)})});
+  try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}
+}
+/* Past picks from before version 4 (circled, cut and had ideas still saved on the phone): asked once
+   per install, sent only on Share, marked as backfilled, with the same fields as the round log. */
+const pastPicks=()=>S.items.filter(i=>!i.mine&&i.lr==null&&(i.src==="AI pick"||i.src==="Starter idea")&&(i.status==="kept"||i.status==="cut"||i.status==="have"));
+function sharePast(){
+  if(!LOG_URL)return 0;const its=pastPicks();if(!its.length)return 0;const lid=newLid(),by=new Map();
+  its.forEach(i=>{const r=Math.min(200,Math.max(1,i.round||1));if(!by.has(r))by.set(r,[]);by.get(r).push(i)});
+  by.forEach((list,r)=>{list=list.slice(0,24);list.forEach((i,k)=>{i.ll=lid;i.lr=r;i.lp=k;const [o,rk]=logOut(i);i.lx=o+":"+rk});
+    logSend({lid,r,s:"app",src:logSrc(list),bf:1,ctx:logCtx(),ideas:list.map(logIdea),out:list.map(i=>{const [o,rk]=logOut(i);return[r,i.lp,o,rk]})})});
+  return its.length;
+}
+function askPast(){if(S.pastAsked||!LOG_URL||S.track===false||!S.ageOk||!pastPicks().length)return;const m=$("#pastM");if(m)m.hidden=false}
+function closePast(share){S.pastAsked=true;const m=$("#pastM");if(m)m.hidden=true;const n=share?sharePast():0;save();if(share&&n)toast("Thanks! Your past picks were shared anonymously.")}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"){sendSignal();logFlush()}});
 const CATS={Tech:"#2563eb",Gaming:"#7c3aed",Making:"#ea580c",Art:"#db2777",Music:"#0891b2",Sports:"#16a34a",Outdoors:"#4d7c0f",Science:"#1e3a8a",Books:"#92400e",Food:"#b91c1c",Style:"#334155",Room:"#0f766e",Experiences:"#c2410c",Beauty:"#be185d",Other:"#525252"};
 const INTS=[["Cooking","cooking food"],["Music","music audio instrument"],["Movies and shows","movies tv"],["Sports","sports fitness running"],["Outdoors","outdoors camping hiking"],["Art","art drawing painting"],["Crafts","crafts sewing knit diy"],["Books","books reading"],["Style","fashion style clothes"],["Room setup","room decor desk"],["Coffee and tea","coffee tea"],["Gaming","gaming games controller"],["Travel","travel"],["Pets","pets dog cat"],["Self-care","selfcare spa bath"],["Beauty","beauty makeup skincare"],["Jewelry","jewelry"],["Puzzles","puzzles"],["Friends and parties","party friends games"],["Tech","tech electronics gadgets phone computer"],["Making","maker build tools 3dprinting electronics"],["Cars","cars driving"],["Space and science","space science astronomy rockets"]];
 const BANK=[
@@ -1178,7 +1209,7 @@ const metrics=()=>({quizDone:0,quizTaps:0,ideas:0,circled:0,cut:0,have:0,ai:0,li
 const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",age:"",lean:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],have:[],seq:0,round:0,aiRounds:0,view:"start",snd:true,listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
 let S=fresh(),sample=null,busy=false,FAM=null;
 try{const raw=localStorage.getItem("wishbook-v1");if(raw){const o=JSON.parse(raw);S=Object.assign(fresh(),o);S.m=Object.assign(metrics(),o.m||{});S.m.pay=Object.assign(metrics().pay,(o.m||{}).pay||{});S.g=Object.assign(fresh().g,o.g||{});S.opt=Object.assign(fresh().opt,o.opt||{})}}catch(e){}
-const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}signalLater()};
+const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}signalLater();logLater()};
 const toast=t=>{const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400)};
 const money=(lo,hi)=>lo===hi?"$"+lo:"$"+lo+" to $"+hi;
 const est=it=>it.hi?"est. "+money(it.lo,it.hi):"";
@@ -1349,6 +1380,7 @@ $("#qBack").addEventListener("click",()=>{if(qi>0){qi--;renderQuiz()}});
 function finishQuiz(){
   seedInts();
   S.m.quizDone=(S.m.quizDone||0)+1;
+  logFlush();S.lid=newLid();
   S.items=S.items.filter(i=>i.status==="kept"||i.status==="have"||i.mine);
   $("#qbar").style.transform="scaleX(1)";const tags=tasteTags();
   show("ideas");if(tags.length)toast("Taste: "+tags.slice(0,3).join(", "));getIdeas();
@@ -1564,7 +1596,7 @@ Reply with only a JSON array. Each element: {"title": short name under 50 charac
   return c;
 }
 async function getIdeas(){
-  if(busy)return;busy=true;sendRounds();S.round=(S.round||0)+1;noteRound();const mb=$("#moreBtn");mb.disabled=true;
+  if(busy)return;busy=true;S.round=(S.round||0)+1;const mb=$("#moreBtn");mb.disabled=true;
   const msg=$("#msg");msg.innerHTML="";let got=0,note="";
   if(aiOn()){
     mb.textContent="Thinking...";msg.innerHTML=`<p class="note">Asking AI for ideas that fit. This takes a few seconds.</p>`;
@@ -1582,10 +1614,12 @@ async function getIdeas(){
   if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
   if(got&&!msg.querySelector(".err"))msg.innerHTML=!aiOn()&&bankIdeas.noteMiss?`<p class="note">None of the starter ideas matched the words in Details, so these come from the quiz. Words like puzzles, camping or coffee match best.</p>`:"";
   if(note)msg.innerHTML=`<p class="note">${note}</p>`;
-  setAi();busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
+  logRound();setAi();busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
 }
 $("#moreBtn").addEventListener("click",getIdeas);
-{const t=$("#trackT");if(t){t.checked=S.track!==false;t.addEventListener("change",()=>{S.track=t.checked;if(!t.checked)S.rlog={};save();toast(t.checked?"Sending anonymous choices":"Anonymous choices off")})}}
+$("#pastYes").addEventListener("click",()=>closePast(true));$("#pastNo").addEventListener("click",()=>closePast(false));
+setTimeout(askPast,1200);
+{const t=$("#trackT");if(t){t.checked=S.track!==false;t.addEventListener("change",()=>{S.track=t.checked;save();toast(t.checked?"Sending anonymous choices":"Anonymous choices off")})}}
 
 /* add from link or text */
 function fromLink(u){
