@@ -60,7 +60,19 @@ CODES_VOTES_PER_DAY = "60"
 CODES_NET_PER_DAY = "off"
 # "off" stops saving ideas to the pool.
 POOL = "on"
+# Holiday Games (/advent): a level's first win earns one bonus AI round, spent once the free rounds
+# are used up (it still takes a TRIAL_GLOBAL_DAILY slot). "off" turns rewards off. Levels above
+# GAMES_FREE_LEVELS need a Games Pass or Holiday Pass. Bonus rounds per device a day, for everyone
+# together a day, the most one device can hold, and how many days they last from the first one.
+REWARDS = "on"
+GAMES_FREE_LEVELS = "4"
+REWARD_DAILY = "3"
+REWARD_GLOBAL_DAILY = "300"
+BONUS_MAX = "10"
+BONUS_DAYS = "60"
 # GUMROAD_PRODUCT_ID is set as a Secret in the Cloudflare dashboard, not here.
+# GAMES_PRODUCT_ID (optional, the Games Pass product) is a Secret too. Unset: only Holiday Pass keys
+# open the paid levels.
 
 # Trial counts, pass checks and the idea pool.
 [[kv_namespaces]]

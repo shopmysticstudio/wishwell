@@ -22,6 +22,13 @@
      /codes/vote  {"id", "vote": "worked"|"failed"|"report"}, one per device per code.
               Both need x-device-id; limited per device (CODES_ADDS_PER_DAY, CODES_VOTES_PER_DAY),
               and per network only if CODES_NET_PER_DAY is set to a number.
+     /reward  Holiday Games: a level's first win earns one bonus AI round. Body: {"level": 1..25}.
+              Needs x-device-id. Levels above GAMES_FREE_LEVELS also need a Games Pass or Holiday Pass
+              (x-pass-key + x-pass-email). Once per level per device, REWARD_DAILY a day per device,
+              REWARD_GLOBAL_DAILY a day for everyone together; a device holds at most BONUS_MAX bonus
+              rounds, kept BONUS_DAYS days from the first one. Answers {"granted": true, "bonus": held}
+              or {"granted": false, "reason": "already"|"daily_limit"|"busy"|"bonus_full"|"off", ...}.
+              The browser can't prove a win, so these caps are what keep it small.
      /signal  which AI ideas people liked. Body: {"kept": [titles], "top": [titles], "cut": [titles]}.
               Only bumps counts on ideas already in the pool. Answers 204.
 
@@ -47,6 +54,9 @@
                  works on PASS_DEVICES devices (x-device-id); another gets 403
                  {"error":"pass_device_limit"}. A refunded, unknown or wrong-email key gets 402
                  {"error":"pass_invalid"}. Wrong tries count per network per day (PASS_BAD_TRIES).
+     Bonus       when a device's free or beta-code rounds are used up, a bonus round from /reward
+                 is spent instead. It still takes a TRIAL_GLOBAL_DAILY slot (past it: ai_busy). The
+                 x-bonus-left header says how many are left.
      Beta        while BETA_ONLY is not "false", every request also needs the beta code
                  (x-beta-code header).
    Only rounds that return ideas are counted. Every other failure answers 429, so the app quietly
@@ -61,9 +71,13 @@
    Settings ([vars] in wrangler.toml, or the dashboard):
      MODEL, BACKUP_MODEL, AI_TIMEOUT_MS, BACKUP_TIMEOUT_MS, ALLOWED_ORIGINS, BETA_ONLY, TRIAL_ROUNDS,
      TRIAL_PER_NETWORK, TRIAL_NETWORK_DAYS, BETA_ROUNDS, BETA_PER_NETWORK, TRIAL_PER_IP (KV fallback), PASS_DAILY,
-     PASS_WEEKLY, PASS_DEVICES, PASS_BAD_TRIES, WAITLIST_PER_NETWORK, POOL
+     PASS_WEEKLY, PASS_DEVICES, PASS_BAD_TRIES, WAITLIST_PER_NETWORK, POOL, REWARDS, GAMES_FREE_LEVELS,
+     REWARD_DAILY, REWARD_GLOBAL_DAILY, BONUS_MAX, BONUS_DAYS
    Secrets (dashboard > Settings > Variables and Secrets > Type: Secret):
      GUMROAD_PRODUCT_ID  the Holiday Pass product ID (passes can't be checked without it)
+     GAMES_PRODUCT_ID    optional; the Games Pass product ID. /verify and /reward with product
+                         "games" accept a Games Pass or a Holiday Pass key. Unset: Holiday Pass only.
+                         A Games Pass never gets Holiday Pass AI rounds.
      BETA_CODE           optional; overrides the beta code fingerprint below
    Bindings: AI (Workers AI), KV (KV namespace), PER_MINUTE (rate limit), DB (D1, optional) */
 
@@ -82,6 +96,7 @@ const LEANS = { fem: "lean feminine: jewelry, makeup and similar items are welco
   masc: "lean masculine: beard care, cologne and similar items are welcome", neutral: "keep it gender neutral" };
 const BUDGETS = { "25": 25, "75": 75, "200": 200, "9999": Infinity, "any": Infinity };
 const MAX_IDEAS = 10;
+const REWARD_LEVELS = 25;     // Holiday Games levels
 const EXTRA_ASK = 3;          // ask for a few more than needed, since some get filtered out
 const MAX_BODY = 20000;
 const MAX_PHOTO_BODY = 700000;
@@ -509,28 +524,44 @@ async function codeOk(header, env) {
 // The email must match the purchase (trimmed, any case). id is the key's fingerprint, used for
 // counting rounds and devices whichever email is typed.
 const normEmail = e => String(e || "").trim().toLowerCase().slice(0, 254);
-async function checkLicense(key, email, env, countUse) {
+// product "games" (Holiday Games levels) also takes a Games Pass key when GAMES_PRODUCT_ID is set;
+// anything else takes only a Holiday Pass key. kind says which one matched.
+async function checkLicense(key, email, env, countUse, product) {
+  if (product === "games" && env.GAMES_PRODUCT_ID) {
+    const g = await checkProduct(key, email, env, countUse, env.GAMES_PRODUCT_ID, "licg:");
+    if (g.valid || g.reason === "missing_key" || g.reason === "missing_email") return g.valid ? { ...g, kind: "games" } : g;
+    if (!env.GUMROAD_PRODUCT_ID) return g;
+    const h = await checkProduct(key, email, env, countUse, env.GUMROAD_PRODUCT_ID, "lic:");
+    if (h.valid) return { ...h, kind: "holiday" };
+    return g.reason === "gumroad_unreachable" || h.reason === "gumroad_unreachable" ? { ...g, reason: "gumroad_unreachable" }
+      : h.reason === "refunded" ? h : g;
+  }
+  const r = await checkProduct(key, email, env, countUse, env.GUMROAD_PRODUCT_ID, "lic:");
+  return r.valid ? { ...r, kind: "holiday" } : r;
+}
+// id is the key's fingerprint whatever the product; the KV cache is kept per product.
+async function checkProduct(key, email, env, countUse, productId, cachePrefix) {
   const k = clean(key, 100), e = normEmail(email);
   if (k.length < 8) return { valid: false, reason: "missing_key" };
   if (!e.includes("@")) return { valid: false, reason: "missing_email" };
-  if (!env.GUMROAD_PRODUCT_ID) return { valid: false, reason: "not_set_up" };
-  const id = "lic:" + await sha("wishwell-license:" + k);
+  if (!productId) return { valid: false, reason: "not_set_up" };
+  const fp = await sha("wishwell-license:" + k), id = "lic:" + fp, ck = cachePrefix + fp;
   const eh = await sha("wishwell-email:" + e);
   if (!countUse && env.KV) {
-    const c = await env.KV.get(id, { cacheTtl: 300 }).catch(() => null);
+    const c = await env.KV.get(ck, { cacheTtl: 300 }).catch(() => null);
     if (c === "0") return { valid: false, reason: "not_found", id };
     if (c && c.startsWith("1:")) return c.slice(2) === eh ? { valid: true, id } : { valid: false, reason: "not_found", id };
   }
   let data;
   try {
     const res = await fetch(GUMROAD, { method: "POST", body: new URLSearchParams({
-      product_id: env.GUMROAD_PRODUCT_ID, license_key: k, increment_uses_count: countUse ? "true" : "false" }) });
+      product_id: productId, license_key: k, increment_uses_count: countUse ? "true" : "false" }) });
     data = await res.json();
   } catch (err) { return { valid: false, reason: "gumroad_unreachable" }; }
   const p = (data && data.purchase) || {};
   const sold = !!(data && data.success && !p.refunded && !p.chargebacked && !p.disputed);
   const buyer = sold ? await sha("wishwell-email:" + normEmail(p.email)) : "";
-  if (env.KV) await env.KV.put(id, sold ? "1:" + buyer : "0", { expirationTtl: sold ? 21600 : 600 }).catch(() => {});
+  if (env.KV) await env.KV.put(ck, sold ? "1:" + buyer : "0", { expirationTtl: sold ? 21600 : 600 }).catch(() => {});
   const valid = sold && !!p.email && buyer === eh;
   // A wrong email reads the same as an unknown key, so the answer gives nothing away.
   return { valid, reason: valid ? "" : (data && data.success && !sold ? "refunded" : "not_found"), id };
@@ -567,7 +598,7 @@ const statsDay = env => new Date(Date.now() - num(env.TRIAL_DAY_START_HOUR_UTC, 
 
 /* ---------- page counter (/hit) ---------- */
 // Only these pages and events are counted; anything else is dropped. No ids, addresses or full URLs.
-const HIT_PAGES = ["/", "/app/", "/beta/", "/beta/home/", "/beta/advent/", "/privacy/", "/coupons/"];
+const HIT_PAGES = ["/", "/app/", "/beta/", "/beta/home/", "/beta/advent/", "/advent/", "/privacy/", "/coupons/"];
 const HIT_EVENTS = ["view", "try_free", "buy_key", "play_badge", "waitlist_signup", "key_unlock", "coupons"];
 function cleanHit(raw, startHourUtc) {
   if (!raw || typeof raw !== "object") return null;
@@ -657,6 +688,21 @@ function windows(startHour, nowMs) {
 }
 async function unreserve(db, keys) {
   for (const k of keys) await db.prepare("UPDATE ai_use SET n = n - 1 WHERE k = ?1 AND n > 0").bind(k).run().catch(() => {});
+}
+// Spends one of a device's bonus rounds (from /reward) once its own free rounds are used up.
+// It still takes a slot of the everyone-together daily cap (global, a reserve counter, or null).
+// Returns null with no bonus left, {busy: true} when the global cap is full, else {left, refund}.
+async function spendBonus(db, devH, global) {
+  const k = "bonus:" + devH;
+  if (!(await usedCounts(db, [k]))[0]) return null;
+  if (global && !await reserve(db, [global])) return { busy: true };
+  const now = Math.floor(Date.now() / 1000);
+  const row = await db.prepare("UPDATE ai_use SET n = n - 1 WHERE k = ?1 AND n > 0 AND exp >= ?2 RETURNING n").bind(k, now).first().catch(() => null);
+  if (!row) { if (global) await unreserve(db, [global[0]]); return null; }
+  return { left: Number(row.n), refund: async () => {
+    await db.prepare("UPDATE ai_use SET n = n + 1 WHERE k = ?1").bind(k).run().catch(() => {});
+    if (global) await unreserve(db, [global[0]]);
+  } };
 }
 
 /* ---------- shared discount codes ---------- */
@@ -852,8 +898,8 @@ export default {
     const cors = okOrigin ? {
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "content-type, x-beta-code, x-device-id, x-pass-key, x-pass-email",
-      "Access-Control-Expose-Headers": "x-trial-left, x-trial-limit, x-trial-reset, x-pass-left",
+      "Access-Control-Allow-Headers": "content-type, x-beta-code, x-device-id, x-pass-key, x-pass-email, x-pass-product",
+      "Access-Control-Expose-Headers": "x-trial-left, x-trial-limit, x-trial-reset, x-pass-left, x-bonus-left",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin"
     } : { "Vary": "Origin" };
@@ -873,7 +919,7 @@ export default {
     }
     if (request.method !== "POST") return reply({ error: "use_post" }, 405);
     if (appOrigin && !(path === "/verify" || path === "/signal" || path === "/log" || path.startsWith("/codes") || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
-    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist" && path !== "/hit" && path !== "/log" && path !== "/codes" && path !== "/codes/add" && path !== "/codes/vote" && path !== "/map" && path !== "/map/score") return reply({ error: "not_found" }, 404);
+    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist" && path !== "/hit" && path !== "/log" && path !== "/codes" && path !== "/codes/add" && path !== "/codes/vote" && path !== "/map" && path !== "/map/score" && path !== "/reward") return reply({ error: "not_found" }, 404);
 
     const maxBody = path === "/photo" ? MAX_PHOTO_BODY : MAX_BODY;
     const len = Number(request.headers.get("content-length") || 0);
@@ -1023,13 +1069,45 @@ export default {
     /* /verify: the app's "I have a license key" box */
     if (path === "/verify") {
       if (await tooManyTries(env, ip, false)) return reply({ error: "too_many_tries" }, 429);
-      const r = await checkLicense(raw && raw.license_key, raw && raw.email, env, true);
+      const games = raw && raw.product === "games";
+      const r = await checkLicense(raw && raw.license_key, raw && raw.email, env, true, games ? "games" : "");
       if (!r.valid) {
         if (r.reason === "not_found" || r.reason === "refunded") await tooManyTries(env, ip, true);
         return reply({ valid: false, reason: r.reason || "" }, 200);
       }
       if (!await passDevice(env, r, String(request.headers.get("x-device-id") || ""))) return reply({ valid: false, reason: "device_limit" }, 200);
-      return reply({ valid: true, reason: "" }, 200);
+      return reply(games ? { valid: true, reason: "", kind: r.kind } : { valid: true, reason: "" }, 200);
+    }
+
+    /* /reward: a Holiday Games level's first win earns one bonus AI round (see the top of this file).
+       Website only. All four counters are taken together or not at all. */
+    if (path === "/reward") {
+      if (!env.DB || String(env.REWARDS || "on") === "off") return reply({ granted: false, reason: "off" }, 200);
+      const dev = String(request.headers.get("x-device-id") || "");
+      if (!/^[A-Za-z0-9_-]{16,64}$/.test(dev)) return reply({ error: "no_device" }, 400);
+      const level = Number(raw && raw.level);
+      if (!Number.isInteger(level) || level < 1 || level > REWARD_LEVELS) return reply({ error: "bad_level" }, 400);
+      if (level > num(env.GAMES_FREE_LEVELS, 4)) {
+        if (await tooManyTries(env, ip, false)) return reply({ error: "too_many_tries" }, 429);
+        const lic = await checkLicense(request.headers.get("x-pass-key"), request.headers.get("x-pass-email"), env, false, "games");
+        if (!lic.valid) {
+          if (lic.reason === "gumroad_unreachable" || lic.reason === "not_set_up") return reply({ granted: false, reason: "pass_check_failed" }, 429);
+          if (lic.reason === "not_found" || lic.reason === "refunded") await tooManyTries(env, ip, true);
+          return reply({ granted: false, reason: "pass_invalid" }, 402);
+        }
+        if (!await passDevice(env, lic, dev)) return reply({ granted: false, reason: "pass_device_limit" }, 403);
+      }
+      const w = windows(num(env.TRIAL_DAY_START_HOUR_UTC, 5)), devH = await sha("wishwell-dev:" + dev);
+      const daily = num(env.REWARD_DAILY, 3), maxBonus = num(env.BONUS_MAX, 10);
+      const counters = [["rl:" + level + ":" + devH, 1, 400 * 86400], ["rd:" + w.day + ":" + devH, daily, 2 * 86400],
+        ["rg:" + w.day, num(env.REWARD_GLOBAL_DAILY, 300), 2 * 86400], ["bonus:" + devH, maxBonus, num(env.BONUS_DAYS, 60) * 86400]];
+      try {
+        const got = await reserve(env.DB, counters);
+        if (got) return reply({ granted: true, bonus: got[3] }, 200);
+        const used = await usedCounts(env.DB, counters.map(c => c[0]));
+        const reason = used[0] >= 1 ? "already" : used[1] >= daily ? "daily_limit" : used[3] >= maxBonus ? "bonus_full" : "busy";
+        return reply({ granted: false, reason, bonus: used[3], ...(reason === "daily_limit" || reason === "busy" ? { reset: w.dayEnd } : {}) }, 200);
+      } catch (e) { return reply({ granted: false, reason: "busy" }, 200); }
     }
 
     /* /signal: which AI ideas were circled, ranked top 3 or cut */
@@ -1108,16 +1186,22 @@ export default {
           const mine = kinds.map((k, i) => [k, i]).filter(([k, i]) => k[0] !== "global" && used[i] >= k[1]).map(([k]) => k);
           if (!mine.length) return reply({ error: "ai_busy", reset: w.dayEnd }, 429);
           const lim = mine.find(k => k[0] === "week") || mine[0];
-          return reply({ error: "trial_used", limit: lim[0], reset: lim[2] }, 402, { "x-trial-left": "0", "x-trial-limit": lim[0], "x-trial-reset": String(lim[2]) });
+          // A bonus round from Holiday Games, if the device has one.
+          const b = await spendBonus(env.DB, devH, globalCap > 0 ? ["gd:" + w.day, globalCap, 2 * 86400] : null);
+          if (b && b.busy) return reply({ error: "ai_busy", reset: w.dayEnd }, 429);
+          if (!b) return reply({ error: "trial_used", limit: lim[0], reset: lim[2] }, 402, { "x-trial-left": "0", "x-trial-limit": lim[0], "x-trial-reset": String(lim[2]) });
+          mode = "trial"; refund = b.refund;
+          left = ["x-trial-left", 0, { "x-trial-limit": lim[0], "x-trial-reset": String(lim[2]), "x-bonus-left": String(b.left) }];
+        } else {
+          mode = "trial"; refund = () => unreserve(env.DB, counters.map(c => c[0]));
+          let li = 0; r.forEach((n, i) => { if (kinds[i][0] !== "global" && kinds[i][1] - n < kinds[li][1] - r[li]) li = i; });
+          left = ["x-trial-left", kinds[li][1] - r[li], { "x-trial-limit": kinds[li][0], "x-trial-reset": String(kinds[li][2]) }];
         }
-        mode = "trial"; refund = () => unreserve(env.DB, counters.map(c => c[0]));
-        let li = 0; r.forEach((n, i) => { if (kinds[i][0] !== "global" && kinds[i][1] - n < kinds[li][1] - r[li]) li = i; });
-        left = ["x-trial-left", kinds[li][1] - r[li], { "x-trial-limit": kinds[li][0], "x-trial-reset": String(kinds[li][2]) }];
       } else if (env.DB) {
         // Per device; a per-network cap only if BETA_PER_NETWORK / TRIAL_PER_NETWORK is set to a number.
         const capNet = netCap(beta ? env.BETA_PER_NETWORK : env.TRIAL_PER_NETWORK);
         const netDays = num(env.TRIAL_NETWORK_DAYS, 30);
-        const devK = "dev:" + tier + ":" + await sha("wishwell-dev:" + dev);
+        const devH = await sha("wishwell-dev:" + dev), devK = "dev:" + tier + ":" + devH;
         const counters = [[devK, capDev, 400 * 86400]];
         if (capNet) counters.push(["net:" + tier + ":" + await sha("wishwell-net:" + network(ip)), capNet, netDays * 86400]);
         const w = windows(num(env.TRIAL_DAY_START_HOUR_UTC, 5)), globalCap = num(env.TRIAL_GLOBAL_DAILY, 40);
@@ -1126,10 +1210,15 @@ export default {
         if (!r) {
           const used = await usedCounts(env.DB, counters.map(c => c[0]));
           if (used[0] < capDev && !(capNet && used[1] >= capNet)) return reply({ error: "ai_busy", reset: w.dayEnd }, 429);
-          return reply({ error: "trial_used" }, 402, { "x-trial-left": "0" });
+          const b = await spendBonus(env.DB, devH, globalCap > 0 ? ["gd:" + w.day, globalCap, 2 * 86400] : null);
+          if (b && b.busy) return reply({ error: "ai_busy", reset: w.dayEnd }, 429);
+          if (!b) return reply({ error: "trial_used" }, 402, { "x-trial-left": "0" });
+          mode = "trial"; refund = b.refund;
+          left = ["x-trial-left", 0, { "x-bonus-left": String(b.left) }];
+        } else {
+          mode = "trial"; refund = () => unreserve(env.DB, counters.map(c => c[0]));
+          left = ["x-trial-left", Math.min(capDev - r[0], capNet ? capNet - r[1] : Infinity)];
         }
-        mode = "trial"; refund = () => unreserve(env.DB, counters.map(c => c[0]));
-        left = ["x-trial-left", Math.min(capDev - r[0], capNet ? capNet - r[1] : Infinity)];
       } else {
         // Fallback without D1: KV counts (not atomic, so a burst can slip past by a round or two).
         const perIp = num(env.TRIAL_PER_IP, 6);
