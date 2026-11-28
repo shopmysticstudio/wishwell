@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Wishwell Advent Calendar</title>
+<title>Wishwell Holiday Games</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="description" content="A Christmas tree of 25 drawers with a tiny holiday game behind each one.">
+<meta name="description" content="25 holiday mini game levels up a Christmas tree.">
 <meta name="theme-color" content="#23284d">
 <link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
@@ -48,13 +48,14 @@ window.wishwellBetaCheck=async function(code){
 <body>
 <div id="gate" role="dialog" aria-modal="true" aria-labelledby="gateT"><form class="gbox" id="gateForm" autocomplete="off">
   <img src="../img/mark.png" alt="Wishwell logo" width="84" height="84">
-  <h1 id="gateT">Wishwell Advent</h1>
+  <h1 id="gateT">Wishwell Holiday Games</h1>
   <p>This early version is for invited testers. Enter your access code.</p>
   <input id="gateCode" type="text" inputmode="text" autocapitalize="characters" spellcheck="false" aria-label="Access code" placeholder="Access code">
   <button type="submit" id="gateBtn">Enter</button>
   <div class="gmsg" id="gateMsg" role="status"></div>
 </form></div>
 <div id="advent"></div>
+<script src="../config.js"></script>
 <script src="advent.js"></script>
 <script>
 document.getElementById("gateForm").addEventListener("submit",async e=>{
@@ -65,7 +66,9 @@ document.getElementById("gateForm").addEventListener("submit",async e=>{
   try{localStorage.setItem("wishwell-beta-code",window.WISHWELL_ACCESS_CODE)}catch(err){}
   msg.textContent="";document.documentElement.classList.remove("locked");window.scrollTo(0,0);
 });
-WishwellAdvent.mount(document.getElementById("advent"),{backHref:"../",backLabel:"Wishwell",showPreview:true});
+/* Games Pass: buyUrl is the Gumroad checkout link (blank = "coming soon"). rewards: turn on once the AI service has /reward. */
+WishwellAdvent.mount(document.getElementById("advent"),{backHref:"../",backLabel:"Wishwell",showPreview:true,
+  net:{url:(window.WISHWELL_CONFIG||{}).aiUrl||"",buyUrl:"",price:"$1.99",rewards:false}});
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js",{scope:"./"}).catch(()=>{});
 </script>
 <script src="../../count.js" defer></script>

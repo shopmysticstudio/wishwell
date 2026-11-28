@@ -1,5 +1,5 @@
-/* Wishwell Advent: keeps the calendar and games working offline. Bump VERSION when any file here changes. */
-const VERSION = "wishwell-advent-v2";
+/* Wishwell Holiday Games: keeps the levels and games working offline. Bump VERSION when any file here changes. */
+const VERSION = "wishwell-advent-v3";
 const FILES = ["./", "index.html", "advent.css", "advent.js", "../img/mark.png", "../icons/favicon-32.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {

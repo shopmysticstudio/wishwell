@@ -1,11 +1,15 @@
-/* Wishwell Advent Calendar
-   A Christmas tree of 25 drawers (December 1 to 25), with a tiny game behind each one.
-   Plain HTML, CSS and canvas JavaScript: no network calls, no ads, no tracking. Scores stay on the device (localStorage).
+/* Wishwell Holiday Games
+   25 levels up a Christmas tree, each one a tiny holiday game. Beat a level (1 star or more) to open the next.
+   Levels 1 to 4 are free; the rest need the Games Pass (a Gumroad license key, checked by the Wishwell AI service).
+   A level's first win can earn a bonus AI round, granted by the AI service (never by the browser), capped per day.
+   Plain HTML, CSS and canvas JavaScript, no ads, no tracking. Scores stay on the device (localStorage).
    Music and sounds are synthesized live with Web Audio from an original tune written for Wishwell.
 
-   To reuse it somewhere else (for example the Play app), copy advent.css and advent.js, add <div id="advent"></div>, then:
-     WishwellAdvent.mount(document.getElementById("advent"), {backHref: "../", backLabel: "Wishwell", showPreview: false});
-   Testing helpers in the address: ?preview=1 opens every drawer, ?date=2026-12-05 pretends it is that day. */
+   To reuse it somewhere else, copy advent.css and advent.js, add <div id="advent"></div>, then:
+     WishwellAdvent.mount(el, {backHref: "../", backLabel: "Wishwell", showPreview: false,
+       net: {url: "<AI service address>", buyUrl: "<Games Pass checkout link>", price: "$1.99"}});
+   Without net.url the free levels still play; the pass box and bonus rounds are hidden.
+   Testing helper in the address: ?preview=1 opens every level (no bonus rounds while it's on). */
 (function () {
 "use strict";
 
@@ -20,8 +24,8 @@ const INK = C.ink;
 const REDUCED = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 
 /* ---------- Saved on this device ---------- */
-const KEY = "wishwell-advent-v1";
-const S = { best: {}, plays: {}, sound: true, music: true, preview: false };
+const KEY = "wishwell-levels-v1";
+const S = { best: {}, plays: {}, rew: {}, sound: true, music: true, preview: false };
 try { Object.assign(S, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
@@ -797,30 +801,60 @@ const DAYS = {
   24: { t: "Christmas Eve Dash", e: "run", o: { player: "sleigh", bg: "night", double: true, speed: 1.15, kinds: ["snowman", "gift", "tree", "stack"] }, how: TAP + " to jump, twice for a double jump. Deliver by morning!", s: [60, 200, 400] },
   25: { t: "Sleigh Ride Finale", e: "flap", o: { player: "sleigh", bg: "night", collect: true, gap: 186 }, how: TAP + " to fly. Scoop up presents for +3 each. Merry Christmas!", s: [10, 30, 60] }
 };
-const starsFor = (d, sc) => DAYS[d].s.filter(x => sc >= x).length;
+/* ---------- Levels: easiest first, a sampler of game types for the free ones ---------- */
+const ORDER = [1, 2, 3, 4, 6, 5, 7, 11, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25];
+const NLV = ORDER.length, FREE = 4;
+const LV = L => DAYS[ORDER[L - 1]];
+const starsFor = (L, sc) => LV(L).s.filter(x => sc >= x).length;
+const won = L => S.best[L] != null && starsFor(L, S.best[L]) >= 1;
 
-/* ---------- Dates ---------- */
-function today() {
-  const m = /[?&]date=(\d{4})-(\d{2})-(\d{2})/.exec(location.search);
-  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date();
+/* ---------- Games Pass (or a Holiday Pass) and this device's id, shared with the Wishwell beta ---------- */
+const PASS_KEY = "wishwell-games-pass";
+function readPass() {
+  try { const g = JSON.parse(localStorage.getItem(PASS_KEY) || "null"); if (g && g.key && g.email) return { key: g.key, email: g.email, kind: "games" }; } catch (e) {}
+  try { const h = JSON.parse(localStorage.getItem("wishwell-beta-pass") || "null"); if (h && h.ok && h.key && h.email) return { key: h.key, email: h.email, kind: "holiday" }; } catch (e) {}
+  return null;
 }
-function season() { const n = today(); return n.getMonth() === 0 ? n.getFullYear() - 1 : n.getFullYear(); }
-const isOpen = d => S.preview || today() >= new Date(season(), 11, d);
-const todayDay = () => { const n = today(); return n.getMonth() === 11 && n.getDate() <= 25 ? n.getDate() : 0; };
+function deviceId() {
+  let d = "";
+  try {
+    d = localStorage.getItem("wishwell-device") || "";
+    if (!/^[A-Za-z0-9_-]{16,64}$/.test(d)) {
+      d = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9]/g, "");
+      localStorage.setItem("wishwell-device", d);
+    }
+  } catch (e) {}
+  return d;
+}
 
 /* ---------- App ---------- */
 function mount(root, opt) {
   opt = opt || {};
+  const net = opt.net || {}, URL0 = String(net.url || "").trim().replace(/\/+$/, ""), REW = !!net.rewards && !!URL0, BUY = String(net.buyUrl || "").trim(), PRICE = net.price || "$1.99";
   if (/[?&]preview=1/.test(location.search)) { S.preview = true; save(); }
+  let PASS = readPass();
+  const hasPass = () => !!PASS;
+  const isOpen = L => S.preview || ((L === 1 || won(L - 1)) && (L <= FREE || hasPass()));
+  const needsPass = L => !S.preview && L > FREE && !hasPass();
+  const nextLevel = () => { for (let L = 1; L <= NLV; L++) if (!won(L)) return L; return 0; };
+  const headers = L => {
+    const h = { "content-type": "application/json" };
+    if (window.WISHWELL_ACCESS_CODE) h["x-beta-code"] = window.WISHWELL_ACCESS_CODE;
+    const d = deviceId(); if (d) h["x-device-id"] = d;
+    if (PASS && (!L || L > FREE)) { h["x-pass-key"] = PASS.key; h["x-pass-email"] = PASS.email; h["x-pass-product"] = PASS.kind; }
+    return h;
+  };
+
   root.classList.add("adv");
   root.innerHTML =
     '<canvas class="adv-snow" aria-hidden="true"></canvas>' +
     '<header class="adv-top">' + (opt.backHref ? '<a class="adv-back" href="' + opt.backHref + '">‹ ' + (opt.backLabel || "Back") + '</a>' : '<span style="width:44px"></span>') +
-    '<div class="adv-brand"><h1>Advent Calendar</h1><p>a tiny game behind every drawer</p></div>' +
+    '<div class="adv-brand"><h1>Holiday Games</h1><p>25 levels up the tree</p></div>' +
     '<div class="adv-tools"><button class="adv-ic" data-music type="button" aria-label="Music">♫</button><button class="adv-ic" data-sound type="button" aria-label="Sound">🔊</button></div></header>' +
     '<main class="adv-main"><p class="adv-note" role="status"></p><div class="adv-tree"></div>' +
-    (opt.showPreview !== false ? '<label class="adv-pv"><input type="checkbox" data-pv> Tester preview: open every drawer now</label>' : '') +
-    '<p class="adv-foot">Best scores stay on this device. No ads, no sign-up.</p></main>';
+    '<section class="adv-pass" data-pass aria-label="Games Pass"></section>' +
+    (opt.showPreview !== false ? '<label class="adv-pv"><input type="checkbox" data-pv> Tester preview: open every level now</label>' : '') +
+    '<p class="adv-foot">Scores stay on this device. No ads.</p></main>';
   const play = document.createElement("div"); play.className = "adv-play"; play.hidden = true;
   play.innerHTML = '<div class="adv-card" role="dialog" aria-modal="true" aria-labelledby="advT"><div class="adv-chead"><span class="adv-dl"></span><h2 id="advT"></h2>' +
     '<button class="adv-ic" data-sound type="button" aria-label="Sound">🔊</button><button class="adv-x" type="button" aria-label="Back to the tree">×</button></div>' +
@@ -828,41 +862,96 @@ function mount(root, opt) {
   document.body.appendChild(play);
   const toast = document.createElement("div"); toast.className = "adv-toast"; toast.setAttribute("role", "status"); document.body.appendChild(toast);
 
-  const tree = root.querySelector(".adv-tree"), note = root.querySelector(".adv-note");
+  const tree = root.querySelector(".adv-tree"), note = root.querySelector(".adv-note"), passBox = root.querySelector("[data-pass]");
   const card = play.querySelector(".adv-card"), cv = play.querySelector("canvas"), ov = play.querySelector(".adv-ov");
   const g = cv.getContext("2d");
 
-  /* Tree of drawers */
-  const ROWS = [[7, 14], [3, 19, 10], [12, 1, 17, 5], [20, 9, 15, 2, 11], [6, 18, 4, 13, 8, 16]];
-  const drawer = (d, cls) => '<button type="button" class="adv-d ' + cls + '" data-day="' + d + '"><span class="adv-n">' + d + '</span></button>';
+  /* The tree, climbed from the presents underneath (levels 1 to 4) up to the star (level 25) */
+  const ROWS = [[23, 24], [20, 21, 22], [16, 17, 18, 19], [11, 12, 13, 14, 15], [5, 6, 7, 8, 9, 10]];
+  const drawer = (L, cls) => '<button type="button" class="adv-d ' + cls + '" data-lv="' + L + '"><span class="adv-n">' + L + '</span></button>';
   let html = '<div class="adv-starw">' + drawer(25, "adv-star") + '</div>';
-  ROWS.forEach(row => { html += '<div class="adv-tier">' + row.map(d => drawer(d, "c" + (d * 7 % 5))).join("") + '</div>'; });
-  html += '<div class="adv-trunk"></div><div class="adv-gifts">' + [21, 22, 23, 24].map((d, i) => drawer(d, "adv-gift g" + (i + 1))).join("") + '</div>';
+  ROWS.forEach(row => { html += '<div class="adv-tier">' + row.map(L => drawer(L, "c" + (L * 7 % 5))).join("") + '</div>'; });
+  html += '<div class="adv-trunk"></div><div class="adv-gifts">' + [1, 2, 3, 4].map(L => drawer(L, "adv-gift g" + L)).join("") + '</div>';
   tree.innerHTML = html;
 
-  function label(btn, d) {
-    const open = isOpen(d), best = S.best[d], st = best != null ? starsFor(d, best) : -1;
-    let a = "December " + d + ", " + (open ? DAYS[d].t : "opens December " + d);
+  function label(btn, L) {
+    const best = S.best[L], st = best != null ? starsFor(L, best) : -1;
+    let a = "Level " + L + ", " + LV(L).t;
+    if (needsPass(L)) a += ", needs the Games Pass"; else if (!isOpen(L)) a += ", win level " + (L - 1) + " to open";
     if (st >= 0) a += ", best " + best + ", " + st + " of 3 stars";
     btn.setAttribute("aria-label", a);
   }
   function refresh() {
-    const td = todayDay();
+    const nx = nextLevel();
     tree.querySelectorAll(".adv-d").forEach(btn => {
-      const d = +btn.dataset.day, open = isOpen(d);
-      btn.classList.toggle("adv-lock", !open); btn.classList.toggle("adv-today", d === td);
-      let st = btn.querySelector(".adv-st"); const best = S.best[d];
-      if (best != null) { if (!st) { st = document.createElement("span"); st.className = "adv-st"; btn.appendChild(st); } const n = starsFor(d, best); st.textContent = "★".repeat(n) + "☆".repeat(3 - n); }
-      label(btn, d);
+      const L = +btn.dataset.lv, open = isOpen(L);
+      btn.classList.toggle("adv-lock", !open); btn.classList.toggle("adv-today", L === nx && open);
+      btn.classList.toggle("adv-paid", needsPass(L));
+      let st = btn.querySelector(".adv-st"); const best = S.best[L];
+      if (best != null) { if (!st) { st = document.createElement("span"); st.className = "adv-st"; btn.appendChild(st); } const n = starsFor(L, best); st.textContent = "★".repeat(n) + "☆".repeat(3 - n); }
+      label(btn, L);
     });
-    const n = today(), m = n.getMonth();
-    if (S.preview) note.innerHTML = "Preview is on: every drawer opens.";
-    else if (m === 11 && n.getDate() <= 25) note.innerHTML = "Day <b>" + n.getDate() + "</b> is open! Tap the glowing drawer.";
-    else if (m === 11 || m === 0) note.innerHTML = "Every drawer is open. Happy holidays!";
-    else note.innerHTML = "The first drawer opens <b>December 1</b>. One new game every day until Christmas.";
+    if (S.preview) note.innerHTML = "Preview is on: every level opens.";
+    else if (!nx) note.innerHTML = "You beat all 25 levels! Merry Christmas!";
+    else if (needsPass(nx)) note.innerHTML = "You beat the free levels! The <b>Games Pass</b> opens level " + nx + " and up.";
+    else note.innerHTML = "Level <b>" + nx + "</b> is next. Win it to open the one above.";
     const pv = root.querySelector("[data-pv]"); if (pv) pv.checked = !!S.preview;
     document.querySelectorAll("[data-sound]").forEach(b => { b.setAttribute("aria-pressed", S.sound); b.textContent = S.sound ? "🔊" : "🔇"; });
     const mb = root.querySelector("[data-music]"); mb.setAttribute("aria-pressed", S.music && S.sound);
+  }
+
+  /* Games Pass box under the tree */
+  function renderPass() {
+    if (PASS) {
+      passBox.innerHTML = '<p class="adv-pon"><b>' + (PASS.kind === "holiday" ? "Your Holiday Pass" : "Games Pass") + ' is on.</b> All 25 levels can open on this device.</p>';
+      return;
+    }
+    passBox.innerHTML = '<h2>Keep climbing</h2><p>Levels 1 to 4 are free. The Games Pass opens levels 5 to 25 for ' + PRICE + ', one time.</p>' +
+      (BUY ? '<a class="adv-btn" href="' + BUY.replace(/"/g, "&quot;") + '" target="_blank" rel="noopener" data-count="games_buy">Get the Games Pass ' + PRICE + '</a>'
+           : '<button class="adv-btn" type="button" disabled>Games Pass coming soon</button>') +
+      (URL0 ? '<details class="adv-key"><summary>I have a key</summary>' +
+        '<input type="text" data-k autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="License key" placeholder="Paste your key">' +
+        '<input type="email" data-e autocomplete="email" autocapitalize="off" spellcheck="false" aria-label="Email you bought it with" placeholder="Email you bought it with">' +
+        '<button class="adv-btn alt" type="button" data-unlock>Unlock</button><p class="adv-kmsg" role="status">A Games Pass or Holiday Pass key works. Use the email you bought it with.</p></details>' : '');
+  }
+  async function unlock() {
+    const kb = passBox.querySelector("[data-k]"), eb = passBox.querySelector("[data-e]"), btn = passBox.querySelector("[data-unlock]"), m = passBox.querySelector(".adv-kmsg");
+    const key = kb.value.trim(), email = String(eb.value || "").trim().toLowerCase();
+    if (!key) { m.textContent = "Paste your key first."; kb.focus(); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { m.textContent = "Type the email you bought it with."; eb.focus(); return; }
+    btn.disabled = true; btn.textContent = "Checking...";
+    try {
+      const r = await fetch(URL0 + "/verify", { method: "POST", headers: headers(0), body: JSON.stringify({ license_key: key, email, product: "games" }) });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.valid) {
+        PASS = { key, email, kind: "games" };
+        try { localStorage.setItem(PASS_KEY, JSON.stringify(PASS)); } catch (e) {}
+        Snd.play("gold"); say("Games Pass unlocked!"); renderPass(); refresh(); return;
+      }
+      m.textContent = r.status === 429 ? (d.error === "too_many_tries" ? "Too many wrong tries from this network today. Try again tomorrow." : "Couldn't check the key right now. Try again in a minute.")
+        : d.reason === "device_limit" ? "This key is already on 3 devices, so it can't be added here."
+        : d.reason === "refunded" ? "This pass was refunded, so the key doesn't work anymore."
+        : d.reason === "not_set_up" || d.reason === "gumroad_unreachable" ? "Couldn't check the key right now. Try again in a minute."
+        : "That key and email don't match a pass. Check both against your receipt.";
+    } catch (e) { m.textContent = "Couldn't check the key right now. Check your connection and try again."; }
+    btn.disabled = false; btn.textContent = "Unlock";
+  }
+  passBox.addEventListener("click", e => { if (e.target.closest("[data-unlock]")) unlock(); });
+  passBox.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches("[data-k],[data-e]")) { e.preventDefault(); unlock(); } });
+  const showPass = () => { passBox.scrollIntoView({ behavior: REDUCED ? "auto" : "smooth", block: "center" }); if (!REDUCED) { passBox.classList.remove("adv-wig"); void passBox.offsetWidth; passBox.classList.add("adv-wig"); } };
+
+  /* Bonus AI round for a level's first win. The AI service decides; the browser only asks. */
+  async function claim(L) {
+    if (!REW || S.preview || S.rew[L]) return null;
+    try {
+      const r = await fetch(URL0 + "/reward", { method: "POST", headers: headers(L), body: JSON.stringify({ level: L }) });
+      if (r.status === 404) return null;
+      const d = await r.json().catch(() => ({}));
+      if (d.granted) { S.rew[L] = 1; save(); return { got: true, bonus: d.bonus }; }
+      if (d.reason === "already") { S.rew[L] = 1; save(); return null; }
+      if (d.reason === "daily_limit") return { limit: true };
+      return null;
+    } catch (e) { return null; }
   }
 
   let toastT = 0;
@@ -880,12 +969,14 @@ function mount(root, opt) {
 
   tree.addEventListener("click", e => {
     const btn = e.target.closest(".adv-d"); if (!btn) return;
-    const d = +btn.dataset.day;
-    if (!isOpen(d)) {
+    const L = +btn.dataset.lv;
+    if (!isOpen(L)) {
       Snd.play("tok"); if (!REDUCED) { btn.classList.remove("adv-wig"); void btn.offsetWidth; btn.classList.add("adv-wig"); }
-      say("Day " + d + " opens on December " + d + ". Come back then!"); return;
+      if (!won(L - 1)) say("Win level " + (L - 1) + " to open level " + L + ".");
+      else { say("Level " + L + " and up need the Games Pass."); showPass(); }
+      return;
     }
-    openDay(d, btn);
+    openDay(L, btn);
   });
 
   /* ---------- Game window ---------- */
@@ -908,14 +999,15 @@ function mount(root, opt) {
   }
   window.addEventListener("resize", () => { if (!play.hidden) fit(); });
 
-  function newEngine() { const def = DAYS[cur.day]; cur.eng = ENGINES[def.e](api, def.o); cur.score = 0; cur.t = 0; parts = []; floats = []; }
+  function newEngine() { const def = LV(cur.day); cur.eng = ENGINES[def.e](api, def.o); cur.score = 0; cur.t = 0; parts = []; floats = []; }
 
   function panel(inner) { ov.innerHTML = '<div class="adv-panel">' + inner + '</div>'; ov.hidden = false; const b = ov.querySelector("[data-go]"); if (b) b.focus({ preventScroll: true }); }
   function showReady() {
-    const d = cur.day, def = DAYS[d], best = S.best[d];
+    const d = cur.day, def = LV(d), best = S.best[d];
     cur.state = "ready";
     panel('<h3>' + def.t + '</h3><p class="adv-how">' + def.how + '</p>' +
       (best != null ? '<p class="adv-sub">Your best: ' + best + ' ' + "★".repeat(starsFor(d, best)) + '</p>' : '<p class="adv-sub">Stars at ' + def.s.join(", ") + ' points</p>') +
+      (REW && !S.preview && !S.rew[d] ? '<p class="adv-rw">First win (1 star): +1 bonus AI round</p>' : '') +
       '<div class="adv-btns"><button class="adv-btn" type="button" data-go>Play</button></div>');
   }
   function startGame() {
@@ -923,21 +1015,43 @@ function mount(root, opt) {
     if (cur.eng.start) cur.eng.start();
   }
   function endGame() {
-    const d = cur.day, sc = cur.score, prev = S.best[d], isBest = prev == null || sc > prev;
+    const d = cur.day, sc = cur.score, prev = S.best[d], isBest = prev == null || sc > prev, wasWon = won(d);
     cur.state = "over";
     if (isBest) S.best[d] = sc; S.plays[d] = (S.plays[d] || 0) + 1; save();
-    const st = starsFor(d, sc), next = DAYS[d].s.find(x => sc < x);
+    const st = starsFor(d, sc), next = LV(d).s.find(x => sc < x), firstWin = st >= 1 && !wasWon;
+    const reward = st >= 1 ? claim(d) : Promise.resolve(null);
     setTimeout(() => { Snd.play(st >= 2 ? "win" : "over"); if (st === 3) Snd.play("sparkle"); }, 120);
     setTimeout(() => {
       if (!cur || cur.state !== "over") return;
+      const nL = d + 1, nOpen = nL <= NLV && isOpen(nL);
+      let line = "", btns = "";
+      if (firstWin && nL <= NLV) line = nOpen ? "Level " + nL + " is open!" : needsPass(nL) ? "You beat the free levels! Level " + nL + " and up need the Games Pass." : "";
+      else if (firstWin) line = "You beat the whole tree!";
+      if (st >= 1 && nOpen) btns += '<button class="adv-btn" type="button" data-next>Next level</button><button class="adv-btn alt" type="button" data-go>Play again</button>';
+      else if (st >= 1 && nL <= NLV && needsPass(nL)) btns += '<button class="adv-btn" type="button" data-passgo>See the Games Pass</button><button class="adv-btn alt" type="button" data-go>Play again</button>';
+      else btns += '<button class="adv-btn" type="button" data-go>Play again</button>';
+      btns += '<button class="adv-btn alt" type="button" data-close>Back to the tree</button>';
       panel('<h3>' + ["Good try!", "Nice!", "Great job!", "Superstar!"][st] + '</h3><div class="adv-big">' + sc + '</div>' +
         (isBest && prev != null ? '<div class="adv-new">New best!</div>' : '') +
         '<div class="adv-ps" aria-label="' + st + ' of 3 stars">' + [0, 1, 2].map(i => '<span class="' + (i < st ? "on" : "") + '">★</span>').join("") + '</div>' +
-        '<p class="adv-sub">' + (next != null ? "Next star at " + next : "All 3 stars!") + (prev != null && !isBest ? " · Best " + prev : "") + '</p>' +
-        '<div class="adv-btns"><button class="adv-btn" type="button" data-go>Play again</button><button class="adv-btn alt" type="button" data-close>Back to the tree</button></div>');
+        '<p class="adv-sub">' + (st < 1 ? "Get 1 star (" + LV(d).s[0] + " points) to win" : next != null ? "Next star at " + next : "All 3 stars!") + (prev != null && !isBest ? " · Best " + prev : "") + '</p>' +
+        (line ? '<p class="adv-lvl">' + line + '</p>' : '') + '<p class="adv-rw" data-rw hidden></p>' +
+        '<div class="adv-btns">' + btns + '</div>');
+      const here = cur;
+      reward.then(r => {
+        if (!r || cur !== here || cur.state !== "over") return;
+        const el = ov.querySelector("[data-rw]"); if (!el) return;
+        if (r.got) { el.textContent = "+1 bonus AI round for gift ideas!" + (r.bonus > 1 ? " You have " + r.bonus + " saved up." : ""); Snd.play("gold"); }
+        else if (r.limit) el.textContent = "You've earned today's bonus AI rounds. More tomorrow.";
+        el.hidden = false;
+      });
       refresh();
     }, 650);
   }
+  ov.addEventListener("click", e => {
+    if (e.target.closest("[data-next]") && cur) { const L = cur.day + 1; closeDay(); const b = tree.querySelector('[data-lv="' + L + '"]'); if (b) setTimeout(() => openDay(L, b), REDUCED ? 0 : 120); }
+    else if (e.target.closest("[data-passgo]")) { closeDay(); setTimeout(showPass, 60); }
+  });
   ov.addEventListener("click", e => {
     if (e.target.closest("[data-go]")) startGame();
     else if (e.target.closest("[data-close]")) closeDay();
@@ -945,7 +1059,7 @@ function mount(root, opt) {
 
   function openDay(d, btn) {
     opener = btn; cur = { day: d, state: "ready", score: 0, t: 0 };
-    play.querySelector(".adv-dl").textContent = "Dec " + d; play.querySelector("#advT").textContent = DAYS[d].t;
+    play.querySelector(".adv-dl").textContent = "Level " + d; play.querySelector("#advT").textContent = LV(d).t;
     Snd.play("whoosh");
     const go = () => {
       play.hidden = false; fit(); newEngine(); showReady();
@@ -1039,10 +1153,10 @@ function mount(root, opt) {
     requestAnimationFrame(snow);
   }
 
-  refresh();
+  renderPass(); refresh();
   /* Fonts may load after first paint; nothing on the tree depends on them, but game text does. */
-  return { refresh, open: d => openDay(d, tree.querySelector('[data-day="' + d + '"]')) };
+  return { refresh, open: L => openDay(L, tree.querySelector('[data-lv="' + L + '"]')) };
 }
 
-window.WishwellAdvent = { mount, days: DAYS, engines: ENGINES };
+window.WishwellAdvent = { mount, days: DAYS, order: ORDER, engines: ENGINES };
 })();

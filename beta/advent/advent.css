@@ -76,6 +76,23 @@
 .adv-gift.g4{--gbg:linear-gradient(#fff9ef,#f2dfbd);color:var(--navy);--bow:#e0453a}
 .adv-gift .adv-n{background:rgba(35,40,77,.55);color:#fff;border-radius:8px;padding:2px 5px}
 .adv-gift.g4 .adv-n{background:rgba(255,255,255,.8);color:var(--navy)}
+/* Games Pass */
+.adv-d.adv-paid::before{content:"🔒";position:absolute;top:-10px;left:-8px;font-size:12px;line-height:1;background:var(--navy);border:2px solid var(--gold);border-radius:999px;padding:3px 3px 2px}
+.adv-pass{max-width:400px;margin:22px auto 0;background:var(--cream);color:var(--navy);border:3px solid var(--ink);border-radius:18px;box-shadow:0 5px 0 var(--ink);padding:14px 16px;text-align:center}
+.adv-pass:empty{display:none}
+.adv-pass.adv-wig{animation:adv-wig .45s}
+.adv-pass h2{margin:0 0 4px;font:900 22px/1.15 Nunito,system-ui,sans-serif}
+.adv-pass p{margin:4px 0 10px;font-weight:700}
+.adv-pass .adv-btn{display:flex;align-items:center;justify-content:center;text-decoration:none;width:100%;box-sizing:border-box}
+.adv-pass .adv-btn:disabled{opacity:.6;cursor:default}
+.adv-pass .adv-pon{margin:0}
+.adv-key{margin-top:10px;text-align:left}
+.adv-key summary{cursor:pointer;font-weight:800;min-height:44px;display:flex;align-items:center;justify-content:center}
+.adv-key input{display:block;width:100%;box-sizing:border-box;font:600 16px/1.3 Nunito,system-ui,sans-serif;padding:10px 12px;margin:0 0 8px;border:2px solid var(--ink);border-radius:12px;background:#fff;color:#141414;min-height:46px}
+.adv-key .adv-btn{margin-top:2px}
+.adv-kmsg{font-size:14px;font-weight:600!important;color:#5c5874;margin:8px 0 0!important}
+.adv-panel .adv-lvl{color:var(--coral);font-weight:900}
+.adv-panel .adv-rw{color:#23897c;font-weight:900}
 .adv-pv{display:flex;align-items:center;justify-content:center;gap:8px;margin:22px auto 4px;font-weight:700;color:#e9e6f5;font-size:14px;min-height:44px}
 .adv-pv input{width:22px;height:22px;accent-color:var(--gold)}
 .adv-foot{text-align:center;font-size:13px;color:#b9b5d6;margin:4px 0 0}
