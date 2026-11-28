@@ -914,11 +914,11 @@ export default {
     // called /hit or /log, so the site uses /v and /r. The old names keep working.
     const path = path0 === "/r" ? "/log" : path0 === "/v" ? "/hit" : path0;
     if (request.method === "OPTIONS") {
-      if (appOrigin && path !== "/verify" && path !== "/" && path !== "/signal" && path !== "/log" && !path.startsWith("/codes")) return reply({ error: "origin_not_allowed" }, 403);
+      if (appOrigin && path !== "/verify" && path !== "/" && path !== "/signal" && path !== "/log" && path !== "/map" && !path.startsWith("/codes")) return reply({ error: "origin_not_allowed" }, 403);
       return new Response(null, { status: 204, headers: cors });
     }
     if (request.method !== "POST") return reply({ error: "use_post" }, 405);
-    if (appOrigin && !(path === "/verify" || path === "/signal" || path === "/log" || path.startsWith("/codes") || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
+    if (appOrigin && !(path === "/verify" || path === "/signal" || path === "/log" || path === "/map" || path.startsWith("/codes") || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
     if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist" && path !== "/hit" && path !== "/log" && path !== "/codes" && path !== "/codes/add" && path !== "/codes/vote" && path !== "/map" && path !== "/map/score" && path !== "/reward") return reply({ error: "not_found" }, 404);
 
     const maxBody = path === "/photo" ? MAX_PHOTO_BODY : MAX_BODY;
@@ -1030,6 +1030,18 @@ export default {
       return reply({ ok: true }, 200);
     }
 
+    /* /map from the Android app (version 5 has the gift map): the same read-only list of ideas and their
+       factors, with no beta code. /map/score (AI scoring) and the website's /map stay beta only. */
+    const mapRead = async () => {
+      if (!env.DB) return reply({ error: "not_set_up" }, 429);
+      if (env.HITS && typeof env.HITS.limit === "function") {
+        try { const { success } = await env.HITS.limit({ key: "map:" + network(ip) }); if (!success) return reply({ error: "rate_limited" }, 429); } catch (e) {}
+      }
+      try { return reply(await mapList(env.DB), 200); }
+      catch (e) { await env.DB.prepare(MAP_TABLE).run(); return reply(await mapList(env.DB), 200); }
+    };
+    if (appOrigin && path === "/map") return mapRead();
+
     const codeHeader = request.headers.get("x-beta-code");
     const beta = !!codeHeader && await codeOk(codeHeader, env);
     if (String(env.BETA_ONLY || "true") !== "false" && !beta) {
@@ -1040,12 +1052,12 @@ export default {
        factors; /map/score rates up to 25 ideas that have none yet with the small model, capped per day. */
     if (path === "/map" || path === "/map/score") {
       if (!beta) return reply({ error: "beta_code_required" }, 429);
+      if (path === "/map") return mapRead();
       if (!env.DB) return reply({ error: "not_set_up" }, 429);
       if (env.HITS && typeof env.HITS.limit === "function") {
         try { const { success } = await env.HITS.limit({ key: "map:" + network(ip) }); if (!success) return reply({ error: "rate_limited" }, 429); } catch (e) {}
       }
       const safely = async f => { try { return await f(); } catch (e) { await env.DB.prepare(MAP_TABLE).run(); return await f(); } };
-      if (path === "/map") return reply(await safely(() => mapList(env.DB)), 200);
       if (!env.AI || String(env.MAP_SCORE || "on") === "off") return reply({ scored: [] }, 200);
       let items = mapItems(raw);
       if (!items.length) return reply({ scored: [] }, 200);

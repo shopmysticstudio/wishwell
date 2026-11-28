@@ -31,7 +31,10 @@ sql.exec(`INSERT INTO idea_tags VALUES ('moon lamp','int:Space and science',2),(
 // Beta only, and not from the app.
 assert.equal((await call("/map", {}, ""))[0], 429);
 assert.equal((await call("/map", {}, "WRONGCODE9"))[0], 429);
-assert.equal((await call("/map", {}, "TESTCODE12", "https://localhost"))[0], 403);
+// The Android app (version 5) may read the list without a code, but never score.
+{ const [st, bd] = await call("/map", {}, "", "https://localhost"); assert.equal(st, 200); assert.ok(Array.isArray(bd.pool)); assert.equal(typeof bd.f, "object"); }
+assert.equal((await call("/map/score", { ideas: [] }, "", "https://localhost"))[0], 403);
+assert.equal((await call("/map/score", { ideas: [] }, "TESTCODE12", "https://localhost"))[0], 403);
 // List: makes the table on first use, averages prices, carries interest tags.
 let [s, b] = await call("/map", {});
 assert.equal(s, 200); assert.equal(b.pool.length, 2);
