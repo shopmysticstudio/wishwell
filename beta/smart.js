@@ -93,7 +93,10 @@ function loadEmbedder() {
       const ms = ["cozy reading nook blanket", "beginner telescope", "cat window perch"].map(t => { const t0 = performance.now(); e.embed(t); return performance.now() - t0; }).sort((a, b) => a - b)[1];
       W.ms = Math.round(ms);
       if (ms > WEAK_MS) { W.slow = true; W.embState = "slow"; return null; }
-      W.emb = e; W.embState = "ready"; return e;
+      W.emb = e; W.embState = "ready";
+      if (DBG) { const a = vec("cat window perch"), b = vec("beginner telescope"), c = vec("cat bed"), r = e.embed("cat bed").embeddings[0];
+        W.probe = "probe cat/telescope " + dot(a, b).toFixed(2) + " cat/catbed " + dot(a, c).toFixed(2) + " len " + (r.floatEmbedding || []).length + (r.quantizedEmbedding ? " quantized" : ""); }
+      return e;
     } catch (err) { W.embState = "off"; return null; }
   })();
 }
@@ -477,6 +480,6 @@ try { start(); } catch (e) { if (DBG) document.getElementById("wwDebug").textCon
 // ?smartdebug=1 shows what the matcher is doing, for testing.
 if (DBG) {
   const d = document.getElementById("wwDebug");
-  setInterval(() => { const st = WWSmart.state(); d.textContent = "matcher " + st.emb + (W.ms != null ? " " + W.ms + "ms" : "") + " · pool " + st.pool + " · vectors " + st.vec + (st.slow ? " · slow" : "") + (W.last ? "\n" + W.last : "") + (window.__wwErr || ""); }, 1000);
+  setInterval(() => { const st = WWSmart.state(); d.textContent = "matcher " + st.emb + (W.ms != null ? " " + W.ms + "ms" : "") + " · pool " + st.pool + " · vectors " + st.vec + (st.slow ? " · slow" : "") + (W.probe ? "\n" + W.probe : "") + (W.last ? "\n" + W.last : "") + (window.__wwErr || ""); }, 1000);
 }
 })();
