@@ -42,6 +42,17 @@ android {
     }
 }
 
+// MediaPipe also ships an on-phone chat model library (textgenai) that the text embedder doesn't use,
+// and x86 builds for emulators and some Chromebooks (those run the Arm build). Leaving them out
+// keeps the download small.
+android {
+    packaging {
+        jniLibs {
+            excludes += ['**/libmediapipe_tasks_textgenai_jni.so', 'lib/x86/**', 'lib/x86_64/**']
+        }
+    }
+}
+
 repositories {
     flatDir{
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
@@ -55,7 +66,7 @@ dependencies {
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
     // On-phone idea scoring by meaning (Text Embedder with the Universal Sentence Encoder in assets/models).
-    implementation 'com.google.mediapipe:tasks-text:latest.release'
+    implementation 'com.google.mediapipe:tasks-text:1.2.3'
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

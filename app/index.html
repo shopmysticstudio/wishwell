@@ -264,8 +264,13 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <label class="field" style="max-width:640px"><span>List title</span><input type="text" id="listName" maxlength="50"></label>
   <div class="toggles"><label><input type="checkbox" id="optPrice" checked> Show estimated prices</label><label><input type="checkbox" id="optWhy"> Include notes</label></div>
   <div class="sheet" id="sheet"></div>
-  <div class="row" style="margin:16px 0"><button class="btn primary" type="button" id="linkBtn">Copy share link</button><button class="btn" type="button" id="copyBtn">Copy as text</button><button class="btn" type="button" id="famBtn">See what family sees</button></div>
+  <div class="row" style="margin:16px 0"><button class="btn primary" type="button" id="linkBtn">Copy share link</button><button class="btn primary" type="button" id="natShare" hidden>Share list</button><button class="btn" type="button" id="copyBtn">Copy as text</button><button class="btn" type="button" id="famBtn">See what family sees</button></div>
   <p class="note">The share link opens your list for family, where they can buy and mark things as already bought. Paste it in a text or family chat.</p>
+  <div class="note" id="bdayBox" hidden><strong>Birthday reminder</strong><p class="small muted" style="margin:4px 0 8px">Wishwell reminds you two weeks and three days before. Only the month and day are kept, on this phone.</p>
+    <div class="row"><select id="bdayM" aria-label="Birthday month" style="flex:1 1 140px"></select><select id="bdayD" aria-label="Birthday day" style="flex:0 1 90px"></select></div>
+    <label style="display:block;margin-top:8px"><input type="checkbox" id="bdayOn"> Remind me before their birthday</label><p class="small" id="bdayMsg"></p></div>
+  <div class="note" id="savedBox" hidden><strong>Saved lists</strong><p class="small muted" style="margin:4px 0 8px">Lists are kept on this phone and open without a connection.</p>
+    <div id="savedList"></div><div class="row" style="margin-top:10px"><button class="btn" type="button" id="newList">Save this list and start a new one</button></div></div>
   <div class="note"><strong>Testing this?</strong> When you're done, copy your test report and send it back to whoever sent you Wishwell. It has counts only, none of your list.<div class="row" style="margin-top:10px"><button class="btn reportBtn" type="button">Copy my test report</button></div></div>
 </section>
 
@@ -1292,8 +1297,9 @@ const esc=v=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"
 const metrics=()=>({quizDone:0,quizTaps:0,ideas:0,circled:0,cut:0,have:0,ai:0,linkCopies:0,textCopies:0,previews:0,buy:0,famBuy:0,famOpens:0,claims:0,makeOwn:0,draws:0,biggest:0,pay:{holiday:0,exchange:0,plus:0}});
 const fresh=()=>({ageOk:false,u13:false,forWho:"me",name:"",age:"",lean:"",ints:[],notes:"",quiz:{},style:"",budget:"any",items:[],kept:[],have:[],seq:0,round:0,aiRounds:0,view:"start",snd:true,listName:"",group:false,opt:{price:true,why:false},g:{name:"",limit:"25",people:[],pairs:[],unlocked:false},claims:{},m:metrics()});
 let S=fresh(),sample=null,busy=false,FAM=null;
-try{const raw=localStorage.getItem("wishbook-v1");if(raw){const o=JSON.parse(raw);S=Object.assign(fresh(),o);S.m=Object.assign(metrics(),o.m||{});S.m.pay=Object.assign(metrics().pay,(o.m||{}).pay||{});S.g=Object.assign(fresh().g,o.g||{});S.opt=Object.assign(fresh().opt,o.opt||{})}}catch(e){}
-const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}signalLater();logLater()};
+function fromSaved(o){const s=Object.assign(fresh(),o);s.m=Object.assign(metrics(),o.m||{});s.m.pay=Object.assign(metrics().pay,(o.m||{}).pay||{});s.g=Object.assign(fresh().g,o.g||{});s.opt=Object.assign(fresh().opt,o.opt||{});return s}
+let HAD_LIST=false;try{const raw=localStorage.getItem("wishbook-v1");if(raw){S=fromSaved(JSON.parse(raw));HAD_LIST=true}}catch(e){}
+const save=()=>{try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}signalLater();logLater();natSaveLater()};
 const toast=t=>{const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400)};
 const money=(lo,hi)=>lo===hi?"$"+lo:"$"+lo+" to $"+hi;
 const est=it=>it.hi?"est. "+money(it.lo,it.hi):"";
@@ -1628,6 +1634,8 @@ function bankIdeas(n){
     const gen=isGen(b),niche=isNiche(b);let gate=0;
     let held=false;
     s+=ageFit(b);
+    // Meaning score from the phone's embedder: closeness to likes, minus closeness to a cut idea. A clear match counts as a real interest.
+    if(EMB){const e=EMB.get(b[0].toLowerCase());if(e){s+=18*e[0];if(e[0]>=0.2)strong=true;if(e[1]>0.55)s-=12*(e[1]-0.55)}}
     const custom=CUSTOM_RE.test(b[0]);
     if(!note){if(PLAIN_RE.test(b[0]))s-=3;if(custom)s-=2.5;if(b[1]==="Food"&&!foodOk&&lo(P.cat,"Food")<=0.3)s-=2.5}
     const leanOk=gen&&((S.lean==="fem"&&FEM_RE.test(ideaText(b)))||(S.lean==="masc"&&MASC_RE.test(ideaText(b))));if(leanOk)s+=1;
@@ -1725,7 +1733,7 @@ async function getIdeas(){
       if(c==="not_granted")sample=null}
     await thinkShow(tm,got?S.items.filter(i=>i.round===S.round&&i.src==="AI pick"):[]);
   }
-  if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
+  if(got<4){await embScore();const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
   if(got&&!msg.querySelector(".err"))msg.innerHTML=!aiOn()&&bankIdeas.noteMiss?`<p class="note">None of the starter ideas matched the words in Details, so these come from the quiz. Words like puzzles, camping or coffee match best.</p>`:"";
   if(note)msg.innerHTML=`<p class="note">${note}</p>`;
   logRound();setAi();busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
@@ -2017,6 +2025,91 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b
 $("#retake").addEventListener("click",()=>{qi=0;renderQuiz()});
 const openShared=()=>{const d=readHash();if(d){FAM={data:d,preview:false};S.m.famOpens++;show("family");return true}return false};
 window.addEventListener("hashchange",openShared);
+
+/* Play app native parts (5.0). In a browser none of this runs and the page works as before.
+   - Scoring by meaning: the phone's text embedder rates every starter idea against what they like and cut.
+   - Saved lists: the open list and saved lists are also kept in the app's own files.
+   - Birthday reminders: optional notifications two weeks and three days before.
+   - Share list: Android's share sheet with the list and the family link. */
+const nat=(m,o,ms,pl)=>NATIVE?Promise.race([window.Capacitor.nativePromise(pl||"WishwellNative",m,o||{}),new Promise((_,j)=>setTimeout(()=>j(new Error("slow")),ms||3000))]):Promise.reject(new Error("web"));
+var EMB=null;
+const embText=b=>b[0]+". "+b[4];
+async function embScore(){
+  EMB=null;if(!NATIVE)return;
+  const pos=[],top=S.kept.slice(0,3);
+  S.ints.forEach(n=>pos.push([n,0.7]));tasteTags().forEach(t=>pos.push([t,0.5]));
+  const nt=S.notes.trim();if(nt){pos.push([nt.slice(0,300),1]);nt.split(/[,;.\n]+| and /).map(x=>x.trim()).filter(x=>x.length>2).slice(0,8).forEach(x=>pos.push([x.slice(0,80),1]))}
+  S.items.filter(i=>i.status==="kept").slice(-20).forEach(i=>pos.push([i.title,top.includes(i.id)?1:0.8]));
+  S.items.filter(i=>i.status==="have").slice(-10).forEach(i=>pos.push([i.title,0.4]));
+  const neg=S.items.filter(i=>i.status==="cut").slice(-20).map(i=>i.title);
+  if(!pos.length)return;
+  const seen=new Set(S.items.map(i=>i.title.toLowerCase()));
+  const items=BANK.filter(b=>!seen.has(b[0].toLowerCase())).map(b=>[b[0].toLowerCase(),embText(b)]);
+  try{const r=await nat("score",{items,pos,neg},2500);if(r&&r.ready&&r.s){EMB=new Map(Object.entries(r.s));S.m.emb=(S.m.emb||0)+1}}catch(e){}
+}
+var natT=0;
+function natSaveLater(){if(!NATIVE)return;clearTimeout(natT);natT=setTimeout(()=>nat("putList",{id:"current",data:JSON.stringify(S)}).catch(()=>{}),800)}
+const newListId=()=>"l"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const listLabel=o=>(o.listName||"").trim()||((o.name||"").trim()?(o.forWho==="me"?o.name.trim()+"'s list":"For "+o.name.trim()):(o.forWho==="me"?"My list":"Untitled list"));
+async function renderSaved(){
+  if(!NATIVE)return;const box=$("#savedList");if(!box)return;
+  let rows=[];try{const r=await nat("lists");for(const l of (r.lists||[]).sort((a,b)=>b.at-a.at)){const g=await nat("getList",{id:l.id});if(g&&g.data){try{const o=JSON.parse(g.data);rows.push({id:l.id,o,at:l.at})}catch(e){}}}}catch(e){}
+  box.innerHTML=rows.length?rows.map(r=>`<div class="row" style="align-items:center;margin:6px 0"><span style="flex:1 1 auto"><strong>${esc(listLabel(r.o))}</strong> <span class="small muted">${(r.o.kept||[]).length} circled · ${new Date(r.at).toLocaleDateString()}</span></span><button class="btn" type="button" data-open="${r.id}" style="min-height:40px">Open</button><button class="btn" type="button" data-del="${r.id}" style="min-height:40px">Delete</button></div>`).join(""):`<p class="small muted">No saved lists yet.</p>`;
+}
+const keepAcross=()=>({ageOk:S.ageOk,u13:S.u13,snd:S.snd,track:S.track,pastAsked:S.pastAsked,m:S.m});
+async function stashCurrent(){
+  if(!S.items.length&&!S.name)return true;
+  S.listId=S.listId||newListId();
+  try{await nat("putList",{id:S.listId,data:JSON.stringify(S)});return true}catch(e){toast("Couldn't save this list");return false}
+}
+async function openList(o){logFlush();S=Object.assign(fromSaved(o),keepAcross());S.lid=newLid();qi=0;EMB=null;save();renderQuiz();show(S.items.length?"ideas":"start");renderSaved();paintBday()}
+if(NATIVE){
+  $("#linkBtn").hidden=true;$("#natShare").hidden=false;$("#bdayBox").hidden=false;$("#savedBox").hidden=false;
+  $("#natShare").addEventListener("click",async()=>{if(!S.kept.length){toast("Circle some ideas first");return}S.m.linkCopies++;save();
+    try{await nat("share",{title:listTitle(),text:shareText(),url:shareLink(),dialogTitle:"Share your list"},60000,"Share")}catch(e){copy(shareLink(),"Link copied. Paste it to family.")}});
+  $("#newList").addEventListener("click",async()=>{if(!(await stashCurrent()))return;const k=keepAcross();logFlush();S=Object.assign(fresh(),k);S.lid=newLid();qi=0;EMB=null;save();renderQuiz();show("start");renderSaved();paintBday();toast("Saved. New list started.")});
+  $("#savedList").addEventListener("click",async e=>{const o=e.target.closest("[data-open]"),d=e.target.closest("[data-del]");
+    if(o){const id=o.dataset.open;try{const g=await nat("getList",{id});if(!g||!g.data)return;if(!(await stashCurrent()))return;await nat("deleteList",{id});await openList(JSON.parse(g.data));toast("List opened")}catch(err){toast("Couldn't open that list")}}
+    if(d){const id=d.dataset.del;if(d.dataset.sure!=="1"){d.dataset.sure="1";d.textContent="Delete for good?";return}try{await nat("deleteList",{id});await cancelBday(id)}catch(err){}renderSaved()}});
+  // Wiped web storage: bring the list back from the phone's copy.
+  if(!HAD_LIST)nat("getList",{id:"current"}).then(g=>{if(g&&g.data){try{S=fromSaved(JSON.parse(g.data));renderQuiz();show(S.view||"start");paintBday()}catch(e){}}}).catch(()=>{});
+  setTimeout(()=>nat("warm",{texts:BANK.map(embText)}).catch(()=>{}),2500);
+  renderSaved();
+}
+/* Birthday reminders: a yearly notification at 10 AM, 14 and 3 days before. Ids come from the list's id. */
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const bdayIds=id=>{let h=7;for(const c of String(id))h=(h*31+c.charCodeAt(0))%200000;return[h*10+1,h*10+2]};
+function paintBday(){
+  if(!NATIVE)return;const b=S.bday||{};
+  $("#bdayM").innerHTML=`<option value="">Month</option>`+MONTHS.map((m,i)=>`<option value="${i+1}"${+b.m===i+1?" selected":""}>${m}</option>`).join("");
+  const days=b.m?new Date(2024,+b.m,0).getDate():31;
+  $("#bdayD").innerHTML=`<option value="">Day</option>`+Array.from({length:days},(_,i)=>`<option value="${i+1}"${+b.d===i+1?" selected":""}>${i+1}</option>`).join("");
+  $("#bdayOn").checked=!!b.on;$("#bdayMsg").textContent=b.on&&b.m&&b.d?`Reminders set for ${MONTHS[b.m-1]} ${b.d-0}.`:"";
+}
+async function cancelBday(id){try{await nat("cancel",{notifications:bdayIds(id).map(x=>({id:x}))},3000,"LocalNotifications")}catch(e){}}
+async function setBday(ask){
+  S.listId=S.listId||newListId();const b=S.bday||{};const ids=bdayIds(S.listId);
+  await cancelBday(S.listId);
+  if(!b.on||!b.m||!b.d){paintBday();return}
+  try{let p=await nat("checkPermissions",{},3000,"LocalNotifications");
+    if(p&&p.display!=="granted"&&ask)p=await nat("requestPermissions",{},60000,"LocalNotifications");
+    if(!p||p.display!=="granted"){b.on=false;S.bday=b;save();paintBday();$("#bdayMsg").textContent="Notifications are off for Wishwell. Turn them on in the phone's settings to get reminders.";return}
+    const who=(S.name||"").trim()||"them";
+    const at=days=>{const d=new Date(2025,b.m-1,b.d-days);return{month:d.getMonth(),day:d.getDate(),hour:10,minute:0}};
+    await nat("schedule",{notifications:[
+      {id:ids[0],title:"Birthday in two weeks",body:`${S.forWho==="me"?"Your":who==="them"?"Their":who+"'s"} birthday is ${MONTHS[b.m-1]} ${b.d}. Your Wishwell list is ready to share.`,schedule:{on:at(14)},isExactNotification:false,smallIcon:"ic_stat_wishwell"},
+      {id:ids[1],title:"Birthday in three days",body:`${S.forWho==="me"?"Your":who==="them"?"Their":who+"'s"} birthday is ${MONTHS[b.m-1]} ${b.d}.`,schedule:{on:at(3)},isExactNotification:false,smallIcon:"ic_stat_wishwell"}]},10000,"LocalNotifications");
+    S.m.bday=(S.m.bday||0)+1;save();paintBday();
+  }catch(e){$("#bdayMsg").textContent="Couldn't set the reminder just now."}
+}
+if(NATIVE){
+  paintBday();
+  const upd=()=>{S.bday={m:+$("#bdayM").value||0,d:+$("#bdayD").value||0,on:$("#bdayOn").checked};if(S.bday.d&&S.bday.m&&S.bday.d>new Date(2024,S.bday.m,0).getDate())S.bday.d=0;save()};
+  $("#bdayM").addEventListener("change",()=>{upd();paintBday();if(S.bday.on)setBday(false)});
+  $("#bdayD").addEventListener("change",()=>{upd();if(S.bday.on)setBday(false);else paintBday()});
+  $("#bdayOn").addEventListener("change",()=>{upd();if(S.bday.on&&!(S.bday.m&&S.bday.d)){$("#bdayMsg").textContent="Pick the month and day first.";S.bday.on=false;$("#bdayOn").checked=false;save();return}setBday(true)});
+  if(S.bday&&S.bday.on)setTimeout(()=>setBday(false),4000);
+}
 
 renderQuiz();
 if(!openShared())show(S.view||"start");
