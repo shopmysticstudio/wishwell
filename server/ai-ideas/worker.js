@@ -394,7 +394,8 @@ function parseIdeas(out, q) {
       why: pick(o, ["why", "reason", "because"]), search: pick(o, ["search", "searchphrase", "query", "searchterm"]) };
     if (typeof o.lo === "string") o.lo = o.lo.replace(/[^0-9.]/g, "");
     if (typeof o.hi === "string") o.hi = o.hi.replace(/[^0-9.]/g, "");
-    const title = clean(o.title, 60);
+    let title = clean(o.title, 60);
+    if (/^[a-z]/.test(title)) title = title[0].toUpperCase() + title.slice(1);
     if (title.length < 2 || have.has(title.toLowerCase())) { dropped.other++; continue; }
     if (brandRe.test(title)) { dropped.brand++; continue; }
     if (blocked.has(ideaKey(title))) { dropped.crowd++; continue; }
