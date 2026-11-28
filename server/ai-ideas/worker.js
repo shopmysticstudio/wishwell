@@ -766,6 +766,70 @@ function logStatements(db, L, day, hour) {
     .bind(u.outcome, u.rank, day, L.lid, u.round, u.pos));
   return st;
 }
+/* Gift map (beta draft): extra factors per idea, scored by a small AI model in chunks and kept in
+   idea_factors, keyed like the idea pool. Each factor is 0 to 4; age fit is three yes/no flags. */
+const MAP_TABLE = "CREATE TABLE IF NOT EXISTS idea_factors (key TEXT PRIMARY KEY, title TEXT NOT NULL, category TEXT NOT NULL, f TEXT NOT NULL, model TEXT NOT NULL DEFAULT '', day TEXT NOT NULL)";
+const MAP_FACTORS = ["hands", "social", "lasting", "outdoor", "skill"];
+const MAP_CHUNK = 25;
+function mapItems(raw) {
+  const seen = new Set(), out = [];
+  for (const it of Array.isArray(raw && raw.items) ? raw.items.slice(0, MAP_CHUNK) : []) {
+    const t = clean(it && it.t, 60), key = ideaKey(t);
+    const c = CATS.find(x => x === String(it && it.c || "")) || "Other";
+    if (t.length < 2 || !key || seen.has(key) || brandRe.test(t)) continue;
+    seen.add(key); out.push({ t, c, key });
+  }
+  return out;
+}
+function mapMessages(items) {
+  const list = items.map((it, i) => `${i}. ${it.t} (${it.c})`).join("\n");
+  return [
+    { role: "system", content: "You rate gift ideas. Reply with only a JSON array and nothing else." },
+    { role: "user", content: `Rate each gift idea below. For each one give an object with exactly these keys:
+{"i": its number, "kid": 1 if it suits kids under 13 else 0, "teen": 1 if it suits teens else 0, "adult": 1 if it suits adults else 0,
+"hands": 0 to 4 (0 you just watch, wear or use it, 4 you build or make something with it),
+"social": 0 to 4 (0 used alone, 4 made for friends, family or a group),
+"lasting": 0 to 4 (0 used up fast like food, a candle or a one-time kit, 4 lasts for years),
+"outdoor": 0 to 4 (0 indoors, 4 outdoors),
+"skill": 0 to 4 (0 anyone can enjoy it right away, 4 needs real skill or practice),
+"ints": up to 3 interests it fits, from: ${INTERESTS.join(", ")}}.
+
+Gift ideas:
+${list}` }
+  ];
+}
+function parseFactors(out, items) {
+  const got = new Map();
+  const text = modelText(out).replace(/<think>[\s\S]*?<\/think>/gi, "");
+  for (const m of text.matchAll(/\{[^{}]*\}/g)) {
+    const o = tryParse(m[0]);
+    const i = Number(o && (o.i ?? o.id ?? o.n));
+    if (!Number.isInteger(i) || i < 0 || i >= items.length || got.has(i)) continue;
+    const z = v => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(0, Math.min(4, n)) : 2; };
+    const b = v => Number(v) >= 1 || v === true ? 1 : 0;
+    const f = { age: [b(o.kid), b(o.teen), b(o.adult)] };
+    if (!f.age.some(Boolean)) f.age = [0, 1, 1];
+    for (const k of MAP_FACTORS) f[k] = z(o[k]);
+    const ints = (Array.isArray(o.ints) ? o.ints : String(o.ints || "").split(/[,;]/)).map(x => String(x).trim());
+    f.ints = INTERESTS.filter(x => ints.some(y => y.toLowerCase() === x.toLowerCase())).slice(0, 3);
+    got.set(i, f);
+  }
+  return [...got].map(([i, f]) => ({ ...items[i], f }));
+}
+async function mapList(db) {
+  const pool = (await db.prepare("SELECT key, title, category, lo_sum, hi_sum, shown, kept, top, cut FROM ideas WHERE shown > 0 ORDER BY shown DESC, kept DESC LIMIT 800").all()).results || [];
+  const tags = (await db.prepare("SELECT key, tag, n FROM idea_tags WHERE tag LIKE 'int:%' ORDER BY n DESC").all()).results || [];
+  const ints = {};
+  for (const r of tags) { const a = ints[r.key] || (ints[r.key] = []); if (a.length < 4) a.push(r.tag.slice(4)); }
+  const fr = (await db.prepare("SELECT key, f FROM idea_factors LIMIT 4000").all()).results || [];
+  const f = {};
+  for (const r of fr) { try { f[r.key] = JSON.parse(r.f); } catch (e) {} }
+  return {
+    pool: pool.map(r => ({ k: r.key, t: r.title, c: r.category, lo: Math.round(r.lo_sum / Math.max(1, r.shown)), hi: Math.round(r.hi_sum / Math.max(1, r.shown)), shown: r.shown, kept: r.kept, top: r.top, cut: r.cut, ints: ints[r.key] || [] })),
+    f
+  };
+}
+
 async function runAll(db, st) {
   if (typeof db.batch === "function") return db.batch(st);
   for (const s of st) await s.run();
@@ -774,7 +838,7 @@ async function runAll(db, st) {
 /* ---------- handler ---------- */
 export default {
   // For tests only; not used by Cloudflare.
-  _test: { cleanLog, logStatements, crowdCategories, closeness, cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
+  _test: { mapItems, mapMessages, parseFactors, mapList, MAP_TABLE, cleanLog, logStatements, crowdCategories, closeness, cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
 
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
@@ -805,7 +869,7 @@ export default {
     }
     if (request.method !== "POST") return reply({ error: "use_post" }, 405);
     if (appOrigin && !(path === "/verify" || path === "/signal" || path === "/log" || path.startsWith("/codes") || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
-    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist" && path !== "/hit" && path !== "/log" && path !== "/codes" && path !== "/codes/add" && path !== "/codes/vote") return reply({ error: "not_found" }, 404);
+    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist" && path !== "/hit" && path !== "/log" && path !== "/codes" && path !== "/codes/add" && path !== "/codes/vote" && path !== "/map" && path !== "/map/score") return reply({ error: "not_found" }, 404);
 
     const maxBody = path === "/photo" ? MAX_PHOTO_BODY : MAX_BODY;
     const len = Number(request.headers.get("content-length") || 0);
@@ -920,6 +984,36 @@ export default {
     const beta = !!codeHeader && await codeOk(codeHeader, env);
     if (String(env.BETA_ONLY || "true") !== "false" && !beta) {
       return reply({ error: "beta_code_required" }, 429);
+    }
+
+    /* /map and /map/score: the beta gift map draft. Beta code only. /map lists the idea pool with its
+       factors; /map/score rates up to 25 ideas that have none yet with the small model, capped per day. */
+    if (path === "/map" || path === "/map/score") {
+      if (!beta) return reply({ error: "beta_code_required" }, 429);
+      if (!env.DB) return reply({ error: "not_set_up" }, 429);
+      if (env.HITS && typeof env.HITS.limit === "function") {
+        try { const { success } = await env.HITS.limit({ key: "map:" + network(ip) }); if (!success) return reply({ error: "rate_limited" }, 429); } catch (e) {}
+      }
+      const safely = async f => { try { return await f(); } catch (e) { await env.DB.prepare(MAP_TABLE).run(); return await f(); } };
+      if (path === "/map") return reply(await safely(() => mapList(env.DB)), 200);
+      if (!env.AI || String(env.MAP_SCORE || "on") === "off") return reply({ scored: [] }, 200);
+      let items = mapItems(raw);
+      if (!items.length) return reply({ scored: [] }, 200);
+      const day = today();
+      const have = await safely(() => env.DB.prepare("SELECT key FROM idea_factors WHERE key IN (" + items.map((_, i) => "?" + (i + 1)).join(",") + ")").bind(...items.map(it => it.key)).all());
+      const known = new Set((have.results || []).map(r => r.key));
+      items = items.filter(it => !known.has(it.key));
+      if (!items.length) return reply({ scored: [] }, 200);
+      const used = await env.DB.prepare("SELECT COUNT(*) AS n FROM idea_factors WHERE day = ?1").bind(day).first();
+      if ((used && used.n || 0) >= num(env.MAP_SCORE_DAY, 1000)) return reply({ scored: [], full: true }, 200);
+      const model = env.MAP_MODEL || BACKUP_MODEL;
+      let scored = [];
+      try {
+        const out = await withTime(env.AI.run(model, { messages: mapMessages(items), max_tokens: 2400, temperature: 0.1 }), num(env.AI_TIMEOUT_MS, 20000));
+        scored = parseFactors(out, items);
+      } catch (e) { return reply({ scored: [], error: "ai_failed" }, 200); }
+      if (scored.length) await runAll(env.DB, scored.map(it => env.DB.prepare("INSERT OR IGNORE INTO idea_factors (key, title, category, f, model, day) VALUES (?1, ?2, ?3, ?4, ?5, ?6)").bind(it.key, it.t, it.c, JSON.stringify(it.f), model, day)));
+      return reply({ scored: scored.map(it => ({ k: it.key, f: it.f })) }, 200);
     }
 
     /* /verify: the app's "I have a license key" box */
