@@ -7,6 +7,7 @@
    freeRounds:       free AI rounds shown in the app (the AI service enforces the real number).
    freeDaily, freeWeekly: free AI rounds a day and a week (public site). 0 = use freeRounds instead.
    shopTools:        beta shopping tools (compare prices, add from a photo, Magic Coupons).
+   coupons:          the Magic Coupons tab without the other shopping tools.
    unwrap:           the gift that unwraps when the app opens.
    keyEntry:         show the Holiday Pass key and email box even while the Buy button is still Coming soon.
    See PAYMENTS.md for the full steps. */
@@ -17,9 +18,10 @@ window.WISHWELL_CONFIG = {
   gumroadProductId: "",
   licenseCheckUrl: "",
   freeRounds: 3,
-  freeDaily: 2,
-  freeWeekly: 10,
+  freeDaily: 6,
+  freeWeekly: 0,
   shopTools: false,
-  unwrap: false,
-  keyEntry: false
+  coupons: true,
+  unwrap: true,
+  keyEntry: true
 };

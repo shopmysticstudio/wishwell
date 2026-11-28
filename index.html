@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wishwell: want it, list it, get it.</title>
-<meta name="description" content="Take a quick taste quiz, circle the gift ideas you like, rank them, and send one link to family. Free test this Christmas.">
+<meta name="description" content="Wishwell for Android is coming to Google Play. Get your Holiday Pass key here first, then type it into the app to unlock AI gift ideas.">
 <meta name="theme-color" content="#23284d">
 <meta property="og:title" content="Wishwell">
 <meta property="og:description" content="Want it, list it, get it. A quick taste quiz, then a ranked wishlist to share.">
@@ -16,54 +16,159 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
 <style>
-  :root{--navy:#23284d;--deep:#161a36;--gold:#ffc94a;--red:#e0453a;--cream:#fff8ec}
+  :root{--navy:#23284d;--deep:#161a36;--gold:#ffc94a;--red:#e0453a;--teal:#1f9e8f;--blue:#2f6fd6;--purple:#7a4fe0;--cream:#fff8ec}
   *{box-sizing:border-box}
   html,body{margin:0}
   body{font-family:Nunito,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--cream);
-    background:radial-gradient(ellipse 70% 55% at 50% 30%,rgba(255,201,74,.22),transparent 70%),linear-gradient(var(--navy),var(--deep));
+    background:radial-gradient(ellipse 70% 55% at 50% 22%,rgba(255,201,74,.22),transparent 70%),linear-gradient(var(--navy),var(--deep));
     min-height:100vh;min-height:100dvh}
-  main{max-width:640px;margin:0 auto;padding:40px 22px 28px}
-  @media (min-width:820px){main{padding-top:96px}}
+  main{max-width:980px;margin:0 auto;padding:34px 22px 20px}
+  @media (min-width:820px){main{padding-top:64px}}
   .brand{display:flex;align-items:center;gap:14px}
-  .brand img{width:84px;height:84px;filter:drop-shadow(0 6px 18px rgba(255,201,74,.35))}
-  h1{font-size:clamp(44px,8vw,72px);line-height:1;margin:0;font-weight:900;letter-spacing:-.5px}
-  .slogan{font-size:clamp(22px,3.6vw,30px);font-weight:800;color:var(--gold);margin:18px 0 10px}
-  .what{font-size:18px;line-height:1.5;max-width:30em;margin:0 0 26px;color:#e9e6f5}
-  .cta{display:inline-block;background:var(--red);color:#fff;text-decoration:none;font-weight:900;font-size:20px;
-    padding:16px 34px;border-radius:999px;box-shadow:0 10px 26px rgba(224,69,58,.45);transition:transform .15s}
-  .cta:hover,.cta:focus-visible{transform:translateY(-2px)}
-  .cta:focus-visible{outline:3px solid var(--gold);outline-offset:4px}
-  .small{font-size:14px;color:#c9c6dd;margin:14px 0 0}
-  .soon{display:inline-flex;align-items:center;gap:8px;margin:18px 0 0;padding:6px 14px 6px 6px;border-radius:999px;background:rgba(255,201,74,.12);border:1px solid rgba(255,201,74,.45);font-size:14px;font-weight:800;color:var(--cream);line-height:1.3}
-  .soon b{background:var(--gold);color:var(--navy);border-radius:999px;padding:2px 10px;font-size:13px;font-weight:900;white-space:nowrap;flex:none}
-  .steps{list-style:none;padding:0;margin:28px 0 0;display:grid;gap:10px;font-size:16px}
-  .steps li{display:flex;gap:10px;align-items:center}
-  .steps b{background:var(--gold);color:var(--navy);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none;font-weight:900}
-  footer{max-width:640px;margin:0 auto;padding:10px 22px 34px;font-size:13px;color:#a9a6c2;line-height:1.6}
-  @media (prefers-reduced-motion:reduce){.cta{transition:none}}
+  .brand img{width:72px;height:72px;filter:drop-shadow(0 6px 18px rgba(255,201,74,.35))}
+  h1{font-size:clamp(40px,7vw,64px);line-height:1;margin:0;font-weight:900;letter-spacing:-.5px}
+  .slogan{font-size:clamp(20px,3.2vw,26px);font-weight:800;color:var(--gold);margin:14px 0 0}
+
+  /* the app, front and center */
+  .hero{display:grid;gap:30px;align-items:center;margin-top:28px}
+  @media (min-width:820px){.hero{grid-template-columns:1.15fr .85fr;gap:44px}}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;margin:0 0 12px;padding:5px 12px 5px 5px;border-radius:999px;background:rgba(31,158,143,.16);border:1px solid rgba(98,214,197,.5);font-weight:800;font-size:14px}
+  .eyebrow b{background:#62d6c5;color:var(--deep);border-radius:999px;padding:2px 10px;font-size:13px;font-weight:900}
+  h2{font-size:clamp(30px,5vw,44px);line-height:1.08;margin:0 0 12px;font-weight:900}
+  .lead{font-size:18px;line-height:1.5;margin:0 0 22px;color:#e9e6f5;max-width:30em}
+  .how{list-style:none;padding:0;margin:0 0 24px;display:grid;gap:12px}
+  .how li{display:flex;gap:12px;align-items:flex-start;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:12px 14px;font-size:16px;line-height:1.4}
+  .how li b.n{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;font-weight:900;color:#fff}
+  .how li:nth-child(1) b.n{background:#d9a514;color:var(--deep)}
+  .how li:nth-child(2) b.n{background:var(--teal)}
+  .how li:nth-child(3) b.n{background:var(--purple)}
+  .how strong{display:block;font-size:17px}
+  .how span{color:#cfcce3}
+
+  .actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .btn{display:inline-flex;align-items:center;gap:10px;border:0;border-radius:999px;font:inherit;font-weight:900;font-size:19px;padding:15px 26px;text-decoration:none;cursor:pointer;transition:transform .15s}
+  .btn.buy{background:var(--gold);color:var(--navy);box-shadow:0 5px 0 #b88a12,0 12px 26px rgba(255,201,74,.3)}
+  .btn.buy[aria-disabled=true]{cursor:default}
+  .btn .tag{background:var(--navy);color:var(--gold);border-radius:999px;padding:3px 10px;font-size:12px;letter-spacing:.3px;text-transform:uppercase}
+  .play{display:inline-flex;align-items:center;gap:10px;background:#0b0d1a;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:8px 16px 8px 12px;line-height:1.1}
+  .play svg{width:26px;height:26px;flex:none}
+  .play small{display:block;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#c9c6dd}
+  .play span{font-size:18px;font-weight:900}
+  .wait{margin:18px 0 0;padding:16px;border-radius:18px;background:rgba(255,201,74,.1);border:1px solid rgba(255,201,74,.45);max-width:34em}
+  .wait label{display:block;font-weight:900;font-size:17px;margin:0 0 4px}
+  .wait p{margin:0 0 10px;font-size:14px;color:#cfcce3;line-height:1.4}
+  .wait form{display:flex;flex-wrap:wrap;gap:10px}
+  .wait input[type=email]{flex:1 1 220px;min-width:0;font:inherit;font-size:17px;padding:12px 16px;border-radius:999px;border:2px solid rgba(255,255,255,.3);background:#fff8ec;color:var(--navy)}
+  .wait input[type=email]:focus{outline:3px solid var(--gold);outline-offset:2px}
+  .btn.notify{background:var(--teal);color:#fff;font-size:17px;padding:12px 22px;box-shadow:0 5px 0 #146b61}
+  .btn.notify[disabled]{opacity:.7;cursor:default}
+  .wait .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .wait .msg{margin:8px 0 0;font-weight:800;font-size:15px;color:var(--cream);min-height:1.2em}
+  .wait a{color:var(--gold)}
+  .fine{font-size:14px;color:#c9c6dd;margin:14px 0 0;line-height:1.5}
+
+  /* phone showing the app's key box */
+  @media (max-width:819px){.phone{width:min(230px,62vw)!important}}
+  .phone{justify-self:center;width:min(300px,82vw);aspect-ratio:9/18.5;border-radius:42px;padding:12px;background:#0b0d1a;box-shadow:0 0 0 2px rgba(255,255,255,.18),0 30px 60px rgba(0,0,0,.45),0 0 70px rgba(255,201,74,.18);position:relative}
+  .phone:before{content:"";position:absolute;top:20px;left:50%;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#20243d}
+  .screen{height:100%;border-radius:32px;background:linear-gradient(#2b315c,#1b1f3f);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:26px 20px;text-align:center}
+  .screen img{width:76px;height:76px}
+  .screen .t{font-size:22px;font-weight:900}
+  .screen .s{font-size:14px;color:#cfcce3;line-height:1.4}
+  .keybox{width:100%;background:#fff8ec;color:#5b5a74;border-radius:12px;padding:12px;font-size:15px;font-weight:800;letter-spacing:1px;font-family:ui-monospace,Menlo,Consolas,monospace;border:2px solid var(--gold)}
+  .unlock{width:100%;background:var(--red);color:#fff;border-radius:999px;padding:12px;font-weight:900;box-shadow:0 4px 0 #9e2a22}
+
+  .alt{margin:44px 0 0;padding:22px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);display:flex;flex-wrap:wrap;gap:14px 24px;align-items:center;justify-content:space-between}
+  .alt p{margin:0;font-size:17px;line-height:1.45;max-width:32em}
+  .alt p b{color:var(--gold)}
+  .alt .more{flex-basis:100%;font-size:15px;opacity:.9}
+  .alt .more a{color:var(--gold);font-weight:800}
+  .cta{display:inline-block;background:var(--red);color:#fff;text-decoration:none;font-weight:900;font-size:18px;padding:13px 28px;border-radius:999px;box-shadow:0 5px 0 #9e2a22}
+  .btn:hover,.cta:hover,.btn:focus-visible,.cta:focus-visible{transform:translateY(-2px)}
+  .btn.buy[aria-disabled=true]:hover{transform:none}
+  a:focus-visible,.btn:focus-visible{outline:3px solid var(--gold);outline-offset:4px}
+  footer{max-width:980px;margin:0 auto;padding:16px 22px 34px;font-size:13px;color:#a9a6c2;line-height:1.6}
+  @media (prefers-reduced-motion:reduce){.btn,.cta{transition:none}}
 </style>
 </head>
 <body>
 <main>
-  <section>
-    <div class="brand"><img src="img/mark.png" alt="Wishwell logo: someone fishing gifts out of a glowing well" width="84" height="84"><h1>Wishwell</h1></div>
-    <p class="slogan">Want it, list it, get it.</p>
-    <p class="what">Take a quick taste quiz, circle the gift ideas you actually want, rank them, and send family one link so nobody guesses.</p>
+  <div class="brand"><img src="img/mark.png" alt="Wishwell logo: someone fishing gifts out of a glowing well" width="72" height="72"><h1>Wishwell</h1></div>
+  <p class="slogan">Want it, list it, get it.</p>
+
+  <section class="hero" aria-labelledby="appTitle">
+    <div>
+      <p class="eyebrow"><b>New</b>The Wishwell app for Android</p>
+      <h2 id="appTitle">Get your key here, then unlock AI in the app.</h2>
+      <p class="lead">Wishwell is coming to Google Play. The app finds AI gift ideas that fit, and your Holiday Pass key unlocks them.</p>
+      <ol class="how">
+        <li><b class="n">1</b><div><strong>Buy your Holiday Pass key here</strong><span>$4.99, one time. Your key comes on the receipt and by email.</span></div></li>
+        <li><b class="n">2</b><div><strong>Get Wishwell on Google Play</strong><span>Free to download on Android phones.</span></div></li>
+        <li><b class="n">3</b><div><strong>Type your key into the app</strong><span>AI gift ideas unlock right away. The key works here on the website too.</span></div></li>
+      </ol>
+      <div class="actions">
+        <a class="btn buy" data-count="buy_key" role="link" aria-disabled="true" title="Coming soon">Buy the Holiday Pass key, $4.99 <span class="tag">Coming soon</span></a>
+        <span class="play" data-count="play_badge" role="img" aria-label="Coming soon to Google Play">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#62d6c5" d="M4 2.6 14.2 12 4 21.4a1.4 1.4 0 0 1-.6-1.2V3.8c0-.5.2-.9.6-1.2z"/><path fill="#ffc94a" d="M17.6 8.9 14.2 12l3.4 3.1 3.3-1.9c1.1-.6 1.1-1.8 0-2.4z"/><path fill="#e0453a" d="M4 21.4 14.2 12l3.4 3.1L6 21.7c-.7.4-1.4.3-2-.3z"/><path fill="#7aa7ff" d="M4 2.6c.6-.6 1.3-.7 2-.3l11.6 6.6-3.4 3.1z"/></svg>
+          <div><small>Coming soon to</small><span>Google Play</span></div>
+        </span>
+      </div>
+      <div class="wait">
+        <label for="waitEmail">Get an email when it launches</label>
+        <p>One email when the app and the key go on sale, and nothing else. US only for now.</p>
+        <form id="waitForm" novalidate>
+          <input type="email" id="waitEmail" name="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" required>
+          <div class="hp" aria-hidden="true"><label for="waitSite">Leave this empty</label><input type="text" id="waitSite" name="website" tabindex="-1" autocomplete="off"></div>
+          <button class="btn notify" type="submit" id="waitBtn">Notify me at launch</button>
+        </form>
+        <p class="msg" id="waitMsg" role="status" aria-live="polite"></p>
+        <p style="margin:0">We keep only your email, just for this. Ask to be removed any time. <a href="privacy/">Privacy</a></p>
+      </div>
+      <p class="fine">For buyers in the US with an Android phone, ages 13 and up. Buy your key here before you install, since the app only asks for the key.</p>
+    </div>
+
+    <div class="phone" aria-hidden="true">
+      <div class="screen">
+        <img src="img/mark.png" alt="">
+        <div class="t">Unlock AI gift ideas</div>
+        <div class="s">Enter your Holiday Pass key</div>
+        <div class="keybox">Paste your key</div>
+        <div class="unlock">Unlock</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt" aria-label="Try it on the web">
+    <p>No Android phone? <b>Try Wishwell free in your browser.</b> Take the taste quiz, circle ideas, rank them and share one link. 6 free AI rounds a day.</p>
     <a class="cta" href="app/" data-count="try_free">Try it free</a>
-    <div><p class="soon"><b>New</b>2 free rounds of AI gift ideas a day, up to 10 a week. Holiday Pass coming soon.</p></div>
-    <p class="small">Free test this Christmas. Works in your phone's browser, no download or sign up. For ages 13 and up.</p>
-    <ul class="steps">
-      <li><b>1</b>Tap through the taste quiz</li>
-      <li><b>2</b>Circle the good ideas, cut the rest</li>
-      <li><b>3</b>Rank them and share one link</li>
-    </ul>
-    <p class="small"><a href="coupons/" data-count="coupons" style="color:var(--gold);font-weight:800">Shopper coupon codes</a>: codes other shoppers found for Amazon, Target, Walmart and more.</p>
+    <p class="more"><a href="coupons/" data-count="coupons">Shopper coupon codes</a>: codes other shoppers found for Amazon, Target, Walmart and more.</p>
   </section>
 </main>
 <footer>
-  Made by Wishwell. Wishwell is an early test: your lists stay on your own device, and nothing here asks for your email or payment.<br>
-  © 2026 Wishwell. All rights reserved.
+  Made by Wishwell. Wishwell is an early test: your lists stay on your own device, and nothing on this page takes payment yet.<br>
+  Google Play is a trademark of Google LLC. © 2026 Wishwell. All rights reserved.
 </footer>
+<script>
+(() => {
+  const URL_ = "https://wishwell-ai-ideas.shopmysticstudio.workers.dev/waitlist";
+  const f = document.getElementById("waitForm"), e = document.getElementById("waitEmail"),
+        b = document.getElementById("waitBtn"), m = document.getElementById("waitMsg");
+  f.addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const email = e.value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { m.textContent = "Type your email first."; e.focus(); return; }
+    b.disabled = true; b.textContent = "Saving...";
+    try {
+      const r = await fetch(URL_, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, website: document.getElementById("waitSite").value }) });
+      if (r.ok) { f.hidden = true; if (window.wishwellCount) wishwellCount("waitlist_signup"); m.textContent = "You're on the list! We'll email you once, when Wishwell launches."; return; }
+      m.textContent = r.status === 400 ? "That email doesn't look right. Check it and try again."
+        : r.status === 429 ? "Too many sign-ups from this network today. Try again tomorrow." : "Couldn't save that just now. Try again in a minute.";
+    } catch (x) { m.textContent = "Couldn't save that just now. Check your connection and try again."; }
+    b.disabled = false; b.textContent = "Notify me at launch";
+  });
+})();
+</script>
 <script src="count.js" defer></script>
 </body>
 </html>

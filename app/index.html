@@ -427,6 +427,8 @@ const KEYS=PAY||!!CFG.keyEntry;
 const hasPass=()=>KEYS&&!!(PASS&&PASS.ok&&PASS.key&&PASS.email);
 const AI_ON=!!String(CFG.aiUrl||"").trim();
 const SHOP=!!CFG.shopTools;
+/* the Magic Coupons tab: on with shopTools (beta) or coupons (public site) */
+const COUP=SHOP||!!CFG.coupons;
 const reduced=()=>!!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
 /* free AI rounds per person (the AI service enforces the real number) */
 const FREE=Math.max(1,Math.round(+CFG.freeRounds||3));
@@ -1032,7 +1034,8 @@ $("#copyClose").addEventListener("click",()=>$("#copyM").hidden=true);
 }
 function renderAge(){
   $("#ageForm").hidden=S.u13;
-  $("#ageMsg").innerHTML=S.u13?`<p class="note">Wishwell is for people 13 and up, so it isn't open to you yet. A parent can make a list with you on their phone.</p>`:"";
+  $("#ageMsg").innerHTML=S.u13?`<p class="note">Wishwell is for people 13 and up, so it isn't open to you yet. A parent can make a list with you on their phone.</p><p>Picked the wrong month or year? <button type="button" class="btn quiet" id="ageRedo">Change it</button></p>`:"";
+  const r=$("#ageRedo");if(r)r.addEventListener("click",()=>{S.u13=false;save();renderAge();$("#ageM").focus()});
 }
 
 /* taste quiz: quick taps that seed the first wishlist */
@@ -1411,7 +1414,9 @@ function renderShare(){
 $("#listName").addEventListener("input",e=>{S.listName=e.target.value;save();renderShare()});
 [["#optPrice","price"],["#optWhy","why"]].forEach(([s,k])=>$(s).addEventListener("change",e=>{S.opt[k]=e.target.checked;save();renderShare()}));
 $("#linkBtn").addEventListener("click",()=>{if(!S.kept.length){toast("Circle some ideas first");return}S.m.linkCopies++;save();copy(shareLink(),"Link copied. Paste it to family.")});
-$("#copyBtn").addEventListener("click",()=>{if(!S.kept.length){toast("Circle some ideas first");return}S.m.textCopies++;save();copy(shareText(),"Copied. Paste it in a text.")});
+/* copying the list out as text comes with the Holiday Pass; the share link stays free */
+if(!hasPass())$("#copyBtn").textContent="Copy as text (Holiday Pass)";
+$("#copyBtn").addEventListener("click",()=>{if(!hasPass()){openPlans("Copying your list as text comes with the Holiday Pass. Your share link stays free.","holiday");return}if(!S.kept.length){toast("Circle some ideas first");return}S.m.textCopies++;save();copy(shareText(),"Copied. Paste it in a text.")});
 $("#famBtn").addEventListener("click",()=>{if(!S.kept.length){toast("Circle some ideas first");return}S.m.previews++;FAM={data:unpackList(packList()),preview:true};show("family")});
 
 /* family view of a shared list */
@@ -1510,7 +1515,7 @@ async function unlock(){
   try{
     const r=await checkKey(key,email);
     if(r.ok){PASS={ok:true,key,email,at:Date.now()};try{localStorage.setItem("wishwell-pass",JSON.stringify(PASS))}catch(e){}
-      $("#plansWhy").textContent="Your Holiday Pass is on for this device.";renderPass();render();toast("Holiday Pass unlocked");return}
+      $("#plansWhy").textContent="Your Holiday Pass is on for this device.";renderPass();render();$("#copyBtn").textContent="Copy as text";toast("Holiday Pass unlocked");return}
     m.textContent=r.reason==="device_limit"?"This key is already on 3 devices, so it can't be added here."
       :r.reason==="too_many_tries"?"Too many wrong tries from this network today. Try again tomorrow."
       :r.reason==="refunded"?"This pass was refunded, so the key doesn't work anymore."
@@ -1523,7 +1528,7 @@ $("#passBox").addEventListener("click",e=>{if(e.target.closest("#keyBtn"))unlock
 $("#passBox").addEventListener("keydown",e=>{if((e.target.id==="keyBox"||e.target.id==="keyEmail")&&e.key==="Enter"){e.preventDefault();unlock()}});
 document.addEventListener("click",e=>{if(e.target.closest("#capPlans"))openPlans("","holiday")});
 /* only promise AI perks when the AI service is set up */
-if(!AI_ON){$("#perkAi").remove();$("#perkFreeAi").remove()}else $("#perkFreeAi").textContent=WIN?`${DAILY} free AI rounds a day, up to ${WEEKLY} a week`:FREE+" free AI rounds to try";
+if(!AI_ON){$("#perkAi").remove();$("#perkFreeAi").remove()}else $("#perkFreeAi").textContent=WIN?`${DAILY} free AI rounds a day${WEEKLY?`, up to ${WEEKLY} a week`:""}`:FREE+" free AI rounds to try";
 if(PAY){
   $("#plansT").textContent="Plans";
   const hb=document.querySelector('button[data-pay="holiday"]');
@@ -1574,7 +1579,7 @@ function render(){
   const bits=[S.forWho==="me"?"For "+(S.name||"you"):"For "+(S.name||"someone else")];if(S.ints.length)bits.push(S.ints.join(", "));
   const tg=tasteTags();if(tg.length)bits[1]=tg.join(", ");bits.push((BUDGETS.find(b=>b[0]===S.budget)||["","Any price"])[1]);$("#whoLine").textContent=bits.join(" · ");
   $("#groupBtn").setAttribute("aria-pressed",S.group);$("#groupBtn").textContent=S.group?"Show one list":"Group by kind";
-  renderRank();renderShare();renderGroup();renderFamily();renderAge();if(SHOP)renderCoupons();
+  renderRank();renderShare();renderGroup();renderFamily();renderAge();if(COUP)renderCoupons();
 }
 function show(v){
   if(v!=="family"&&v!=="age"&&!S.ageOk)v="age";
@@ -1767,7 +1772,7 @@ function couponStores(){
   return STORES.slice().sort((a,b)=>score(b)-score(a));
 }
 function renderCoupons(){
-  if(!SHOP)return;const codes=S.codes||[];loadShared();const votes=S.votes||{};
+  if(!COUP)return;const codes=S.codes||[];loadShared();const votes=S.votes||{};
   $("#couponWrap").innerHTML=couponStores().map(st=>{
     const mine=codes.filter(c=>c.s===st.id);
     const theirs=sharedFor(st.id).filter(x=>!mine.some(c=>c.code===x.code));
@@ -1787,7 +1792,7 @@ ${theirs.map(c=>`<div class="codeRow shared" data-sh="${esc(c.id)}"><code>${esc(
 ${CODES_URL?`<div class="more"><input type="text" maxlength="60" placeholder="What it's for (optional), like 20% off toys" aria-label="What the ${esc(st.name)} code is for" data-in="about" autocomplete="off"><input type="date" aria-label="Ends on (optional)" title="Ends on (optional)" data-in="exp"></div>
 <label class="shareChk"><input type="checkbox" data-in="share" checked> Share this code with other shoppers</label><input class="hp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" data-in="website">`:""}</div>`}).join("");
 }
-if(SHOP){
+if(COUP){
   $("#t-coupons").hidden=false;
   $("#couponWrap").addEventListener("click",async e=>{
     const sb=e.target.closest("button[data-sa]");
@@ -1855,7 +1860,7 @@ const setAi=()=>{
   trialTick();const L=S.aiLeft;const span=L&&L.lim==="week"?"this week":"today";
   if(hasPass())aiLine.textContent="Holiday Pass: AI ideas are on."+(L&&L.k==="pass"?` ${L.n} AI rounds left today.`:"");
   else if(S.trialUsed)aiLine.textContent=`${usedMsg()} Starter ideas are on until then.`;
-  else if(WIN)aiLine.textContent="AI ideas are on."+(L&&L.k==="trial"?(L.n>0?` ${L.n} free AI round${L.n===1?"":"s"} left ${span}.`:` That was your last free AI round ${span==="today"?"for today":"this week"}.`):` You get ${DAILY} free AI rounds a day, up to ${WEEKLY} a week.`);
+  else if(WIN)aiLine.textContent="AI ideas are on."+(L&&L.k==="trial"?(L.n>0?` ${L.n} free AI round${L.n===1?"":"s"} left ${span}.`:` That was your last free AI round ${span==="today"?"for today":"this week"}.`):` You get ${DAILY} free AI rounds a day${WEEKLY?`, up to ${WEEKLY} a week`:""}.`);
   else aiLine.textContent="AI ideas are on."+(L&&L.k==="trial"?(L.n>0?` ${L.n} free AI round${L.n===1?"":"s"} left.`:" That was your last free AI round."): ` Your first ${FREE} AI rounds are free.`);
 };
 if(CFG.aiUrl){sample={json:async(_p,o)=>{
