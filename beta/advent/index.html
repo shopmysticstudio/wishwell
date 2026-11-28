@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&family=Caveat:wght@700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="advent.css">
+<link rel="stylesheet" href="advent.css?v=3">
 <style>
 body{margin:0;background:#23284d}
 html.locked body>*:not(#gate){display:none!important}
@@ -56,7 +56,7 @@ window.wishwellBetaCheck=async function(code){
 </form></div>
 <div id="advent"></div>
 <script src="../config.js"></script>
-<script src="advent.js"></script>
+<script src="advent.js?v=3"></script>
 <script>
 document.getElementById("gateForm").addEventListener("submit",async e=>{
   e.preventDefault();const btn=document.getElementById("gateBtn"),msg=document.getElementById("gateMsg"),v=document.getElementById("gateCode").value;
