@@ -109,6 +109,8 @@ const CATS = Object.keys(COLORS);
 const INTERESTS = ["Tech", "Gaming", "Making", "Art", "Music", "Sports", "Outdoors", "Space and science", "Books", "Cooking", "Style", "Room setup", "Cars", "Pets", "Puzzles", "Beauty", "Jewelry", "Travel", "Movies and shows", "Crafts", "Coffee and tea", "Self-care", "Friends and parties"];
 const CAT_INT = { Tech: "Tech", Gaming: "Gaming", Making: "Making", Art: "Art", Music: "Music", Sports: "Sports", Outdoors: "Outdoors", Science: "Space and science", Books: "Books", Food: "Cooking", Style: "Style", Room: "Room setup", Beauty: "Beauty", Experiences: "Travel" };
 const FACT = [["hands", "Hands-on", "build or make it", "watch, wear or use it"], ["social", "Social", "with friends or family", "on your own"], ["lasting", "Lasting", "lasts for years", "used up fast"], ["outdoor", "Outdoor", "outdoors", "indoors"], ["skill", "Skill", "takes practice", "easy to enjoy"]];
+/* Some AI titles come in lowercase; show them with a capital, and DIY in capitals. */
+const nice = t => String(t || "").replace(/\bdiy\b/gi, "DIY").replace(/^./, c => c.toUpperCase());
 const key = t => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().slice(0, 80);
 const post = async (path, body) => {
   const r = await fetch(API + path, { method: "POST", headers: { "content-type": "application/json", "x-beta-code": CODE }, body: JSON.stringify(body || {}) });
@@ -323,7 +325,7 @@ function axesText() {
     const idx = [...c.keys()].sort((a, b) => Math.abs(c[b]) - Math.abs(c[a])).slice(0, 3);
     const word = i => { const [kind, n] = NAMES[i]; if (kind === "fac") { const f = FACT.find(x => x[0] === n); return c[i] > 0 ? f[2] : f[3]; } if (kind === "price") return c[i] > 0 ? "pricier" : "cheaper"; if (kind === "age") return (c[i] > 0 ? "" : "less for ") + n; return (c[i] > 0 ? "" : "less ") + n.toLowerCase(); };
     const li = document.createElement("li");
-    li.textContent = `${names[k]}: mostly ${idx.map(word).join(", ")}.`;
+    li.textContent = `${names[k]}: mostly ${[...new Set(idx.map(word))].join(", ")}.`;
     $("#axes").appendChild(li);
   });
 }
@@ -485,8 +487,8 @@ async function load() {
   let data = { pool: [], f: {} };
   try { data = await post("/map"); } catch (e) { status.textContent = "Couldn't reach Wishwell, showing starter ideas with rough scores."; }
   const all = new Map();
-  for (const b of bank) { const k = key(b[0]); if (!all.has(k)) all.set(k, { k, t: b[0], c: b[1], lo: b[2], hi: b[3], tags: b[4], src: "starter" }); }
-  for (const p of data.pool) { if (!all.has(p.k)) all.set(p.k, { k: p.k, t: p.t, c: COLORS[p.c] ? p.c : "Other", lo: p.lo, hi: p.hi, ints: p.ints, src: "ai" }); }
+  for (const b of bank) { const k = key(b[0]); if (!all.has(k)) all.set(k, { k, t: nice(b[0]), c: b[1], lo: b[2], hi: b[3], tags: b[4], src: "starter" }); }
+  for (const p of data.pool) { if (!all.has(p.k)) all.set(p.k, { k: p.k, t: nice(p.t), c: COLORS[p.c] ? p.c : "Other", lo: p.lo, hi: p.hi, ints: p.ints, src: "ai" }); }
   items = [...all.values()];
   items.forEach(it => { it.f = data.f[it.k] || null; it.g = guess(it); it.v0 = vec(it); });
   const cats = [...new Set(items.map(it => it.c))];
