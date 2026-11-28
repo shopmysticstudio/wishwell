@@ -1345,9 +1345,11 @@ function thinkShow(tm,ideas){
     tm.o.querySelector(".tmcap").textContent=`Here come ${ideas.length} new ideas, landing near you.`;
     const m={ww:"ideas",ideas:ideas.map(i=>({t:i.title,c:i.cat,lo:i.lo,hi:i.hi}))};
     if(tm.ready)tm.f.contentWindow.postMessage(m,location.origin);else tm.q=m;
-    t1=setTimeout(tm.fin,8000);t2=setTimeout(()=>{if(!tm.ready)tm.fin()},3000);
+    t1=setTimeout(tm.fin,9000);t2=setTimeout(()=>{if(!tm.ready)tm.fin()},3000);
   });
 }
+/* ?thinkdemo=1 on the beta replays the map with the last 8 AI ideas, with no AI round, to check how it looks. */
+if(THINKMAP&&/[?&]thinkdemo=1/.test(location.search))setTimeout(async()=>{const tm=thinkOpen();await new Promise(r=>setTimeout(r,4000));await thinkShow(tm,S.items.filter(i=>i.src==="AI pick").slice(-8))},1500);
 async function getIdeas(){
   if(busy)return;busy=true;S.round=(S.round||0)+1;const mb=$("#moreBtn");mb.disabled=true;
   const msg=$("#msg");msg.innerHTML="";let got=0;
