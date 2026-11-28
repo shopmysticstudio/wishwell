@@ -577,7 +577,11 @@ function cleanHit(raw, startHourUtc) {
   let ref = event === "view" ? String(raw.r || "").toLowerCase().replace(/^www\./, "") : "";
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(ref) || ref.length > 80) ref = "";
   const dev = raw.d === "phone" ? "phone" : "desktop";
-  // Day and hour (0 to 23) in US Eastern time. Counts are hourly totals, never exact times.
+  const { day, hour } = etNow(startHourUtc);
+  return { day, hour, page, event, ref, dev };
+}
+// Day and hour (0 to 23) in US Eastern time. Never exact times.
+function etNow(startHourUtc) {
   let day, hour;
   try {
     const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" })
@@ -588,7 +592,7 @@ function cleanHit(raw, startHourUtc) {
     const t = new Date(Date.now() - startHourUtc * 3600000);
     day = t.toISOString().slice(0, 10); hour = t.getUTCHours();
   }
-  return { day, hour, page, event, ref, dev };
+  return { day, hour };
 }
 // A per-network cap setting: a number turns it on, "off" or empty leaves it off (0).
 const netCap = v => { const t = String(v == null ? "" : v).trim(); return t && t !== "off" && Number.isFinite(Number(t)) ? Math.max(0, Number(t)) : 0; };
@@ -704,10 +708,72 @@ async function codeLimit(env, kind, dev, ip) {
   return true;
 }
 
+/* ---------- anonymous round log (/log), for training a recommender later ----------
+   One row per round of ideas (what the quiz said, never the Details text or a name) and one row per
+   idea shown, with what the person did with it. Keyed by a random list id made on the device for
+   each quiz; it is not tied to the device id, a key, an email or an internet address. */
+const LOG_SURFACES = ["web", "beta", "app"], LOG_SOURCES = ["ai", "starter", "mixed"], LOG_OUT = ["none", "kept", "top", "cut", "have"];
+const LOG_STYLES = ["Practical", "Wow factor", "Cozy", "Surprise me"];
+const LOG_TABLES = [
+  "CREATE TABLE IF NOT EXISTS rounds (list_id TEXT NOT NULL, round INTEGER NOT NULL, day TEXT NOT NULL, hour INTEGER NOT NULL, surface TEXT NOT NULL, source TEXT NOT NULL, for_who TEXT NOT NULL DEFAULT '', age TEXT NOT NULL DEFAULT '', lean TEXT NOT NULL DEFAULT '', style TEXT NOT NULL DEFAULT '', budget TEXT NOT NULL DEFAULT '', ints TEXT NOT NULL DEFAULT '[]', quiz TEXT NOT NULL DEFAULT '[]', has_details INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (list_id, round))",
+  "CREATE TABLE IF NOT EXISTS round_ideas (list_id TEXT NOT NULL, round INTEGER NOT NULL, pos INTEGER NOT NULL, idea_key TEXT NOT NULL, title TEXT NOT NULL, category TEXT NOT NULL, src TEXT NOT NULL, lo INTEGER NOT NULL DEFAULT 0, hi INTEGER NOT NULL DEFAULT 0, outcome TEXT NOT NULL DEFAULT 'none', rank INTEGER NOT NULL DEFAULT 0, changed_day TEXT NOT NULL DEFAULT '', PRIMARY KEY (list_id, round, pos))"];
+const intIn = (v, a, b) => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n >= a && n <= b ? n : null; };
+function cleanLog(raw) {
+  const p = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  const lid = String(p.lid || "");
+  if (!/^[a-f0-9]{24,40}$/.test(lid)) return null;
+  const out = { lid, round: null, ideas: [], updates: [] };
+  const r = intIn(p.r, 1, 200);
+  if (r != null && Array.isArray(p.ideas) && p.ideas.length) {
+    const c = p.ctx && typeof p.ctx === "object" ? p.ctx : {};
+    out.round = {
+      round: r, surface: LOG_SURFACES.includes(p.s) ? p.s : "web", source: LOG_SOURCES.includes(p.src) ? p.src : "mixed",
+      forWho: c.fw === "them" ? "them" : "me",
+      age: Object.prototype.hasOwnProperty.call(AGES, String(c.age)) ? String(c.age) : "",
+      lean: Object.prototype.hasOwnProperty.call(LEANS, String(c.lean)) ? String(c.lean) : "",
+      style: LOG_STYLES.includes(c.style) ? c.style : "",
+      budget: Object.prototype.hasOwnProperty.call(BUDGETS, String(c.budget)) ? String(c.budget) : "any",
+      ints: JSON.stringify([...new Set((Array.isArray(c.ints) ? c.ints : []).filter(i => INTERESTS.includes(i)))].slice(0, 20)),
+      quiz: JSON.stringify([...new Set((Array.isArray(c.quiz) ? c.quiz : []).map(String).filter(q => /^[a-z0-9_]{1,20}=[0-2]$/.test(q)))].slice(0, 20)),
+      details: c.det ? 1 : 0
+    };
+    for (const it of p.ideas.slice(0, 24)) {
+      const pos = intIn(it && it.p, 0, 23), title = clean(it && it.t, 60);
+      if (pos == null || title.length < 2 || brandRe.test(title)) continue;
+      out.ideas.push({ pos, key: ideaKey(title), title, cat: CATS.find(x => x === it.c) || "Other",
+        src: ["ai", "starter", "rec"].includes(it.src) ? it.src : "starter", lo: intIn(it.lo, 0, 10000) || 0, hi: intIn(it.hi, 0, 10000) || 0 });
+    }
+  }
+  for (const u of (Array.isArray(p.out) ? p.out : []).slice(0, 200)) {
+    if (!Array.isArray(u)) continue;
+    const ur = intIn(u[0], 1, 200), pos = intIn(u[1], 0, 23), o = LOG_OUT.includes(u[2]) ? u[2] : null;
+    if (ur == null || pos == null || !o) continue;
+    out.updates.push({ round: ur, pos, outcome: o, rank: intIn(u[3], 0, 500) || 0 });
+  }
+  return out.round || out.updates.length ? out : null;
+}
+function logStatements(db, L, day, hour) {
+  const st = [];
+  if (L.round) {
+    const R = L.round;
+    st.push(db.prepare("INSERT OR IGNORE INTO rounds (list_id, round, day, hour, surface, source, for_who, age, lean, style, budget, ints, quiz, has_details) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)")
+      .bind(L.lid, R.round, day, hour, R.surface, R.source, R.forWho, R.age, R.lean, R.style, R.budget, R.ints, R.quiz, R.details));
+    for (const i of L.ideas) st.push(db.prepare("INSERT OR IGNORE INTO round_ideas (list_id, round, pos, idea_key, title, category, src, lo, hi) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)")
+      .bind(L.lid, R.round, i.pos, i.key, i.title, i.cat, i.src, i.lo, i.hi));
+  }
+  for (const u of L.updates) st.push(db.prepare("UPDATE round_ideas SET outcome = ?1, rank = ?2, changed_day = ?3 WHERE list_id = ?4 AND round = ?5 AND pos = ?6")
+    .bind(u.outcome, u.rank, day, L.lid, u.round, u.pos));
+  return st;
+}
+async function runAll(db, st) {
+  if (typeof db.batch === "function") return db.batch(st);
+  for (const s of st) await s.run();
+}
+
 /* ---------- handler ---------- */
 export default {
   // For tests only; not used by Cloudflare.
-  _test: { crowdCategories, closeness, cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
+  _test: { cleanLog, logStatements, crowdCategories, closeness, cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
 
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
@@ -733,12 +799,12 @@ export default {
     if (!okOrigin) return reply({ error: "origin_not_allowed" }, 403);
     const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
     if (request.method === "OPTIONS") {
-      if (appOrigin && path !== "/verify" && path !== "/" && path !== "/signal" && !path.startsWith("/codes")) return reply({ error: "origin_not_allowed" }, 403);
+      if (appOrigin && path !== "/verify" && path !== "/" && path !== "/signal" && path !== "/log" && !path.startsWith("/codes")) return reply({ error: "origin_not_allowed" }, 403);
       return new Response(null, { status: 204, headers: cors });
     }
     if (request.method !== "POST") return reply({ error: "use_post" }, 405);
-    if (appOrigin && !(path === "/verify" || path === "/signal" || path.startsWith("/codes") || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
-    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist" && path !== "/hit" && path !== "/codes" && path !== "/codes/add" && path !== "/codes/vote") return reply({ error: "not_found" }, 404);
+    if (appOrigin && !(path === "/verify" || path === "/signal" || path === "/log" || path.startsWith("/codes") || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
+    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist" && path !== "/hit" && path !== "/log" && path !== "/codes" && path !== "/codes/add" && path !== "/codes/vote") return reply({ error: "not_found" }, 404);
 
     const maxBody = path === "/photo" ? MAX_PHOTO_BODY : MAX_BODY;
     const len = Number(request.headers.get("content-length") || 0);
@@ -770,6 +836,22 @@ export default {
         await env.DB.prepare("CREATE TABLE IF NOT EXISTS analytics (day TEXT NOT NULL, hour INTEGER NOT NULL DEFAULT -1, page TEXT NOT NULL, event TEXT NOT NULL, ref TEXT NOT NULL, dev TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, hour, page, event, ref, dev))").run();
         await up();
       }));
+      return done;
+    }
+    /* /log: anonymous rounds and what people did with each idea. Website and Android app.
+       Its own per-network limit (the HITS limiter under a separate key); nothing about the
+       network is stored. */
+    if (path === "/log") {
+      const done = new Response(null, { status: 204, headers: cors });
+      if (!env.DB || String(env.ROUND_LOG || "on") === "off") return done;
+      if (env.HITS && typeof env.HITS.limit === "function") {
+        try { const { success } = await env.HITS.limit({ key: "log:" + network(ip) }); if (!success) return done; } catch (e) {}
+      }
+      const L = cleanLog(raw);
+      if (!L) return done;
+      const { day, hour } = etNow(num(env.TRIAL_DAY_START_HOUR_UTC, 5));
+      const go = () => runAll(env.DB, logStatements(env.DB, L, day, hour));
+      later(go().catch(async () => { for (const t of LOG_TABLES) await env.DB.prepare(t).run(); await go(); }));
       return done;
     }
     /* /codes: shared discount codes. Before the per-minute limit, which is per network; these are
