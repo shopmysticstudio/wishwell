@@ -298,7 +298,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"1ca16b1db59f05835d61062bc700f88a",hash:"cde3ecbba96c3840ace71fa954c5ada6bcc79e12d1309eba7447972700305d71",iter:200000};
+window.WISHWELL_BETA={salt:"4dd97e99020e233cdfb687cf4cab530e",hash:"294408c258cfe3eba255c8e23f996d498f5fa201d5877c1491859f16f32f0b92",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
@@ -1109,7 +1109,7 @@ const NOTE_MAP=[
  [/\bbak|cake|cookie|dessert/,"baking dessert"],
  [/\bwrit|journal|diary|poem|poet/,"writing journal"],
  [/scien|chemist|experiment|biolog|physics/,"science experiments chemistry"],
- [/\bspace\b|\bstars?\b|planet|astro|rocket|nasa|galax/,"space astronomy stars"],
+ [/\bspace\b|\bstars?\b|planet|astro|rocket|nasa|galax|\bmoon|lunar/,"space astronomy stars"],
  [/cozy|comfy|blanket|sleep|relax|\bchill|\bcalm|\bnap/,"cozy sleep"],
  [/\bgym\b|lifting|workout|fitness|yoga|\brun\b|running/,"fitness gym running yoga"],
  [/guitar|piano|drum|singing|ukulele|vinyl|\brecords?\b|concert|music/,"music instrument"],
@@ -1138,8 +1138,31 @@ function signals(){
   const nt=" "+S.notes.toLowerCase()+" ";
   NOTE_MAP.forEach(([re,t],i)=>{if(re.test(nt))add("note"+i,6,t,1)});
   nt.split(/[^a-z0-9]+/).filter(x=>x.length>2&&!STOP.has(x)&&!NOTE_MAP.some(([re])=>re.test(" "+x+" "))).forEach(x=>add("word:"+stem(x),4,x,1));
+  // what they kept counts as much as the quiz, and their top 3 on the Rank list count most
+  S.kept.map(byId).filter(Boolean).slice(0,12).forEach((it,i)=>{const w=choiceWords(it);if(w.length)sig.push({key:"kept:"+it.id,w:i<3?6:4,set:new Set(w)})});
   return sig;
 }
+/* words that say what a chosen idea is: its title, plus its starter tags or store search */
+const CHOICE_SKIP=new Set("kit set pack bundle collection gift gifts mini small large big little personalized custom customized diy premium deluxe smart portable sampler starter holder stand organizer".split(" "));
+let BANK_BY=null;
+const choiceWords=it=>{if(!BANK_BY)BANK_BY=new Map(BANK.map(b=>[b[0].toLowerCase(),b]));const b=BANK_BY.get(String(it.title).toLowerCase());
+  const tx=(it.title+" "+(b?b[4]:it.search||"")).toLowerCase(),more=NOTE_MAP.filter(([re])=>re.test(" "+tx+" ")).map(([,t])=>t).join(" ");
+  return [...new Set((tx+" "+more).split(/[^a-z0-9]+/).filter(x=>x.length>2&&!STOP.has(x)&&!CHOICE_SKIP.has(x)).map(stem))]};
+const titleWords=t=>new Set(String(t).toLowerCase().split(/[^a-z0-9]+/).filter(x=>x.length>2&&!STOP.has(x)&&!CHOICE_SKIP.has(x)).map(stem));
+/* what they cut: the same kind of thing drops far down, and a theme cut two or more times drops a bit */
+function cutPenalty(){
+  const cut=S.items.filter(i=>i.status==="cut");if(!cut.length)return()=>0;
+  const keptW=new Set(S.kept.map(byId).filter(Boolean).flatMap(choiceWords));
+  const titles=cut.map(i=>titleWords(i.title)),count=new Map();
+  cut.forEach(i=>choiceWords(i).forEach(w=>count.set(w,(count.get(w)||0)+1)));
+  const theme=new Set([...count].filter(([w,n])=>n>=2&&!keptW.has(w)).map(([w])=>w));
+  return b=>{const tw=titleWords(b[0]),iw=ideaWords(b);let p=0;
+    titles.forEach(ct=>{let n=0;tw.forEach(w=>{if(ct.has(w))n++});if(n>=2||(n===1&&(ct.size===1||tw.size===1)))p=Math.max(p,12)});
+    let th=0;iw.forEach(w=>{if(theme.has(w))th+=3});return p+Math.min(6,th)};
+}
+/* Everyone's keeps, stars and cuts so far, by kind of gift (from the shared idea pool, Nov 28, 2026).
+   A light nudge of at most 1.5 points, smoothed so a handful of people can't lock it in. */
+const CROWD_CAT={Science:1.2,Making:0.8,Tech:0.5,Outdoors:0.3,Books:0.3,Room:0.1,Food:-1.4,Gaming:-0.8,Beauty:-0.7,Art:-0.7,Music:-0.6,Style:-0.3,Sports:-0.3};
 const ideaWords=b=>new Set((b[4]+" "+b[1]+" "+b[0]).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(stem));
 const maxB=()=>S.budget==="any"?99999:+S.budget;
 function addItem(o){
@@ -1161,17 +1184,18 @@ const AGE_SETS={};for(const k in AGE_FIT)AGE_SETS[k]=AGE_FIT[k].map(t=>new Set(t
 function ageFit(b){const a=AGE_SETS[S.age];if(!a)return 0;const w=ideaWords(b);let plus=0,minus=false;w.forEach(x=>{if(a[0].has(x))plus++;if(a[1].has(x))minus=true});return minus?-4:Math.min(3,plus*1.5)}
 const ideaText=b=>(b[0]+" "+b[4]).toLowerCase();
 function bankIdeas(n){
-  const seen=new Set([...S.items.map(i=>i.title.toLowerCase()),...S.have]);const sig=signals();const mb=maxB();
+  const seen=new Set([...S.items.map(i=>i.title.toLowerCase()),...S.have]);const sig=signals();const mb=maxB();const cutP=cutPenalty();
+  const keptNiche=S.kept.map(byId).some(i=>i&&NICHE_RE.test((i.title+" "+(i.search||"")).toLowerCase()));
   const pool=BANK.filter(b=>!seen.has(b[0].toLowerCase())&&b[2]<=mb&&(S.budget!=="9999"||b[3]>=150));
   const SB={Practical:["Food","Room","Sports","Other"],"Wow factor":["Experiences","Style","Tech"],Cozy:["Room","Food","Books"],"Surprise me":["Experiences","Other","Art"]}[S.style]||[];
   let noteHit=false;
   const scored=pool.map(b=>{const iw=ideaWords(b);const hit=new Map();let note=false;
     sig.forEach(g=>{for(const x of g.set)if(iw.has(x)){hit.set(g.key,Math.max(hit.get(g.key)||0,g.w));if(g.note)note=true;break}});
     let s=0;hit.forEach(w=>s+=w);if(hit.size>1)s+=3*(hit.size-1);if(note){s+=4;noteHit=true}
-    if(SB.includes(b[1]))s+=2;s+=ageFit(b);
+    if(SB.includes(b[1]))s+=2;s+=ageFit(b);s-=cutP(b);s+=CROWD_CAT[b[1]]||0;
     {const tx=ideaText(b),asked=note||(b[1]==="Beauty"&&S.ints.some(i=>i==="Beauty"||i==="Self-care"))||(/jewel|necklace|earring|bracelet/.test(tx)&&S.ints.includes("Jewelry"));
      if(GEN_RE.test(tx)){if((S.lean==="fem"&&FEM_RE.test(tx))||(S.lean==="masc"&&MASC_RE.test(tx)))s+=1;else if(!asked)s-=50}
-     else if((b[1]==="Science"||NICHE_RE.test(tx))&&!note&&!S.ints.some(i=>i==="Tech"||i==="Making"||i==="Space and science"))s-=50}if(S.style==="Wow factor"&&b[3]>=200)s+=1;
+     else if((b[1]==="Science"||NICHE_RE.test(tx))&&!note&&!keptNiche&&!S.ints.some(i=>i==="Tech"||i==="Making"||i==="Space and science"))s-=50}if(S.style==="Wow factor"&&b[3]>=200)s+=1;
     return{b,s:s+Math.random()*(S.style==="Surprise me"?4:1.5)}}).sort((a,b)=>b.s-a.s);
   // a little variety: each extra pick from the same category costs a bit
   const picks=[],cats={};const left=scored.slice();
@@ -1181,7 +1205,7 @@ function bankIdeas(n){
   return picks.length;
 }
 async function aiIdeas(n){
-  const kept=S.items.filter(i=>i.status==="kept").map(i=>i.title);
+  const kept=S.kept.map(byId).filter(i=>i&&i.status==="kept").map(i=>i.title);const top=kept.slice(0,3);
   const cut=S.items.filter(i=>i.status==="cut").map(i=>i.title);
   const seen=[...S.items.map(i=>i.title),...S.have];
   const who=S.forWho==="me"?"the person making the list (a teen or adult)":"someone the user is shopping for";
@@ -1191,13 +1215,14 @@ Taste quiz picks: ${PAIRS.filter(p=>picks(p).length).map(p=>p.q+" "+picks(p).map
 Gift style: ${S.style||"any"}${S.style==="Surprise me"?" (include a few unexpected picks)":""}.
 Details from the user: ${S.notes||"none"}.
 Budget per gift: ${S.budget==="any"?"any":S.budget==="9999"?"$200 and up":"up to $"+S.budget}.
-They kept (want more like these): ${kept.join("; ")||"nothing yet"}.
-They cut (avoid things like these): ${cut.join("; ")||"nothing yet"}.
+${top.length?`Their favorites, at the top of their ranked list (the strongest sign of what they want): ${top.join("; ")}.\n`:""}They kept (want more like these): ${kept.join("; ")||"nothing yet"}.
+They cut (they don't want these; avoid the same kind of thing): ${cut.join("; ")||"nothing yet"}.
+What they kept and cut counts more than the quiz. If they kept items, about half of the ideas should be close cousins of those, led by their favorites. Never suggest the same kind of thing as a cut item.
 Do not repeat any of: ${seen.join("; ")||"none"}.
 Mix obvious hits with a few surprising picks that fit the details. Prefer real product types; a brand is fine when it matters. Use typical US prices.
 Use American English. Never use dashes of any kind in text.
 Reply with only a JSON array. Each element: {"title": short name under 50 characters, "category": one of ${Object.keys(CATS).join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a store search phrase}.`;
-  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.flatMap(p=>picks(p).map(o=>o[1]+" ("+o[2]+")")),style:S.style,notes:S.notes,budget:S.budget,kept,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
+  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.flatMap(p=>picks(p).map(o=>o[1]+" ("+o[2]+")")),style:S.style,notes:S.notes,budget:S.budget,kept,top,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
   const arr=Array.isArray(out)?out:(out&&Array.isArray(out.ideas)?out.ideas:[]);
   const have=new Set(S.items.map(i=>i.title.toLowerCase()));let c=0;
   arr.forEach(o=>{if(c<n&&o&&o.title&&!have.has(String(o.title).toLowerCase())){have.add(String(o.title).toLowerCase());addItem({title:o.title,cat:o.category,lo:o.lo,hi:o.hi,why:o.why,search:o.search,src:"AI pick"});c++}});
