@@ -436,8 +436,9 @@ function after(round) { if (W.emb) cleanRound(round); labelBecause(round); const
 function prep() { if (!W.emb) return; S.items.slice(-40).forEach(i => vec(i.title)); terms(); }
 
 /* ---------- start up ---------- */
-function start() {
-  if (!code()) return;
+// The access code is checked a moment after the page loads (and later if they type it at the gate), so wait for it.
+function start(tries) {
+  if (!code()) { tries = (tries || 0) + 1; if (tries < 600) setTimeout(() => start(tries), 500); return; }
   W.swipes = S.swipeLiked || [];
   idle(async () => { await loadPool(); await loadEmbedder(); poolVectors(); checkSwipe(); });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkSwipe(); else report(); });
