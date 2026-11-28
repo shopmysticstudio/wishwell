@@ -301,7 +301,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"3080338b40ceeb0f02891f1ad4b259f3",hash:"72a509d57bcf3f9d93140a1909a0bbe2f2a6aa108024192cac0a16265f080837",iter:200000};
+window.WISHWELL_BETA={salt:"889ab3ac7f1c8b5dd55fab91e26fd536",hash:"007b5c81628c7edb1df9ad3f804215a81ee23367021213f6a3e1a5e61f5d1fc8",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
@@ -338,7 +338,7 @@ document.getElementById("gateForm").addEventListener("submit",async e=>{
 <header class="top">
   <img class="logo" src="img/mark.png" alt="Wishwell logo: someone fishing gifts out of a glowing well" width="68" height="68">
   <div class="brand"><h1>Wishwell</h1><div class="slogan">Want it, list it, get it.</div><div class="sub">Beta by Wishwell</div></div>
-  <a class="plans" href="advent/" style="text-decoration:none;display:inline-flex;align-items:center;background:#ffc94a">🎄 Advent</a>
+  <a class="plans" href="advent/" style="text-decoration:none;display:inline-flex;align-items:center;background:#ffc94a">🎄 Games</a>
   <button class="plans" id="openPlans" type="button">Plans</button>
 </header>
 <nav class="tabs" id="tabs" role="tablist" aria-label="Steps">
