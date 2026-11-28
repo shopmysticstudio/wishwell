@@ -298,7 +298,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"a9cbbb2f87e497b1025e0f1c4fdec67d",hash:"576c70d87a265f9dcdfd443e95fc9ad90d244ac280e8b758a6b9415913d55b7e",iter:200000};
+window.WISHWELL_BETA={salt:"204a2065550b648433a1728b22554d3f",hash:"363cb77232035e3e36c8a6660b0c97ecafe4c2868f1ed83da9635852b92cd91a",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
