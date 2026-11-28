@@ -1609,14 +1609,28 @@ const NOTE_MAP=[
  [/movie|\bfilms?\b|\btv\b|netflix/,"movies"],
  [/robot|electronic|arduino|3d print/,"maker electronics robot"]
 ];
+/* Typed words cleaned before matching: "Dunkin'", "dunkin donuts" and "Dunkin Donuts" all become
+   "dunkin"; common typos, spellings and joined words are fixed, and a long word one letter off
+   from a word the starter ideas use is read as that word. */
+const SYN={"dunkin donuts":"dunkin","star bucks":"starbucks","video games":"gaming","videogames":"gaming","vid games":"gaming","legos":"lego","tv shows":"shows","k pop":"kpop","k-pop":"kpop","basket ball":"basketball","foot ball":"football","base ball":"baseball","skate boarding":"skateboarding","make up":"makeup","work out":"workout","working out":"workout","the outdoors":"outdoors","kitties":"cats","kitty":"cats","doggos":"dogs","puppies":"dogs","true-crime":"true crime","dnd":"dungeons and dragons","d&d":"dungeons and dragons"};
+const TYPO={"puzzels":"puzzles","puzles":"puzzles","minecaft":"minecraft","basketbal":"basketball","soccor":"soccer","footbal":"football","gardning":"gardening","photgraphy":"photography","cookin":"cooking","drawling":"drawing","paintng":"painting","readng":"reading","fishin":"fishing","huntin":"hunting","musik":"music","skincar":"skincare","jewlery":"jewelry","jewellery":"jewelry","colour":"color","favourite":"favorite","theatre":"theater"};
+var VOCAB=null;
+const off1=(a,b)=>{if(Math.abs(a.length-b.length)>1)return false;let i=0,j=0,d=0;while(i<a.length&&j<b.length){if(a[i]===b[j]){i++;j++;continue}if(++d>1)return false;if(a.length>b.length)i++;else if(b.length>a.length)j++;else{i++;j++}}return d+(a.length-i)+(b.length-j)<=1};
+function fixWord(w){if(w.length<5)return w;if(!VOCAB){VOCAB=new Set();BANK.forEach(b=>(b[0]+" "+b[4]).toLowerCase().split(/[^a-z]+/).forEach(x=>{if(x.length>=4)VOCAB.add(x)}))}if(VOCAB.has(w))return w;for(const x of VOCAB)if(x[0]===w[0]&&off1(w,x))return x;return w}
+function cleanNote(t){
+  let s=" "+String(t||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[\u2018\u2019`]/g,"'").replace(/'s\b/g,"").replace(/'/g,"").replace(/[^a-z0-9&\- ]+/g," ").replace(/\s+/g," ")+" ";
+  for(const a in SYN)s=s.split(" "+a+" ").join(" "+SYN[a]+" ");
+  return s.split(" ").map(w=>fixWord(TYPO[w]||w)).join(" ").trim();
+}
 function signals(){
   const sig=[];const add=(key,w,t,note,strong)=>sig.push({key,w,note,strong:!!(note||strong),set:new Set(t.split(" ").map(stem))});
   const fromQuiz=new Set(PAIRS.flatMap(p=>picks(p).map(o=>CAT2INT[o[3]]||"")));
   S.ints.forEach(n=>{const f=INTS.find(x=>x[0]===n);if(f)add(n,2,f[1],0,!fromQuiz.has(n))});
   PAIRS.forEach(p=>picks(p).forEach(o=>add(CAT2INT[o[3]]||o[1],3,o[2])));
-  const nt=" "+S.notes.toLowerCase()+" ";
+  const cn=S.notes.trim()?cleanNote(S.notes):"";
+  const nt=" "+S.notes.toLowerCase()+" "+cn+" ";
   NOTE_MAP.forEach(([re,t],i)=>{if(re.test(nt))add("note"+i,6,t,1)});
-  nt.split(/[^a-z0-9]+/).filter(x=>x.length>2&&!STOP.has(x)&&!NOTE_MAP.some(([re])=>re.test(" "+x+" "))).forEach(x=>add("word:"+stem(x),4,x,1));
+  [...new Set(nt.split(/[^a-z0-9]+/))].filter(x=>x.length>2&&!STOP.has(x)&&!NOTE_MAP.some(([re])=>re.test(" "+x+" "))).forEach(x=>add("word:"+stem(x),4,x,1));
   return sig;
 }
 // Word sets are built once per idea and reused (read only; copy before changing one).
@@ -1725,7 +1739,7 @@ function bankIdeas(n){
     let held=false;
     s+=ageFit(b);
     // Meaning score from the phone's embedder: closeness to likes, minus closeness to a cut idea. A clear match counts as a real interest.
-    if(EMB){const e=EMB.get(b[0].toLowerCase());if(e){s+=18*e[0];if(e[0]>=0.2)strong=true;if(e[1]>0.55)s-=12*(e[1]-0.55)}}
+    if(EMB){const e=EMB.get(b[0].toLowerCase());if(e){s+=18*e[0];if(e[0]>=0.2)strong=true;if(e[1]>0.55)s-=12*(e[1]-0.55);if(e[2]>=0.72)s-=80}}
     const custom=CUSTOM_RE.test(b[0]);
     if(!note){if(PLAIN_RE.test(b[0]))s-=3;if(custom)s-=2.5;if(b[1]==="Food"&&!foodOk&&lo(P.cat,"Food")<=0.3)s-=2.5}
     const leanOk=gen&&((S.lean==="fem"&&FEM_RE.test(ideaText(b)))||(S.lean==="masc"&&MASC_RE.test(ideaText(b))));if(leanOk)s+=1;
@@ -1826,6 +1840,7 @@ async function getIdeas(){
   if(got<4){await embScore();const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
   if(got&&!msg.querySelector(".err"))msg.innerHTML=!aiOn()&&bankIdeas.noteMiss?`<p class="note">None of the starter ideas matched the words in Details, so these come from the quiz. Words like puzzles, camping or coffee match best.</p>`:"";
   if(note)msg.innerHTML=`<p class="note">${note}</p>`;
+  await labelBecause();
   logRound();setAi();busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
 }
 $("#moreBtn").addEventListener("click",getIdeas);
@@ -2072,7 +2087,7 @@ function cardHtml(it){
 <div class="mono" style="background:${c}" aria-hidden="true">${esc(it.cat.charAt(0))}${k?ringSvg:""}</div>
 <div class="no">No. ${String(it.no).padStart(3,"0")} · ${esc(it.cat)}</div><h3>${esc(it.title)}</h3>
 ${it.hi?`<span class="price">${esc(est(it))}</span>`:`<span class="small muted">Price not set</span>`}
-${it.why?`<p class="why">${esc(it.why)}</p>`:""}
+${it.bc?`<p class="small muted because" style="grid-column:1/-1;margin:6px 0 0">Because you circled ${esc(it.bc)}</p>`:""}${it.why?`<p class="why">${esc(it.why)}</p>`:""}
 <div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="${esc(it.id)}" aria-pressed="${k}">${keepIcon(k)}${k?"Circled":"Circle it"}</button><button type="button" class="btn quiet" data-a="have" data-id="${esc(it.id)}">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="${esc(it.id)}">Cut</button>${buyLink(it)}</div>${dealLinks(it)}
 <div class="src">${esc(it.src)}</div></article>`;
 }
@@ -2123,19 +2138,34 @@ window.addEventListener("hashchange",openShared);
    - Share list: Android's share sheet with the list and the family link. */
 const nat=(m,o,ms,pl)=>NATIVE?Promise.race([window.Capacitor.nativePromise(pl||"WishwellNative",m,o||{}),new Promise((_,j)=>setTimeout(()=>j(new Error("slow")),ms||3000))]):Promise.reject(new Error("web"));
 var EMB=null;
+const ownedTitles=()=>[...new Set([...S.items.filter(i=>i.status==="have").map(i=>i.title),...S.have])].slice(-20);
+/* After a round, by meaning: drop new ideas that are really something they already have, and label
+   each new idea that is close to one they circled in an earlier round ("Because you circled ..."). */
+async function labelBecause(){
+  if(!NATIVE)return;const r0=S.round||0;
+  const fresh=S.items.filter(i=>i.round===r0&&i.status==="new"&&!i.mine&&!i.bc);if(!fresh.length)return;
+  const kept=S.kept.map(byId).filter(i=>i&&i.status==="kept"&&!i.mine&&(i.round||0)<r0).slice(0,15);
+  const own=ownedTitles();if(!kept.length&&!own.length)return;
+  try{const r=await nat("score",{items:fresh.map(i=>[i.id,i.title]),pos:kept.map(i=>[i.title,1]),neg:[],own},1500);
+    if(!r||!r.ready||!r.s)return;
+    fresh.forEach(i=>{const e=r.s[i.id];if(!e)return;
+      if(e[2]>=0.72){S.items=S.items.filter(x=>x!==i);S.m.ownSkip=(S.m.ownSkip||0)+1;return}
+      const k=kept[e[3]];if(k&&e[4]>=0.5&&e[4]<0.86)i.bc=k.title.slice(0,60)})}catch(e){}
+}
 const embText=b=>b[0]+". "+b[4];
 async function embScore(){
   EMB=null;if(!NATIVE)return;
   const pos=[],top=S.kept.slice(0,3);
   S.ints.forEach(n=>pos.push([n,0.7]));tasteTags().forEach(t=>pos.push([t,0.5]));
-  const nt=S.notes.trim();if(nt){pos.push([nt.slice(0,300),1]);nt.split(/[,;.\n]+| and /).map(x=>x.trim()).filter(x=>x.length>2).slice(0,8).forEach(x=>pos.push([x.slice(0,80),1]))}
+  const nt=S.notes.trim();if(nt){pos.push([nt.slice(0,300),1]);nt.split(/[,;.\n]+| and /).map(x=>cleanNote(x)).filter(x=>x.length>2).slice(0,8).forEach(x=>pos.push([x.slice(0,80),1]))}
   S.items.filter(i=>i.status==="kept").slice(-20).forEach(i=>pos.push([i.title,top.includes(i.id)?1:0.8]));
   S.items.filter(i=>i.status==="have").slice(-10).forEach(i=>pos.push([i.title,0.4]));
   const neg=S.items.filter(i=>i.status==="cut").slice(-20).map(i=>i.title);
+  const own=ownedTitles();
   if(!pos.length)return;
   const seen=new Set(S.items.map(i=>i.title.toLowerCase()));
   const items=BANK.filter(b=>!seen.has(b[0].toLowerCase())).map(b=>[b[0].toLowerCase(),embText(b)]);
-  try{const r=await nat("score",{items,pos,neg},2500);if(r&&r.ready&&r.s){EMB=new Map(Object.entries(r.s));S.m.emb=(S.m.emb||0)+1}}catch(e){}
+  try{const r=await nat("score",{items,pos,neg,own},2500);if(r&&r.ready&&r.s){EMB=new Map(Object.entries(r.s));S.m.emb=(S.m.emb||0)+1}}catch(e){}
 }
 var natT=0;
 function natSaveLater(){if(!NATIVE)return;clearTimeout(natT);natT=setTimeout(()=>nat("putList",{id:"current",data:JSON.stringify(S)}).catch(()=>{}),800)}

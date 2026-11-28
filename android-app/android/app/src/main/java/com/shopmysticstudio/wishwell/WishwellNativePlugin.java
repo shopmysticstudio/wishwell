@@ -154,15 +154,17 @@ public class WishwellNativePlugin extends Plugin {
     }
 
     /**
-     * items: [[key, text], ...]; pos: [[text, weight 0 to 1], ...]; neg: [text, ...].
-     * Returns s: {key: [p, n]}: p is how close the idea is to the likes (centered on the average idea),
-     * n is its closeness to the nearest cut idea.
+     * items: [[key, text], ...]; pos: [[text, weight 0 to 1], ...]; neg: [text, ...]; own: [text, ...].
+     * Returns s: {key: [p, n, o, b, bc]}: p is how close the idea is to the likes (centered on the average
+     * idea), n is its closeness to the nearest cut idea, o to the nearest thing they already have, b is the
+     * index in pos of the like it is closest to (-1 for none) and bc that closeness.
      */
     @PluginMethod
     public void score(PluginCall call) {
         final JSArray items = call.getArray("items", new JSArray());
         final JSArray pos = call.getArray("pos", new JSArray());
         final JSArray neg = call.getArray("neg", new JSArray());
+        final JSArray own = call.getArray("own", new JSArray());
         work.execute(() -> {
             JSObject ret = new JSObject();
             try {
@@ -175,6 +177,7 @@ public class WishwellNativePlugin extends Plugin {
                 }
                 List<float[]> pv = new ArrayList<>();
                 List<Float> pw = new ArrayList<>();
+                List<Integer> pi = new ArrayList<>();
                 for (int i = 0; i < pos.length(); i++) {
                     JSONArray p = pos.getJSONArray(i);
                     String t = p.getString(0);
@@ -182,6 +185,7 @@ public class WishwellNativePlugin extends Plugin {
                     float[] v = vec(t);
                     if (v == null) continue;
                     pv.add(v);
+                    pi.add(i);
                     pw.add((float) Math.max(0.05, Math.min(1.0, p.optDouble(1, 1.0))));
                 }
                 List<float[]> nv = new ArrayList<>();
@@ -191,20 +195,33 @@ public class WishwellNativePlugin extends Plugin {
                     float[] v = vec(t);
                     if (v != null) nv.add(v);
                 }
+                List<float[]> ov = new ArrayList<>();
+                for (int i = 0; i < own.length(); i++) {
+                    String t = own.getString(i);
+                    if (t == null || t.trim().isEmpty()) continue;
+                    float[] v = vec(t);
+                    if (v != null) ov.add(v);
+                }
                 int n = items.length();
                 String[] keys = new String[n];
                 float[] ps = new float[n];
                 float[] ns = new float[n];
+                float[] os = new float[n];
+                int[] bi = new int[n];
+                float[] bc = new float[n];
                 float sum = 0;
                 float[] top = new float[3];
                 for (int i = 0; i < n; i++) {
                     JSONArray it = items.getJSONArray(i);
                     keys[i] = it.getString(0);
                     float[] v = vec(it.getString(1));
+                    bi[i] = -1;
                     if (v == null) continue;
                     Arrays.fill(top, -1f);
                     for (int j = 0; j < pv.size(); j++) {
-                        float c = dot(v, pv.get(j)) * pw.get(j);
+                        float raw = dot(v, pv.get(j));
+                        if (raw > bc[i]) { bc[i] = raw; bi[i] = pi.get(j); }
+                        float c = raw * pw.get(j);
                         if (c > top[0]) { top[2] = top[1]; top[1] = top[0]; top[0] = c; }
                         else if (c > top[1]) { top[2] = top[1]; top[1] = c; }
                         else if (c > top[2]) top[2] = c;
@@ -217,6 +234,9 @@ public class WishwellNativePlugin extends Plugin {
                     float m = 0;
                     for (float[] c : nv) m = Math.max(m, dot(v, c));
                     ns[i] = m;
+                    float o = 0;
+                    for (float[] c : ov) o = Math.max(o, dot(v, c));
+                    os[i] = o;
                 }
                 float mean = n > 0 ? sum / n : 0;
                 JSObject s = new JSObject();
@@ -224,6 +244,9 @@ public class WishwellNativePlugin extends Plugin {
                     JSArray a = new JSArray();
                     a.put(Math.round((ps[i] - mean) * 1000) / 1000.0);
                     a.put(Math.round(ns[i] * 1000) / 1000.0);
+                    a.put(Math.round(os[i] * 1000) / 1000.0);
+                    a.put(bi[i]);
+                    a.put(Math.round(bc[i] * 1000) / 1000.0);
                     s.put(keys[i], a);
                 }
                 saveCache();
