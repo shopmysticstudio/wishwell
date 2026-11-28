@@ -169,6 +169,7 @@ function readPayload(raw) {
     notes: clean(p.notes, 400),
     budget: Object.prototype.hasOwnProperty.call(BUDGETS, String(p.budget)) ? String(p.budget) : "any",
     kept: list(p.kept, 40, 80),
+    top: list(p.top, 5, 80),
     keptAi: list(p.keptAi, 40, 60),
     cut: list(p.cut, 40, 80),
     seen: list(p.seen, 120, 80)
@@ -204,9 +205,9 @@ What they told us, most specific first:
 Age range: ${q.age ? AGES[q.age] + ". Fit what people that age usually enjoy and use, without stereotypes" : "not given"}.
 Gender: ${q.lean ? LEANS[q.lean] : "not given, so keep every idea gender neutral"}.
 Budget: ${budgetRule(q.budget)}
-They kept (want more like these): ${q.kept.join("; ") || "nothing yet"}.
-They cut (avoid things like these): ${q.cut.join("; ") || "nothing yet"}.
-${q.liked && q.liked.length ? `Other people with these interests kept ideas like: ${q.liked.join("; ")}. Match how specific these are; one or two may be suggested if they fit.\n` : ""}${q.avoid && q.avoid.length ? `Other people often cut these (avoid them and close cousins): ${q.avoid.join("; ")}.\n` : ""}Do not repeat any of: ${q.seen.join("; ") || "none"}.
+${q.top && q.top.length ? `Their favorites, at the top of their ranked list (the strongest sign of what they want): ${q.top.join("; ")}.\n` : ""}They kept (want more like these): ${q.kept.join("; ") || "nothing yet"}.
+They cut (they don't want these; avoid the same kind of thing): ${q.cut.join("; ") || "nothing yet"}.
+${(q.catUp && q.catUp.length) || (q.catDown && q.catDown.length) ? `Across everyone so far, ${[q.catUp && q.catUp.length ? andList(q.catUp) + " gifts get kept more often" : "", q.catDown && q.catDown.length ? andList(q.catDown) + " gifts get cut more often" : ""].filter(Boolean).join(", and ")}. Use this only as a light tie breaker; this person's own choices come first.\n` : ""}${q.liked && q.liked.length ? `Other people with these interests kept ideas like: ${q.liked.join("; ")}. Match how specific these are; one or two may be suggested if they fit.\n` : ""}${q.avoid && q.avoid.length ? `Other people often cut these (avoid them and close cousins): ${q.avoid.join("; ")}.\n` : ""}Do not repeat any of: ${q.seen.join("; ") || "none"}.
 How to choose:
 ${q.notes ? "- At least half of the ideas must fit the details directly. Read the details for the feeling too: \"quirky, keeps my brain busy\" means puzzles, brain teasers and odd clever gadgets, not plain items from each interest.\n" : ""}- Start broad and everyday: home and comfort, hobbies, style, books and stories, music, games, outdoors and experiences. Only suggest food, drink or kitchen gifts when they picked Cooking or Coffee and tea, or a detail or quiz pick is about food.
 - Every idea must tie clearly to at least one detail, quiz pick or interest above, and its "why" says which in plain words.
@@ -216,7 +217,8 @@ ${q.notes ? "- At least half of the ideas must fit the details directly. Read th
 - Only suggest tech, gadgets, electronics, science or space items when the interests, quiz picks, details or kept items show that interest, and even then keep them to a third of the list or less.
 - Prefer ideas that fit two or more of the things above at once, like a detail plus an interest, or two quiz picks together.
 - Do not hand out one plain idea per interest. Skip generic picks almost anyone could get (gift cards, plain headphones, generic decor) unless the details ask for them.
-- If they kept items, about a third of the ideas should be close cousins of those.
+- What they kept and cut counts more than the quiz and interests, because it is what they actually chose. If they kept items, about half of the ideas should be close cousins of those (same theme or use, a different kind of thing), led by their favorites.
+- Never suggest the same kind of thing as a cut item: a cut puzzle book rules out other puzzle books. If two or more cut items share a theme, leave that theme out.
 - Vary the kinds of gifts: no more than two from the same category.
 Use honest, typical current US store prices.
 Each element uses exactly these keys: {"title": generic product name under 50 characters in sentence case, "category": one of ${CATS.join(", ")}, "lo": low price in whole US dollars as a number, "hi": high price as a number, "why": one natural reason under 14 words in sentence case that says what it fits in plain words, like "Brain teasers for a mystery novel fan" (never quote their answers), "search": a generic store search phrase}.`;
@@ -310,7 +312,7 @@ function genericKind(title) {
 /* ---------- crowd hints from the idea pool ---------- */
 // What other people kept and cut, to steer a round. Only pool titles and counts are read.
 async function crowdHints(db, q, env) {
-  const res = { liked: [], avoid: [], blocked: new Set() };
+  const res = { liked: [], avoid: [], blocked: new Set(), catUp: [], catDown: [] };
   if (!db) return res;
   const mine = new Set([...q.kept, ...q.keptAi, ...q.cut, ...q.seen].map(ideaKey));
   const tags = q.ints.filter(i => INTERESTS.includes(i)).map(i => "int:" + i);
@@ -320,7 +322,9 @@ async function crowdHints(db, q, env) {
     const likedQ = tags.length
       ? db.prepare(`SELECT i.title AS title FROM ideas i JOIN idea_tags t ON t.key = i.key WHERE t.tag IN (${tags.map((_, k) => "?" + (k + 1)).join(", ")}) AND i.kept + i.top >= 1 AND i.kept + 2 * i.top > 2 * i.cut GROUP BY i.key ORDER BY SUM(t.n) * (i.kept + 2 * i.top - i.cut) DESC, i.shown DESC LIMIT 20`).bind(...tags)
       : db.prepare("SELECT title FROM ideas WHERE kept + top >= 2 AND kept + 2 * top > 2 * cut ORDER BY kept + 2 * top - cut DESC LIMIT 20");
-    const [cuts, liked] = await withTime(Promise.all([cutQ.all(), likedQ.all()]), num(env.CROWD_TIMEOUT_MS, 1500));
+    const catQ = db.prepare("SELECT category, SUM(kept) + SUM(top) AS pos, SUM(cut) AS neg FROM ideas GROUP BY category");
+    const [cuts, liked, cats] = await withTime(Promise.all([cutQ.all(), likedQ.all(), catQ.all()]), num(env.CROWD_TIMEOUT_MS, 1500));
+    Object.assign(res, crowdCategories((cats && cats.results) || []));
     for (const r of (cuts && cuts.results) || []) {
       const k = ideaKey(r.title);
       if (r.shown >= minShows && r.cut >= 0.6 * r.shown && (r.kept + r.top) * 3 <= r.cut) res.blocked.add(k);
@@ -334,6 +338,26 @@ async function crowdHints(db, q, env) {
   return res;
 }
 
+/* Kinds of gifts that everyone so far keeps (or stars) clearly more, or cuts clearly more. Smoothed
+   toward the overall rate (as if 10 more average votes) and only for kinds with 12 or more votes, so a
+   few people can't lock it in. A light hint only; the person's own choices come first. */
+const andList = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
+function crowdCategories(rows) {
+  const out = { catUp: [], catDown: [] };
+  let P = 0, N = 0; for (const r of rows) { P += Number(r.pos) || 0; N += Number(r.neg) || 0; }
+  if (P + N < 40) return out;
+  const p0 = P / (P + N), A = 10;
+  for (const r of rows) {
+    const pos = Number(r.pos) || 0, neg = Number(r.neg) || 0;
+    if (pos + neg < 12 || !CATS.includes(r.category) || r.category === "Other") continue;
+    const d = (pos + A * p0) / (pos + neg + A) - p0;
+    if (d >= 0.1) out.catUp.push([r.category, d]); else if (d <= -0.1) out.catDown.push([r.category, d]);
+  }
+  out.catUp = out.catUp.sort((a, b) => b[1] - a[1]).map(x => x[0]);
+  out.catDown = out.catDown.sort((a, b) => a[1] - b[1]).map(x => x[0]);
+  return out;
+}
+
 // Daily totals of ideas shown, kept, ranked, cut and already had: how well picks land over time.
 function statsStatement(db, day, add) {
   const c = k => Math.max(0, Math.min(200, Math.round(add[k] || 0)));
@@ -341,11 +365,23 @@ function statsStatement(db, day, add) {
     .bind(day, c("shown"), c("kept"), c("top"), c("cut"), c("have"));
 }
 
+/* Titles that share two or more real words (or the only word) with a cut item are the same kind of
+   thing, so they're dropped, unless they're at least as close to something the person kept. */
+const CLOSE_SKIP = new Set("a an the of for and with to in on set kit collection pack bundle box gift mini small large big little personalized custom premium deluxe".split(" "));
+const titleWords = t => new Set(String(t || "").toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1 && !CLOSE_SKIP.has(w))
+  .map(w => w.length > 4 && w.endsWith("ies") ? w.slice(0, -3) + "y" : w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w));
+function closeness(title, others) {
+  const a = titleWords(title); let best = 0;
+  for (const o of others) { const b = titleWords(o); let n = 0; for (const w of a) if (b.has(w)) n++;
+    if (n >= 2 || (n === 1 && (b.size === 1 || a.size === 1))) best = Math.max(best, n); }
+  return best;
+}
 function parseIdeas(out, q) {
   const raw = findArray(modelText(out));
   const have = new Set(q.seen.map(s => s.toLowerCase()));
   const ideas = [];
-  const dropped = { budget: 0, brand: 0, other: 0, crowd: 0, generic: 0 };
+  const dropped = { budget: 0, brand: 0, other: 0, crowd: 0, generic: 0, cut: 0 };
+  const cutList = q.cut || [], keptList = [...(q.kept || []), ...(q.top || [])];
   const blocked = q.blocked || new Set();
   const asked = [q.notes, ...q.quiz, ...q.ints].join(" ").toLowerCase();
   // Some models rename keys ("Title", "name", "price_low"), so read them loosely.
@@ -362,6 +398,7 @@ function parseIdeas(out, q) {
     if (title.length < 2 || have.has(title.toLowerCase())) { dropped.other++; continue; }
     if (brandRe.test(title)) { dropped.brand++; continue; }
     if (blocked.has(ideaKey(title))) { dropped.crowd++; continue; }
+    if (cutList.length) { const c = closeness(title, cutList); if (c && closeness(title, keptList) < c) { dropped.cut++; continue; } }
     const kind = genericKind(title);
     if (kind && !asked.includes(kind)) { dropped.generic++; continue; }
     const cat = CATS.find(c => c.toLowerCase() === clean(o.category, 20).toLowerCase()) || "Other";
@@ -670,7 +707,7 @@ async function codeLimit(env, kind, dev, ip) {
 /* ---------- handler ---------- */
 export default {
   // For tests only; not used by Cloudflare.
-  _test: { cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
+  _test: { crowdCategories, closeness, cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
 
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
