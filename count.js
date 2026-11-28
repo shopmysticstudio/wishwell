@@ -4,7 +4,7 @@
 (function () {
   if (location.hostname !== "shopmysticstudio.github.io") return;
   if (navigator.globalPrivacyControl || navigator.doNotTrack === "1" || window.doNotTrack === "1") return;
-  var to = "https://wishwell-ai-ideas.shopmysticstudio.workers.dev/hit";
+  var to = "https://wishwell-ai-ideas.shopmysticstudio.workers.dev/v";
   var page = location.pathname.replace(/^\/wishwell/, "").replace(/index\.html$/, "");
   if (!/\/$/.test(page)) page += "/";
   var ref = "";
