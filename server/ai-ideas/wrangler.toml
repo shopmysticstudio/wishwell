@@ -63,6 +63,13 @@ CODES_VOTES_PER_DAY = "60"
 CODES_NET_PER_DAY = "off"
 # "off" stops saving ideas to the pool.
 POOL = "on"
+# Leftover-AI gap filling (see [triggers]): "off" turns it off. Neurons kept back for live rounds, about
+# what one word costs, most words a night, and how many phones must report a word first.
+GAP_FILL = "on"
+GAP_MARGIN = "3000"
+GAP_COST = "150"
+GAP_TERMS = "6"
+GAP_MIN = "2"
 # Holiday Games (/advent): a level's first win earns one bonus AI round, spent once the free rounds
 # are used up (it still takes a TRIAL_GLOBAL_DAILY slot). "off" turns rewards off. Levels above
 # GAMES_FREE_LEVELS need a Games Pass or Holiday Pass. Bonus rounds per device a day, for everyone
@@ -99,6 +106,11 @@ simple = { limit = 30, period = 60 }
 name = "CODES"
 namespace_id = "1103"
 simple = { limit = 20, period = 60 }
+
+# Beta: before the free AI allowance resets (00:00 UTC, 7 PM US Eastern), write pool ideas for words
+# phones reported as unmatched, using only what's left of the day after GAP_MARGIN Neurons for live rounds.
+[triggers]
+crons = ["25 23 * * *"]
 
 # Idea pool in D1 (anonymous idea text and counts; tables in migrations/).
 # Remove this block to go back to the KV pool.

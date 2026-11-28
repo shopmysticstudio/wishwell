@@ -868,7 +868,7 @@ function cleanLog(raw) {
       const pos = intIn(it && it.p, 0, 23), title = clean(it && it.t, 60);
       if (pos == null || title.length < 2 || brandRe.test(title)) continue;
       out.ideas.push({ pos, key: ideaKey(title), title, cat: CATS.find(x => x === it.c) || "Other",
-        src: ["ai", "starter", "rec", "wild"].includes(it.src) ? it.src : "starter", lo: intIn(it.lo, 0, 10000) || 0, hi: intIn(it.hi, 0, 10000) || 0 });
+        src: ["ai", "starter", "rec", "wild", "pool", "seed"].includes(it.src) ? it.src : "starter", lo: intIn(it.lo, 0, 10000) || 0, hi: intIn(it.hi, 0, 10000) || 0 });
     }
   }
   for (const u of (Array.isArray(p.out) ? p.out : []).slice(0, 200)) {
@@ -961,10 +961,151 @@ async function runAll(db, st) {
   for (const s of st) await s.run();
 }
 
+
+/* ---------- beta: on-device ranking (pool download, findings, gap filling, swipe links) ---------- */
+// The pool for the phone: the gift map list, plus ideas the leftover-AI job wrote for unmatched words,
+// plus "seeds": what people of each age group and budget kept most, so round 1 starts from something.
+async function poolList(db) {
+  const base = await mapList(db);
+  const gaps = (await db.prepare("SELECT key, term, title, category, lo, hi FROM gap_ideas ORDER BY day DESC LIMIT 400").all()).results || [];
+  const have = new Set(base.pool.map(p => p.k));
+  for (const g of gaps) if (!have.has(g.key)) base.pool.push({ k: g.key, t: g.title, c: g.category, lo: g.lo, hi: g.hi, shown: 0, kept: 0, top: 0, cut: 0, ints: [], gap: g.term });
+  const rows = (await db.prepare(`SELECT r.age AS age, r.budget AS budget, i.title AS title, i.category AS category,
+      SUM(i.outcome IN ('kept', 'top')) AS k, SUM(i.outcome = 'cut') AS c
+    FROM rounds r JOIN round_ideas i ON i.list_id = r.list_id AND i.round = r.round
+    GROUP BY r.age, r.budget, i.idea_key HAVING k >= 1 AND k > c ORDER BY k - c DESC, k DESC LIMIT 1500`).all()).results || [];
+  const seeds = {};
+  const put = (key, r) => { const a = seeds[key] || (seeds[key] = []); if (a.length < 12 && !brandRe.test(r.title)) a.push([r.title, r.category, r.k, r.c]); };
+  for (const r of rows) { put((r.age || "") + "|" + (r.budget || ""), r); put((r.age || "") + "|", r); put("|" + (r.budget || ""), r); }
+  base.seeds = seeds;
+  return base;
+}
+
+let BRAND_HASHES = null;
+async function brandHashes() {
+  if (BRAND_HASHES) return BRAND_HASHES;
+  const m = new Map();
+  for (const b of BRANDS) for (const w of [b, b.replace(/ /g, "")]) m.set((await sha("wishwell-term:" + w)).slice(0, 16), w);
+  return BRAND_HASHES = m;
+}
+// A word from the phone: plain lowercase letters, or "h:" and a hash that must match a known brand word.
+async function gapTerm(t) {
+  t = String(t || "").toLowerCase();
+  if (/^h:[0-9a-f]{16}$/.test(t)) return (await brandHashes()).get(t.slice(2)) || "";
+  if (INTERESTS.map(i => i.toLowerCase()).includes(t)) return t;
+  return /^[a-z]{3,20}$/.test(t) ? t : "";
+}
+async function findingStatements(db, raw, day) {
+  const p = raw && typeof raw === "object" ? raw : {};
+  const st = [];
+  for (const d of (Array.isArray(p.dups) ? p.dups : []).slice(0, 20)) {
+    if (!Array.isArray(d)) continue;
+    let a = ideaKey(clean(d[0], 60)), b = ideaKey(clean(d[1], 60)); const sim = intIn(d[2], 0, 100) || 0;
+    if (!a || !b || a === b || brandRe.test(a) || brandRe.test(b)) continue;
+    if (a > b) [a, b] = [b, a];
+    st.push(db.prepare("INSERT INTO finding_dups (a, b, sim, n, last_day) VALUES (?1, ?2, ?3, 1, ?4) ON CONFLICT(a, b) DO UPDATE SET n = n + 1, sim = MAX(sim, ?3), last_day = ?4").bind(a, b, sim, day));
+  }
+  const gaps = new Set();
+  for (const g of (Array.isArray(p.gaps) ? p.gaps : []).slice(0, 10)) { const t = await gapTerm(g); if (t) gaps.add(t); }
+  for (const t of gaps) st.push(db.prepare("INSERT INTO finding_gaps (term, n, last_day) VALUES (?1, 1, ?2) ON CONFLICT(term) DO UPDATE SET n = n + 1, last_day = ?2").bind(t, day));
+  const QUIZ = new Set(["social", "cozy", "outdoorsy", "creative", "music lover", "gamer", "style", "gadgets", "story lover", "curious", "sporty", "foodie"]);
+  for (const m of (Array.isArray(p.m) ? p.m : []).slice(0, 40)) {
+    if (!Array.isArray(m)) continue;
+    let term = String(m[0] || "").toLowerCase().slice(0, 30);
+    if (!(term === "kept" || term === "details" || term === "seed" || term === "swipe" || QUIZ.has(term))) term = await gapTerm(term);
+    const key = ideaKey(clean(m[1], 60)), o = String(m[2] || "");
+    if (!term || !key) continue;
+    st.push(db.prepare("INSERT INTO finding_matches (term, key, shown, kept, cut, last_day) VALUES (?1, ?2, 1, ?3, ?4, ?5) ON CONFLICT(term, key) DO UPDATE SET shown = shown + 1, kept = kept + ?3, cut = cut + ?4, last_day = ?5")
+      .bind(term, key, o === "kept" || o === "top" ? 1 : 0, o === "cut" ? 1 : 0, day));
+  }
+  return st;
+}
+
+// Leftover daily AI (cron, before the free allowance resets at 00:00 UTC): write pool ideas for words the
+// phones reported as unmatched. Leaves GAP_MARGIN neurons for live rounds, and stops when the day's use
+// isn't known.
+const DAILY_NEURONS = 10000;
+function gapMessages(term) {
+  return [{ role: "system", content: "You suggest gift ideas for a wishlist app used by teens and adults. Only gifts suitable for ages 13 and up; never alcohol, tobacco, vaping, weapons, gambling or adult content. Generic product types only: never brand, company, franchise, character, band, show or trademarked names. Use American English and no dashes. Reply with only a JSON array." },
+    { role: "user", content: `Suggest 8 specific, buyable gifts for someone who loves ${term}. If that is a show, game, band or brand, suggest generic things a fan of its themes would enjoy, without its name. Each element: {"title": generic product name under 50 characters in sentence case, "category": one of ${CATS.join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a generic store search phrase}.` }];
+}
+async function gapFill(env) {
+  if (!env.DB || !env.AI || String(env.GAP_FILL || "on") === "off") return { ran: 0, reason: "off" };
+  const day = today();
+  const used = await env.DB.prepare("SELECT SUM(n) AS n, COUNT(*) AS c FROM ai_use WHERE k LIKE ?1").bind("use:" + day + ":%").first();
+  const calls = await env.DB.prepare("SELECT SUM(n) AS n FROM ai_use WHERE k LIKE ?1").bind("calls:" + day + ":%").first();
+  if ((calls && calls.n) && !(used && used.c)) return { ran: 0, reason: "use_unknown" };
+  const left = num(env.DAILY_NEURONS, DAILY_NEURONS) - ((used && used.n) || 0) - num(env.GAP_MARGIN, 3000);
+  const per = num(env.GAP_COST, 150);
+  const max = Math.min(num(env.GAP_TERMS, 6), Math.floor(left / per));
+  if (max < 1) return { ran: 0, reason: "no_room", left };
+  const terms = ((await env.DB.prepare("SELECT term FROM finding_gaps WHERE filled_day = '' AND n >= ?1 ORDER BY n DESC, last_day DESC LIMIT ?2").bind(num(env.GAP_MIN, 2), max).all()).results || []).map(r => r.term);
+  const model = env.GAP_MODEL || BACKUP_MODEL;
+  let ran = 0;
+  for (const term of terms) {
+    let ideas = [];
+    try {
+      const out = await withTime(aiRun(env, "gap", model, { messages: gapMessages(term), max_tokens: 900, temperature: 0.6 }), num(env.AI_TIMEOUT_MS, 20000));
+      ideas = parseIdeas(out, { n: 8, beta: true, notes: "", quiz: [], ints: [], seen: [], cut: [], kept: [], top: [], budget: "any" });
+    } catch (e) { if (/4006|allocation|5035|paid/i.test(String(e && e.message))) break; continue; }
+    ran++;
+    const st = ideas.map(i => env.DB.prepare("INSERT OR IGNORE INTO gap_ideas (key, term, title, category, lo, hi, why, day) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)").bind(ideaKey(i.title), term, i.title, i.category, i.lo, i.hi, i.why, day));
+    st.push(env.DB.prepare("UPDATE finding_gaps SET filled_day = ?2 WHERE term = ?1").bind(term, day));
+    await runAll(env.DB, st);
+  }
+  return { ran, terms };
+}
+
+
+// Server ranking without AI, for phones too slow for the on-phone matcher: scores the pool by interest
+// tags that the gift map agrees with, words shared with what they kept or told us, and what others kept.
+function rankPool(data, q, n) {
+  const own = titleWords([q.notes, ...q.quiz, ...q.kept, ...(q.top || [])].join(" "));
+  const cutW = (q.cut || []).map(titleWords), seen = new Set([...q.seen, ...q.kept, ...q.cut].map(ideaKey));
+  const maxB = q.budget === "any" || q.budget === "9999" ? Infinity : BUDGETS[q.budget];
+  const scored = [];
+  for (const p of data.pool) {
+    if (seen.has(p.k) || brandRe.test(p.t) || p.lo > maxB || p.hi > maxB || (q.budget === "9999" && p.hi < 150)) continue;
+    const f = data.f[p.k] || {}, fi = Array.isArray(f.ints) ? f.ints : [];
+    const tw = titleWords(p.t);
+    let s = 0;
+    for (const i of q.ints) { if (fi.includes(i)) s += 3; else if (p.ints.includes(i)) s += 0.5; }
+    for (const w of tw) if (own.has(w)) s += 2;
+    for (const c of cutW) { let k = 0; for (const w of tw) if (c.has(w)) k++; if (k >= 2 || (k === 1 && tw.size === 1)) s -= 6; }
+    s += (p.kept + 2 * p.top - p.cut) / (p.kept + p.top + p.cut + 4);
+    if (q.age === "teen" && f.age && f.age[1] === 0) s -= 1;
+    if (s > 0.5) scored.push([s + Math.random() * 0.3, p]);
+  }
+  scored.sort((a, b) => b[0] - a[0]);
+  const cats = {}, cap = catCap(n), out = [];
+  for (const [, p] of scored) {
+    if (out.length >= n) break;
+    if ((cats[p.c] || 0) >= cap) continue;
+    cats[p.c] = (cats[p.c] || 0) + 1;
+    out.push({ title: p.t, category: p.c, lo: p.lo, hi: p.hi });
+  }
+  return out;
+}
+
+// Swipe links. A deck is up to 24 generic titles with categories; votes are 1 (like) or 0 (pass) per card.
+const newId = () => { const a = new Uint8Array(12); crypto.getRandomValues(a); return [...a].map(x => x.toString(16).padStart(2, "0")).join(""); };
+function cleanDeck(raw) {
+  const out = [];
+  for (const c of (Array.isArray(raw) ? raw : []).slice(0, 24)) {
+    const t = clean(c && c.t, 60), cat = CATS.includes(c && c.c) ? c.c : "Other";
+    if (t.length >= 2 && !brandRe.test(t)) out.push({ t, c: cat });
+  }
+  return out;
+}
+
 /* ---------- handler ---------- */
 export default {
   // For tests only; not used by Cloudflare.
-  _test: { wildCount, catCap, properNames, mapItems, mapMessages, parseFactors, mapList, MAP_TABLE, cleanLog, logStatements, crowdCategories, closeness, cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
+  _test: { rankPool, poolList, findingStatements, gapFill, gapTerm, cleanDeck, wildCount, catCap, properNames, mapItems, mapMessages, parseFactors, mapList, MAP_TABLE, cleanLog, logStatements, crowdCategories, closeness, cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(gapFill(env).catch(() => {}));
+  },
 
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
@@ -998,7 +1139,7 @@ export default {
     }
     if (request.method !== "POST") return reply({ error: "use_post" }, 405);
     if (appOrigin && !(path === "/verify" || path === "/signal" || path === "/log" || path === "/map" || path.startsWith("/codes") || (path === "/" && request.headers.get("x-pass-key")))) return reply({ error: "origin_not_allowed" }, 403);
-    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist" && path !== "/hit" && path !== "/log" && path !== "/codes" && path !== "/codes/add" && path !== "/codes/vote" && path !== "/map" && path !== "/map/score" && path !== "/reward") return reply({ error: "not_found" }, 404);
+    if (path !== "/" && path !== "/verify" && path !== "/signal" && path !== "/photo" && path !== "/waitlist" && path !== "/hit" && path !== "/log" && path !== "/codes" && path !== "/codes/add" && path !== "/codes/vote" && path !== "/map" && path !== "/map/score" && path !== "/reward" && path !== "/pool" && path !== "/rank" && path !== "/findings" && !/^\/swipe\/(new|get|vote|votes)$/.test(path)) return reply({ error: "not_found" }, 404);
 
     const maxBody = path === "/photo" ? MAX_PHOTO_BODY : MAX_BODY;
     const len = Number(request.headers.get("content-length") || 0);
@@ -1121,10 +1262,64 @@ export default {
     };
     if (appOrigin && path === "/map") return mapRead();
 
+
+    /* /swipe/get and /swipe/vote: the person a list is for opens the giver's link (no beta code or
+       sign-up) and swipes the deck once. Nothing about them is stored but the like or pass on each card. */
+    if (path === "/swipe/get" || path === "/swipe/vote") {
+      if (!env.DB) return reply({ error: "not_set_up" }, 429);
+      if (env.HITS && typeof env.HITS.limit === "function") {
+        try { const { success } = await env.HITS.limit({ key: "swipe:" + network(ip) }); if (!success) return reply({ error: "rate_limited" }, 429); } catch (e) {}
+      }
+      const id = String(raw && raw.id || "");
+      if (!/^[0-9a-f]{24}$/.test(id)) return reply({ error: "bad_id" }, 400);
+      const row = await env.DB.prepare("SELECT deck, votes, exp FROM swipes WHERE id = ?1").bind(id).first();
+      if (!row || row.exp < Date.now() / 1000) return reply({ error: "gone" }, 404);
+      const deck = JSON.parse(row.deck);
+      if (path === "/swipe/get") return reply({ deck: deck.map(c => ({ t: c.t, c: c.c })), done: !!row.votes }, 200);
+      if (row.votes) return reply({ ok: true, already: true }, 200);
+      const v = (Array.isArray(raw.v) ? raw.v : []).slice(0, deck.length).map(x => x === 1 ? 1 : x === 0 ? 0 : -1);
+      if (v.filter(x => x >= 0).length < 3) return reply({ error: "too_few" }, 400);
+      const day = today();
+      const st = [env.DB.prepare("UPDATE swipes SET votes = ?2 WHERE id = ?1 AND votes = ''").bind(id, JSON.stringify(v))];
+      v.forEach((x, i) => { if (x < 0) return; st.push(env.DB.prepare("INSERT INTO swipe_votes (key, title, likes, passes, last_day) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(key) DO UPDATE SET likes = likes + ?3, passes = passes + ?4, last_day = ?5").bind(ideaKey(deck[i].t), deck[i].t, x, 1 - x, day)); });
+      await runAll(env.DB, st);
+      return reply({ ok: true }, 200);
+    }
+
     const codeHeader = request.headers.get("x-beta-code");
     const beta = !!codeHeader && await codeOk(codeHeader, env);
     if (String(env.BETA_ONLY || "true") !== "false" && !beta) {
       return reply({ error: "beta_code_required" }, 429);
+    }
+
+
+    /* Beta on-device ranking: /pool downloads the idea pool with its scores and seeds; /findings takes what
+       the phone noticed (near repeats, unmatched words, which word picked which idea); /swipe/new stores a
+       swipe deck and /swipe/votes reads its swipes back to the giver's phone. Beta code only. */
+    if (path === "/pool" || path === "/rank" || path === "/findings" || path === "/swipe/new" || path === "/swipe/votes") {
+      if (!beta) return reply({ error: "beta_code_required" }, 429);
+      if (!env.DB) return reply({ error: "not_set_up" }, 429);
+      if (env.HITS && typeof env.HITS.limit === "function") {
+        try { const { success } = await env.HITS.limit({ key: "beta:" + network(ip) }); if (!success) return reply({ error: "rate_limited" }, 429); } catch (e) {}
+      }
+      if (path === "/pool") return reply(await poolList(env.DB), 200);
+      if (path === "/rank") { const q = readPayload(raw); return reply({ ideas: rankPool(await poolList(env.DB), q, q.n) }, 200); }
+      if (path === "/findings") {
+        const st = await findingStatements(env.DB, raw, today());
+        if (st.length) later(runAll(env.DB, st));
+        return new Response(null, { status: 204, headers: cors });
+      }
+      if (path === "/swipe/new") {
+        const deck = cleanDeck(raw && raw.deck);
+        if (deck.length < 5) return reply({ error: "too_few" }, 400);
+        const id = newId();
+        await env.DB.prepare("INSERT INTO swipes (id, deck, exp) VALUES (?1, ?2, ?3)").bind(id, JSON.stringify(deck), Math.floor(Date.now() / 1000) + 14 * 86400).run();
+        return reply({ id }, 200);
+      }
+      const id = String(raw && raw.id || "");
+      if (!/^[0-9a-f]{24}$/.test(id)) return reply({ error: "bad_id" }, 400);
+      const row = await env.DB.prepare("SELECT votes FROM swipes WHERE id = ?1").bind(id).first();
+      return reply({ votes: row && row.votes ? JSON.parse(row.votes) : null }, 200);
     }
 
     /* /map and /map/score: the beta gift map draft. Beta code only. /map lists the idea pool with its
