@@ -36,8 +36,12 @@ TRIAL_NET_WEEKLY = "off"
 # has room left for Holiday Pass rounds.
 TRIAL_GLOBAL_DAILY = "40"
 # Test runs ({"dry": true}, beta code only, nothing saved) a day, for everyone together. They also
-# count toward TRIAL_GLOBAL_DAILY.
-DRY_DAILY = "25"
+# count toward TRIAL_GLOBAL_DAILY. Kept small so tests never eat the free AI that live rounds need.
+DRY_DAILY = "5"
+# Gift map scores for new ideas: "night" (default) scores them in the nightly job with leftover daily
+# AI only; "live" scores when someone opens the map (this used about a quarter of a day's free AI on
+# Nov 28); "off" stops scoring.
+MAP_SCORE = "night"
 # Older lifetime limit, only used if TRIAL_DAILY and TRIAL_WEEKLY are removed.
 TRIAL_ROUNDS = "3"
 TRIAL_PER_NETWORK = "off"

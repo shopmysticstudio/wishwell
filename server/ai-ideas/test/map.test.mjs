@@ -17,7 +17,7 @@ const stmt = q => { const st = { q, args: [], bind(...a) { st.args = a; return s
 const DB = { prepare: stmt };
 let calls = 0, reply = "";
 const AI = { async run(model, input) { calls++; assert.match(model, /8b/); return { response: reply }; } };
-const env = { DB, AI, BETA_CODE: "TESTCODE12", ALLOWED_ORIGINS: "https://shopmysticstudio.github.io", APP_ORIGINS: "https://localhost" };
+const env = { DB, AI, BETA_CODE: "TESTCODE12", ALLOWED_ORIGINS: "https://shopmysticstudio.github.io", APP_ORIGINS: "https://localhost", MAP_SCORE: "live" };
 const call = async (path, body, code = "TESTCODE12", origin = "https://shopmysticstudio.github.io") => {
   const h = { Origin: origin, "content-type": "application/json", "CF-Connecting-IP": "1.2.3.4" };
   if (code) h["x-beta-code"] = code;

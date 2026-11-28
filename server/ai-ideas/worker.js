@@ -656,11 +656,18 @@ const statsDay = env => new Date(Date.now() - num(env.TRIAL_DAY_START_HOUR_UTC, 
      use:<day>:<job>:<model>    neurons used      calls:<day>:<job>:<model>  calls made
      fail:<day>:<job>:<model>   calls that failed (a time-out still counts as failed, though it may have used some)
    Kept 40 days. Read them with: SELECT k, n FROM ai_use WHERE k LIKE 'use:2026-11-28:%' */
+// Neurons per million input and output tokens (Workers AI pricing, Nov 2026), for replies without a neuron count.
+const NEURON_RATES = [[/llama-3\.3-70b-instruct-fp8-fast/, 26668, 204805], [/llama-3\.1-8b-instruct-fp8-fast/, 4119, 34868]];
 async function logAiUse(env, job, model, out, failed) {
   if (!env.DB) return;
   const day = today(), m = String(model).split("/").pop().slice(0, 40), exp = Math.floor(Date.now() / 1000) + 40 * 86400;
   const u = out && (out.usage || (out.result && out.result.usage));
-  const neurons = u && Number.isFinite(Number(u.neurons)) ? Math.round(Number(u.neurons)) : 0;
+  let neurons = u && Number.isFinite(Number(u.neurons)) ? Math.round(Number(u.neurons)) : 0;
+  // Replies may give only token counts: estimate neurons from Cloudflare's per-model rates.
+  if (!neurons && u) {
+    const rate = NEURON_RATES.find(r => r[0].test(m));
+    if (rate) neurons = Math.round((Number(u.prompt_tokens) || 0) * rate[1] / 1e6 + (Number(u.completion_tokens) || 0) * rate[2] / 1e6);
+  }
   const add = [["calls", 1]];
   if (failed) add.push(["fail", 1]);
   if (neurons > 0) add.push(["use", neurons]);
@@ -1029,6 +1036,37 @@ function gapMessages(term) {
   return [{ role: "system", content: "You suggest gift ideas for a wishlist app used by teens and adults. Only gifts suitable for ages 13 and up; never alcohol, tobacco, vaping, weapons, gambling or adult content. Generic product types only: never brand, company, franchise, character, band, show or trademarked names. Use American English and no dashes. Reply with only a JSON array." },
     { role: "user", content: `Suggest 8 specific, buyable gifts for someone who loves ${term}. If that is a show, game, band or brand, suggest generic things a fan of its themes would enjoy, without its name. Each element: {"title": generic product name under 50 characters in sentence case, "category": one of ${CATS.join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a generic store search phrase}.` }];
 }
+// What is left of today's free Workers AI after GAP_MARGIN, or null when today's use isn't known.
+async function aiLeft(env) {
+  const day = today();
+  const used = await env.DB.prepare("SELECT SUM(n) AS n, COUNT(*) AS c FROM ai_use WHERE k LIKE ?1").bind("use:" + day + ":%").first();
+  const calls = await env.DB.prepare("SELECT SUM(n) AS n FROM ai_use WHERE k LIKE ?1").bind("calls:" + day + ":%").first();
+  if ((calls && calls.n) && !(used && used.c)) return null;
+  return num(env.DAILY_NEURONS, DAILY_NEURONS) - ((used && used.n) || 0) - num(env.GAP_MARGIN, 3000);
+}
+// Nightly, after gapFill: gift map scores for pool ideas that have none, with leftover daily AI only.
+async function mapFill(env) {
+  if (!env.DB || !env.AI || String(env.MAP_SCORE || "night") === "off") return { ran: 0, reason: "off" };
+  let ran = 0, scored = 0;
+  for (let n = 0; n < num(env.MAP_NIGHT_CHUNKS, 8); n++) {
+    const left = await aiLeft(env);
+    if (left == null) return { ran, scored, reason: "use_unknown" };
+    if (left < num(env.MAP_COST, 120)) return { ran, scored, reason: "no_room", left };
+    const rows = ((await env.DB.prepare("SELECT i.title AS t, i.category AS c FROM ideas i LEFT JOIN idea_factors f ON f.key = i.key WHERE i.shown > 0 AND f.key IS NULL ORDER BY i.shown DESC LIMIT ?1").bind(MAP_CHUNK).all()).results || [])
+      .concat(((await env.DB.prepare("SELECT g.title AS t, g.category AS c FROM gap_ideas g LEFT JOIN idea_factors f ON f.key = g.key WHERE f.key IS NULL LIMIT ?1").bind(MAP_CHUNK).all()).results || []));
+    const items = mapItems({ items: rows.slice(0, MAP_CHUNK) });
+    if (!items.length) return { ran, scored, reason: "done" };
+    const model = env.MAP_MODEL || BACKUP_MODEL;
+    let got = [];
+    try { got = parseFactors(await withTime(aiRun(env, "map", model, { messages: mapMessages(items), max_tokens: 2400, temperature: 0.1 }), num(env.AI_TIMEOUT_MS, 20000)), items); }
+    catch (e) { if (/4006|allocation|5035|paid/i.test(String(e && e.message))) break; }
+    ran++;
+    if (!got.length) break;
+    scored += got.length;
+    await runAll(env.DB, got.map(it => env.DB.prepare("INSERT OR IGNORE INTO idea_factors (key, title, category, f, model, day) VALUES (?1, ?2, ?3, ?4, ?5, ?6)").bind(it.key, it.t, it.c, JSON.stringify(it.f), model, today())));
+  }
+  return { ran, scored };
+}
 async function gapFill(env) {
   if (!env.DB || !env.AI || String(env.GAP_FILL || "on") === "off") return { ran: 0, reason: "off" };
   const day = today();
@@ -1101,10 +1139,10 @@ function cleanDeck(raw) {
 /* ---------- handler ---------- */
 export default {
   // For tests only; not used by Cloudflare.
-  _test: { rankPool, poolList, findingStatements, gapFill, gapTerm, cleanDeck, wildCount, catCap, properNames, mapItems, mapMessages, parseFactors, mapList, MAP_TABLE, cleanLog, logStatements, crowdCategories, closeness, cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
+  _test: { rankPool, poolList, findingStatements, gapFill, mapFill, aiLeft, gapTerm, cleanDeck, wildCount, catCap, properNames, mapItems, mapMessages, parseFactors, mapList, MAP_TABLE, cleanLog, logStatements, crowdCategories, closeness, cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(gapFill(env).catch(() => {}));
+    ctx.waitUntil(gapFill(env).catch(() => {}).then(() => mapFill(env)).catch(() => {}));
   },
 
   async fetch(request, env, ctx) {
@@ -1332,7 +1370,9 @@ export default {
         try { const { success } = await env.HITS.limit({ key: "map:" + network(ip) }); if (!success) return reply({ error: "rate_limited" }, 429); } catch (e) {}
       }
       const safely = async f => { try { return await f(); } catch (e) { await env.DB.prepare(MAP_TABLE).run(); return await f(); } };
-      if (!env.AI || String(env.MAP_SCORE || "on") === "off") return reply({ scored: [] }, 200);
+      // Scoring new ideas now waits for the nightly leftover job (mapFill), so it never takes daily AI from
+      // live rounds. MAP_SCORE = "live" scores on request again; "off" stops scoring.
+      if (!env.AI || String(env.MAP_SCORE || "night") !== "live") return reply({ scored: [], full: true, later: true }, 200);
       let items = mapItems(raw);
       if (!items.length) return reply({ scored: [] }, 200);
       const day = today();

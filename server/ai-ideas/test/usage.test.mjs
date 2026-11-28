@@ -28,7 +28,7 @@ const AI = { async run(model, input) {
   if (fail) throw new Error("4006: you have used up your daily free allocation");
   return /8b/.test(model) ? { response: factors, usage: { neurons: 37.6 } } : { response: ideas, usage: { prompt_tokens: 1200, neurons: 140.4 } };
 } };
-const env = { AI, KV, DB, BETA_CODE: "TESTCODE12", BETA_ONLY: "false", ALLOWED_ORIGINS: "https://shopmysticstudio.github.io" };
+const env = { AI, KV, DB, BETA_CODE: "TESTCODE12", BETA_ONLY: "false", ALLOWED_ORIGINS: "https://shopmysticstudio.github.io", MAP_SCORE: "live" };
 const call = async (path, body) => {
   const h = { Origin: "https://shopmysticstudio.github.io", "content-type": "application/json", "CF-Connecting-IP": "1.2.3.4", "x-beta-code": "TESTCODE12" };
   const later = [];
