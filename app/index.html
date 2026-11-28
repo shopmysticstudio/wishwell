@@ -67,6 +67,14 @@ textarea{min-height:84px;resize:vertical}
 .tmskip{position:absolute;right:10px;bottom:12px;font:inherit;font-weight:800;border-radius:999px;border:2px solid #ffc94a;background:none;color:#ffc94a;padding:6px 14px;min-height:40px;cursor:pointer}
 @keyframes tmIn{from{opacity:0}}
 .bfrow{display:flex;gap:8px}.bfrow .btn{flex:1}
+.sharepop{position:fixed;inset:0;z-index:45;display:grid;place-items:center;padding:16px;background:rgba(10,12,30,.55);animation:spIn .25s ease-out}
+.spbox{background:var(--bg);color:var(--ink);border:2px solid var(--ink);border-radius:20px;max-width:440px;width:100%;max-height:calc(100svh - 32px);overflow:auto;padding:22px 20px 18px;box-shadow:0 18px 50px rgba(0,0,0,.35);text-align:left}
+.spbox .spicon{font-size:40px;line-height:1;margin-bottom:8px}
+.spbox h2{margin:0 0 8px;font-size:24px;line-height:1.2}
+.spbox p{margin:0 0 10px}
+.spbox ul{margin:0 0 12px;padding-left:20px}.spbox li{margin:4px 0}
+.spbox .bfrow{margin-top:14px}.spbox .bfrow .btn{padding:14px 10px;font-size:16px}
+@keyframes spIn{from{opacity:0}to{opacity:1}}
 .btn:disabled{opacity:.55;cursor:wait}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .row>input{flex:1 1 220px}
@@ -349,7 +357,8 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <div class="toggles"><label><input type="checkbox" id="optPrice" checked> Show estimated prices</label><label><input type="checkbox" id="optWhy"> Include notes</label></div>
   <div class="sheet" id="sheet"></div>
   <div class="row" style="margin:16px 0"><button class="btn primary" type="button" id="linkBtn">Copy share link</button><button class="btn" type="button" id="copyBtn">Copy as text</button><button class="btn" type="button" id="famBtn">See what family sees</button></div>
-  <p class="small muted" id="bfLine" hidden><button class="btn quiet" type="button" id="bfAgain">Share my past picks</button> Helps train Wishwell to suggest better gifts. It's anonymous: only the ideas you saw and what you did with them, plus your quiz answers. Tapping it also turns on sharing if your browser asks sites not to track you.</p>
+  <p class="small" id="shareSwLine" hidden><label><input type="checkbox" id="shareSw"> Share anonymous picks to help improve Wishwell</label> <span class="muted">No name, email or anything that identifies you.</span></p>
+  <p class="small muted" id="bfLine" hidden><button class="btn quiet" type="button" id="bfAgain">Share my past picks</button> Helps train Wishwell to suggest better gifts. It's anonymous: only the ideas you saw and what you did with them, plus your quiz answers. Tapping it also turns sharing on.</p>
   <p class="note">The share link opens your list for family, where they can buy and mark things as already bought. Paste it in a text or family chat.</p>
   <div class="note"><strong>Testing this?</strong> When you're done, copy your test report and send it back to whoever sent you Wishwell. It has counts only, none of your list.<div class="row" style="margin-top:10px"><button class="btn reportBtn" type="button">Copy my test report</button></div></div>
 </section>
@@ -967,8 +976,10 @@ const PRIV=!!(navigator.globalPrivacyControl||navigator.doNotTrack==="1"||window
 const LOG_BASE=AI_ON&&location.hostname==="shopmysticstudio.github.io"?String(CFG.aiUrl).trim().replace(/\/+$/,"")+"/r":"";
 let LOGOK="";try{LOGOK=localStorage.getItem("wishwell-share-ok")||""}catch(e){}
 const setLogOk=v=>{LOGOK=v;try{localStorage.setItem("wishwell-share-ok",v)}catch(e){}};
-let LOG_URL=LOG_BASE&&(!PRIV||LOGOK==="yes")?LOG_BASE:"";
-function logOptIn(){setLogOk("yes");LOG_URL=LOG_BASE;try{window.wishwellCountStart&&window.wishwellCountStart()}catch(e){}}
+let LOG_URL=LOG_BASE&&LOGOK!=="no"&&(!PRIV||LOGOK==="yes")?LOG_BASE:"";
+function logOptIn(){setLogOk("yes");LOG_URL=LOG_BASE;try{window.wishwellCountStart&&window.wishwellCountStart()}catch(e){}shareSwSync()}
+function logOptOut(){setLogOk("no");LOG_URL="";try{window.wishwellCountStop&&window.wishwellCountStop()}catch(e){}shareSwSync()}
+function shareSwSync(){const c=$("#shareSw");if(c)c.checked=!!LOG_URL}
 const LOG_SURF=/\/beta\//.test(location.pathname)?"beta":"web";
 const newLid=()=>{const a=new Uint8Array(16);crypto.getRandomValues(a);return [...a].map(x=>x.toString(16).padStart(2,"0")).join("")};
 /* a plain fetch first, like the AI calls (some blockers drop beacons), and a beacon only if fetch fails */
@@ -1017,7 +1028,7 @@ function logBackfill(){
   setTimeout(logFlush,3000);return ps;
 }
 function askBackfill(){
-  if(!LOG_URL||S.bf||bfItems().length<3||document.querySelector(".bfask"))return;
+  if(!LOG_URL||LOGOK!=="yes"||S.bf||bfItems().length<3||document.querySelector(".bfask,.sharepop"))return;
   if(document.querySelector(".unwrap:not([hidden]):not(.gone)")){setTimeout(askBackfill,2500);return}
   const d=document.createElement("div");d.className="bfask";d.setAttribute("role","dialog");d.setAttribute("aria-label","Share your past picks");
   d.innerHTML=`<p><b>Share your past picks?</b> It's anonymous, and it helps train Wishwell to suggest better gifts.</p><p class="small muted">Only the ideas you saw and what you did with them, plus your quiz answers. Never your name, Details or items you added.</p><div class="bfrow"><button type="button" class="btn primary" data-bf="yes">Share</button><button type="button" class="btn" data-bf="no">No thanks</button></div>`;
@@ -1038,17 +1049,30 @@ async function shareTap(btn){if(!LOG_URL)logOptIn();if(btn){btn.disabled=true;bt
   if(r.ok){if(btn)btn.textContent="Sent";toast(`Sent ${r.n} picks. Thanks!`)}
   else{if(btn){btn.disabled=false;btn.textContent="Try again"}toast(r.n?"Couldn't reach Wishwell's server. Check your connection and try again.":"Nothing to share yet.")}}
 $("#bfAgain").addEventListener("click",()=>shareTap($("#bfAgain")));
-/* Browser asks sites not to track: ask once whether to share anyway. Nothing is sent before Share. */
-function askTrack(){
-  if(!PRIV||!LOG_BASE||LOGOK||document.querySelector(".bfask"))return;
-  if(document.querySelector(".unwrap:not([hidden]):not(.gone)")){setTimeout(askTrack,2500);return}
-  const d=document.createElement("div");d.className="bfask";d.setAttribute("role","dialog");d.setAttribute("aria-label","Share anonymous picks");
-  d.innerHTML=`<p><b>Your browser asks sites not to track you.</b> Wishwell only logs anonymous picks, to suggest better gifts. Share them anyway?</p><p class="small muted">Only the ideas you see and what you do with them, plus your quiz answers. Never your name, Details or items you added. You can change this on the Share tab.</p><div class="bfrow"><button type="button" class="btn primary" data-tk="yes">Share</button><button type="button" class="btn" data-tk="no">No thanks</button></div>`;
-  d.addEventListener("click",e=>{const b=e.target.closest("[data-tk]");if(!b)return;d.remove();
-    if(b.dataset.tk==="yes"){logOptIn();if(bfAll().length>=3)shareTap(null);else{logRound();toast("Thanks! Sharing anonymous picks.")}}else setLogOk("no")});
+/* Asked once per device, big: share anonymous picks to help improve Wishwell? Count me in turns sharing on
+   (also when the browser asks sites not to track) and sends the picks already on the list; No thanks turns it
+   off, page views included. Both are remembered, and the switch on the Share tab changes it later. */
+function askShare(){
+  if(!LOG_BASE||LOGOK||FAM||document.querySelector(".sharepop"))return;
+  if(!S.ageOk||S.u13||document.querySelector(".unwrap:not([hidden]):not(.gone),.thinkmap,.bfask")){setTimeout(askShare,2500);return}
+  const d=document.createElement("div");d.className="sharepop";d.setAttribute("role","dialog");d.setAttribute("aria-modal","true");d.setAttribute("aria-labelledby","spT");
+  d.innerHTML=`<div class="spbox"><div class="spicon" aria-hidden="true">🎁</div><h2 id="spT">Help make Wishwell better?</h2>
+<p>Wishwell is made by one person, and the best way to make its gift ideas smarter is to learn which ones people actually like.</p>
+<p><b>It's completely anonymous.</b> If you're in, Wishwell shares:</p>
+<ul><li>The ideas you see, and which ones you circle, rank, cut or already have</li><li>Your quiz answers</li><li>Which pages you open, counted by the hour</li></ul>
+<p class="small muted">Never your name, email, the Details box, items you add yourself or anything that could identify you or your device. No account and no cookies. You can change this anytime on the Share tab.</p>
+<div class="bfrow"><button type="button" class="btn primary" data-sp="yes">Count me in</button><button type="button" class="btn" data-sp="no">No thanks</button></div></div>`;
+  d.addEventListener("click",e=>{const b=e.target.closest("[data-sp]");if(!b)return;d.remove();
+    if(b.dataset.sp==="yes"){logOptIn();try{window.wishwellCount&&window.wishwellCount("share_yes")}catch(e){}
+      if(S.bf!=="shared"&&bfAll().length>=3)shareTap(null);else{logRound();toast("Thanks! You're helping make Wishwell better.")}}
+    else{logOptOut();toast("Got it. Nothing is shared.")}});
   document.body.appendChild(d);
+  setTimeout(()=>{const y=d.querySelector("[data-sp=yes]");if(y)y.focus()},50);
 }
-setTimeout(askTrack,2500);
+setTimeout(askShare,2500);
+/* The switch on the Share tab */
+(()=>{const c=$("#shareSw");if(!c)return;$("#shareSwLine").hidden=!LOG_BASE;shareSwSync();
+  c.addEventListener("change",()=>{if(c.checked){logOptIn();logRound();toast("Sharing anonymous picks. Thanks!")}else{logOptOut();toast("Sharing is off.")}})})();
 const toast=t=>{const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400)};
 const money=(lo,hi)=>lo===hi?"$"+lo:"$"+lo+" to $"+hi;
 const est=it=>it.hi?"est. "+money(it.lo,it.hi):"";
@@ -1954,6 +1978,6 @@ setAi();
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
 </script>
-<script src="../count.js?v=2" defer></script>
+<script src="../count.js?v=3" defer></script>
 </body>
 </html>
