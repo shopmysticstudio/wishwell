@@ -301,7 +301,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"889ab3ac7f1c8b5dd55fab91e26fd536",hash:"007b5c81628c7edb1df9ad3f804215a81ee23367021213f6a3e1a5e61f5d1fc8",iter:200000};
+window.WISHWELL_BETA={salt:"7c418613dcd325d9e1b339188b78fc3c",hash:"f718d46171e20626f334399d041f133343bd4b9b69e1e7b13ed0afeed3beac33",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
@@ -393,6 +393,7 @@ document.getElementById("gateForm").addEventListener("submit",async e=>{
   <div class="toggles"><label><input type="checkbox" id="optPrice" checked> Show estimated prices</label><label><input type="checkbox" id="optWhy"> Include notes</label></div>
   <div class="sheet" id="sheet"></div>
   <div class="row" style="margin:16px 0"><button class="btn primary" type="button" id="linkBtn">Copy share link</button><button class="btn" type="button" id="copyBtn">Copy as text</button><button class="btn" type="button" id="famBtn">See what family sees</button></div>
+  <p class="small muted" id="bfLine" hidden><button class="btn quiet" type="button" id="bfAgain">Share my past picks</button> Helps train Wishwell to suggest better gifts. It's anonymous: only the ideas you saw and what you did with them, plus your quiz answers.</p>
   <p class="note">The share link opens your list for family, where they can buy and mark things as already bought. Paste it in a text or family chat.</p>
   <div class="note"><strong>Testing this?</strong> When you're done, copy your test report and send it back to whoever sent you Wishwell. It has counts only, none of your list.<div class="row" style="margin-top:10px"><button class="btn reportBtn" type="button">Copy my test report</button></div></div>
 </section>
@@ -1057,6 +1058,11 @@ function askBackfill(){
   document.body.appendChild(d);
 }
 setTimeout(askBackfill,2500);
+/* Always-there button to share past picks, for people who said no, or whose earlier picks never arrived
+   (before 11-28 the log used beacons, which some phones dropped). It sends every idea on the list again, marked as shared later. */
+function bfAll(){const n=logNames();return S.items.filter(i=>!i.mine&&(i.src==="AI pick"||i.src==="Starter idea")&&logSafe(i.title,n))}
+function bfLineShow(){const l=$("#bfLine");if(l)l.hidden=!LOG_URL||bfAll().length<3}
+$("#bfAgain").addEventListener("click",()=>{const its=bfAll();if(its.length<3)return;its.forEach(i=>{i.lr=null;i.ll=null;i.lx=null});S.bf="shared";logBackfill();save();toast(`Thanks! Shared ${its.length} picks anonymously.`);const b=$("#bfAgain");b.disabled=true;b.textContent="Shared"});
 const toast=t=>{const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400)};
 const money=(lo,hi)=>lo===hi?"$"+lo:"$"+lo+" to $"+hi;
 const est=it=>it.hi?"est. "+money(it.lo,it.hi):"";
@@ -1460,6 +1466,7 @@ function shareText(){
   lines.push("","Open the list to buy or mark things as bought:",shareLink());return lines.join("\n");
 }
 function renderShare(){
+  bfLineShow();
   $("#listName").value=S.listName;$("#optPrice").checked=S.opt.price;$("#optWhy").checked=S.opt.why;
   const list=S.kept.map(byId).filter(Boolean);
   $("#sheet").innerHTML=`<div class="hand">for the family</div><h2>${esc(listTitle())}</h2><p class="small muted" style="margin:4px 0 0">1 is the one wanted most</p>`+(list.length?`<ol>${list.map(it=>`<li><strong>${esc(it.title)}</strong>${S.opt.price&&it.hi?` <span class="price">${esc(est(it))}</span>`:""}${S.opt.why&&it.why?`<div class="small">${esc(it.why)}</div>`:""}</li>`).join("")}</ol>`:`<div class="empty" style="margin-top:12px">Circle some ideas first, then they show up here in your order.</div>`);
