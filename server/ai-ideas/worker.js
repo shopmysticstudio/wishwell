@@ -599,7 +599,7 @@ const statsDay = env => new Date(Date.now() - num(env.TRIAL_DAY_START_HOUR_UTC, 
 /* ---------- page counter (/hit) ---------- */
 // Only these pages and events are counted; anything else is dropped. No ids, addresses or full URLs.
 const HIT_PAGES = ["/", "/app/", "/beta/", "/beta/home/", "/beta/advent/", "/advent/", "/privacy/", "/coupons/"];
-const HIT_EVENTS = ["view", "try_free", "buy_key", "play_badge", "waitlist_signup", "key_unlock", "coupons"];
+const HIT_EVENTS = ["view", "try_free", "buy_key", "play_badge", "waitlist_signup", "key_unlock", "coupons", "share_yes"];
 function cleanHit(raw, startHourUtc) {
   if (!raw || typeof raw !== "object") return null;
   const event = String(raw.e || "view");
