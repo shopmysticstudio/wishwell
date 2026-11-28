@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Wishwell test run</title>
+<style>
+  body { font: 16px/1.45 system-ui, sans-serif; margin: 0 auto; max-width: 720px; padding: 16px; color: #1d2433; background: #f7f4ee; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.note { color: #555; margin: 0 0 16px; font-size: 14px; }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  select, input[type=text], textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 8px; border: 1px solid #c9c2b4; border-radius: 8px; background: #fff; }
+  .ints { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ints label { display: inline-flex; gap: 4px; font-weight: 400; margin: 0; padding: 4px 8px; border: 1px solid #c9c2b4; border-radius: 999px; background: #fff; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  button { margin-top: 16px; font: inherit; font-weight: 700; padding: 10px 18px; border: 0; border-radius: 10px; background: #3b3f8f; color: #fff; cursor: pointer; }
+  button:disabled { opacity: .6; }
+  #status { margin-top: 12px; color: #555; }
+  ol { padding-left: 22px; }
+  li { margin: 6px 0; }
+  .from { font-size: 12px; padding: 1px 6px; border-radius: 6px; background: #e6e1d6; margin-left: 6px; }
+  .from.crowd { background: #ffe1b8; }
+  .why { color: #555; font-size: 14px; }
+  #text { margin-top: 12px; min-height: 160px; }
+</style>
+</head>
+<body>
+<h1>Wishwell test run</h1>
+<p class="note">Runs one AI round and saves nothing: no rounds, no picks, nothing added to the idea pool. Beta code only. "crowd" marks an idea that matches something other people kept.</p>
+
+<form id="f">
+  <div class="row">
+    <div><label for="who">For</label>
+      <select id="who"><option value="them">Someone else</option><option value="me">Themselves</option></select></div>
+    <div><label for="age">Age</label>
+      <select id="age"><option value="">Not given</option><option value="teen">13 to 17</option><option value="young">18 to 29</option><option value="adult" selected>30 to 44</option><option value="mid">45 to 59</option><option value="older">60 and up</option></select></div>
+    <div><label for="lean">Lean</label>
+      <select id="lean"><option value="">Not given</option><option value="neutral">Neutral</option><option value="fem">Feminine</option><option value="masc">Masculine</option></select></div>
+    <div><label for="budget">Budget per gift</label>
+      <select id="budget"><option value="25">Under $25</option><option value="75">Up to $75</option><option value="200">Up to $200</option><option value="9999">$200 and up</option><option value="any" selected>Any price</option></select></div>
+    <div><label for="style">Gift style</label>
+      <select id="style"><option value="">Any</option><option>Practical</option><option>Wow factor</option><option>Cozy</option><option>Surprise me</option></select></div>
+    <div><label for="n">How many</label>
+      <select id="n"><option>5</option><option selected>8</option><option>10</option></select></div>
+  </div>
+  <label>Interests</label>
+  <div class="ints" id="ints"></div>
+  <label for="notes">Details (no names)</label>
+  <textarea id="notes" rows="3" maxlength="400" placeholder="37, mom to a 6 year old, likes purple and Paramore"></textarea>
+  <label style="font-weight:400"><input type="checkbox" id="crowd" checked> Use crowd hints (what other people kept and cut)</label>
+  <div id="codeBox" hidden><label for="code">Beta code</label><input type="text" id="code" autocomplete="off"></div>
+  <button id="go" type="submit">Run it</button>
+</form>
+<div id="status"></div>
+<ol id="out"></ol>
+<textarea id="text" hidden readonly></textarea>
+
+<script>
+const API = "https://wishwell-ai-ideas.shopmysticstudio.workers.dev";
+const INTERESTS = ["Tech", "Gaming", "Making", "Art", "Music", "Sports", "Outdoors", "Space and science",
+  "Books", "Cooking", "Style", "Room setup", "Cars", "Pets", "Puzzles", "Beauty", "Jewelry", "Travel",
+  "Movies and shows", "Crafts", "Coffee and tea", "Self-care", "Friends and parties"];
+const $ = s => document.querySelector(s);
+const box = $("#ints");
+for (const t of INTERESTS) {
+  const l = document.createElement("label"), c = document.createElement("input");
+  c.type = "checkbox"; c.value = t; l.append(c, " " + t); box.append(l);
+}
+let code = ""; try { code = localStorage.getItem("wishwell-beta-code") || ""; } catch (e) {}
+if (!code) $("#codeBox").hidden = false;
+const usd = n => "$" + Math.round(Number(n) || 0);
+$("#f").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const c = code || $("#code").value.trim();
+  if (!c) { $("#status").textContent = "Enter the beta code first."; return; }
+  const body = { dry: true, crowd: $("#crowd").checked, n: Number($("#n").value), forWho: $("#who").value,
+    age: $("#age").value, lean: $("#lean").value, budget: $("#budget").value, style: $("#style").value,
+    notes: $("#notes").value.trim(), ints: [...box.querySelectorAll("input:checked")].map(x => x.value),
+    quiz: [], kept: [], top: [], keptAi: [], cut: [], seen: [] };
+  $("#go").disabled = true; $("#status").textContent = "Asking the AI. This takes a few seconds.";
+  $("#out").innerHTML = ""; $("#text").hidden = true;
+  try {
+    const r = await fetch(API + "/", { method: "POST", headers: { "content-type": "application/json", "x-beta-code": c }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { $("#status").textContent = "Didn't work: " + (j.error || ("HTTP " + r.status)); return; }
+    if (!code) { code = c; try { localStorage.setItem("wishwell-beta-code", c); } catch (e) {} }
+    const lines = [];
+    for (const i of j.ideas) {
+      const li = document.createElement("li");
+      const b = document.createElement("b"); b.textContent = i.title;
+      const p = document.createElement("span"); p.textContent = ": " + usd(i.lo) + " to " + usd(i.hi);
+      const f = document.createElement("span"); f.className = "from " + i.from; f.textContent = i.from;
+      const w = document.createElement("div"); w.className = "why"; w.textContent = i.why || "";
+      li.append(b, p, f, w); $("#out").append(li);
+      lines.push(i.title + ": " + usd(i.lo) + " to " + usd(i.hi) + (i.from === "crowd" ? " (crowd hint)" : ""));
+    }
+    const left = r.headers.get("x-dry-left");
+    $("#status").textContent = j.ideas.length + " ideas. Nothing was saved." + (left ? " Test runs left today: " + left + "." : "");
+    $("#text").value = lines.join("\n"); $("#text").hidden = false;
+  } catch (e) { $("#status").textContent = "Couldn't reach Wishwell's AI."; }
+  finally { $("#go").disabled = false; }
+});
+</script>
+</body>
+</html>

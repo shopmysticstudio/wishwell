@@ -1,0 +1,41 @@
+name: Try ideas (test run, saves nothing)
+# Runs one gift profile through Wishwell's AI with nothing saved. Needs the repo secret
+# WISHWELL_BETA_CODE. Inputs and results show in this public repo's Actions tab: no names.
+on:
+  workflow_dispatch:
+    inputs:
+      who: { description: "them or me", default: "them" }
+      age: { description: "teen, young (18-29), adult (30-44), mid (45-59), older (60+), or blank", default: "" }
+      lean: { description: "neutral, fem, masc, or blank", default: "" }
+      ints: { description: "interests, comma list", default: "" }
+      budget: { description: "25, 75, 200, 9999 or any", default: "any" }
+      style: { description: "Practical, Wow factor, Cozy, Surprise me, or blank", default: "" }
+      notes: { description: "details, no names", default: "" }
+      n: { description: "how many ideas", default: "8" }
+      crowd: { description: "on or off (crowd hints)", default: "on" }
+permissions:
+  contents: read
+jobs:
+  try:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+      - name: Run
+        env:
+          WISHWELL_BETA_CODE: ${{ secrets.WISHWELL_BETA_CODE }}
+          WHO: ${{ inputs.who }}
+          AGE: ${{ inputs.age }}
+          LEAN: ${{ inputs.lean }}
+          INTS: ${{ inputs.ints }}
+          BUDGET: ${{ inputs.budget }}
+          STYLE: ${{ inputs.style }}
+          NOTES: ${{ inputs.notes }}
+          N: ${{ inputs.n }}
+          CROWD: ${{ inputs.crowd }}
+        run: |
+          extra=""; [ "$CROWD" = "off" ] && extra="--no-crowd"
+          python3 .github/try_ideas.py --who "$WHO" --age "$AGE" --lean "$LEAN" --ints "$INTS" \
+            --budget "$BUDGET" --style "$STYLE" --notes "$NOTES" --n "$N" $extra
