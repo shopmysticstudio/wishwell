@@ -227,11 +227,12 @@ function rankRound(n) {
   const TT = T.length ? T : seedT;
   const scored = W.pool.filter(p => allowed(p, mb, seen)).map(p => score(p, TT, C, cutP)).sort((a, b) => b.s - a.s);
   const picks = [], cats = {}, cap = catCap(n), wn = wildCount(n), dups = W.found.dups;
+  const skip = { cap: 0, rep: 0, own: 0, ok: scored.length, all: W.pool.length };
   for (const x of scored) {
     if (picks.length >= n - wn) break;
-    if ((cats[x.p.c] || 0) >= cap) continue;
-    if (nearRepeat(x.p, x.pv, shown, dups) || picks.some(y => sim(x.p.t, y.p.t, x.pv, y.pv) >= DUP)) continue;
-    if (own.length && ownedHit(x.p.t, x.pv, own)) continue;
+    if ((cats[x.p.c] || 0) >= cap) { skip.cap++; continue; }
+    if (nearRepeat(x.p, x.pv, shown, dups) || picks.some(y => sim(x.p.t, y.p.t, x.pv, y.pv) >= DUP)) { skip.rep++; continue; }
+    if (own.length && ownedHit(x.p.t, x.pv, own)) { skip.own++; continue; }
     cats[x.p.c] = (cats[x.p.c] || 0) + 1; picks.push(x);
   }
   const good = picks.filter(x => x.best >= TH).length;
@@ -254,6 +255,7 @@ function rankRound(n) {
       picks.push({ bundle: true, p: { k: a.p.k + "+" + b.p.k, t: (a.p.t + " plus " + b.p.t.charAt(0).toLowerCase() + b.p.t.slice(1)).slice(0, 78), c: a.p.c, lo: a.p.lo + b.p.lo, hi: a.p.hi + b.p.hi }, t: a.t, best: a.best });
     }
   }
+  W.skip = skip;
   return { picks, confident: good >= Math.min(n - wn, 6) || (!T.length && seedT.length > 0 && picks.length >= n - wn), T, seed: !T.length };
 }
 function seedTerms() {
@@ -438,7 +440,7 @@ async function round(n, opt) {
   }
   const r = rankRound(n);
   if (r.T) await noteGaps(r.T);
-  W.last = "round " + (A.S.round || 0) + ": " + r.picks.length + " picks, " + r.picks.filter(x => x.best >= TH).length + " good, top " + r.picks.slice(0, 3).map(x => x.p.t + " " + x.best.toFixed(2)).join("; ") + (r.confident ? "" : " (AI)");
+  W.last = "round " + (A.S.round || 0) + ": " + r.picks.length + " picks, " + r.picks.filter(x => x.best >= TH).length + " good, top " + r.picks.slice(0, 3).map(x => x.p.t + " " + x.best.toFixed(2)).join("; ") + (r.confident ? "" : " (AI)") + " " + JSON.stringify(W.skip || {});
   if (!r.confident && !opt.force) return { got: 0, why: "few_matches" };
   return { got: addPicks(r.picks.slice(0, n), A.S.round || 0) };
 }
