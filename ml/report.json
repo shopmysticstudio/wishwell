@@ -1,0 +1,166 @@
+{
+ "rows": 276,
+ "kept_or_top": 142,
+ "cut": 134,
+ "have_left_out": 29,
+ "people": 7,
+ "copy_lists_dropped": 3,
+ "methods": {
+  "random": {
+   "auc_pooled": 0.514347277696027,
+   "auc_mean_per_person": 0.5728719253288219,
+   "top3_hit_rate": 0.4838709677419355,
+   "top3_per_person": 0.5209401709401709,
+   "rounds_scored": 31
+  },
+  "pos": {
+   "auc_pooled": 0.5762823207904141,
+   "auc_mean_per_person": 0.685365508533612,
+   "top3_hit_rate": 0.6236559139784945,
+   "top3_per_person": 0.6247863247863247,
+   "rounds_scored": 31
+  },
+  "rules": {
+   "auc_pooled": 0.629414546983393,
+   "auc_mean_per_person": 0.5194577237896203,
+   "top3_hit_rate": 0.5913978494623655,
+   "top3_per_person": 0.6119658119658119,
+   "rounds_scored": 31
+  },
+  "logistic": {
+   "auc_pooled": 0.5921273912129493,
+   "auc_mean_per_person": 0.5733217644424541,
+   "top3_hit_rate": 0.5053763440860215,
+   "top3_per_person": 0.520940170940171,
+   "rounds_scored": 31
+  },
+  "boosted": {
+   "auc_pooled": 0.4426108892158923,
+   "auc_mean_per_person": 0.4648018360949395,
+   "top3_hit_rate": 0.5591397849462366,
+   "top3_per_person": 0.5196581196581196,
+   "rounds_scored": 31
+  }
+ },
+ "base_rate": 0.5144927536231884,
+ "importance": {
+  "logistic": [
+   [
+    "cat_pop",
+    0.0643
+   ],
+   [
+    "pos",
+    0.0443
+   ],
+   [
+    "cat=Beauty",
+    0.0383
+   ],
+   [
+    "pos_rel",
+    0.0186
+   ],
+   [
+    "cat=Room",
+    0.0091
+   ],
+   [
+    "cat=Tech",
+    0.0071
+   ],
+   [
+    "interest_word_hits",
+    0.0056
+   ],
+   [
+    "log_hi",
+    0.0052
+   ],
+   [
+    "rule_score",
+    0.0041
+   ],
+   [
+    "log_lo",
+    0.0032
+   ],
+   [
+    "cat=Outdoors",
+    0.003
+   ],
+   [
+    "cat=Sports",
+    0.0026
+   ]
+  ],
+  "boosted": [
+   [
+    "rule_score",
+    0.0526
+   ],
+   [
+    "pos_rel",
+    0.0503
+   ],
+   [
+    "src=ai",
+    0.0082
+   ],
+   [
+    "pos",
+    0.0066
+   ],
+   [
+    "idea_pop",
+    0.0063
+   ],
+   [
+    "log_hi",
+    0.0046
+   ],
+   [
+    "cat=Outdoors",
+    0.0034
+   ],
+   [
+    "round",
+    0.0031
+   ],
+   [
+    "cat=Tech",
+    0.0018
+   ],
+   [
+    "log_lo",
+    0.0009
+   ],
+   [
+    "cat=Room",
+    0.0008
+   ],
+   [
+    "cat=Making",
+    0.0007
+   ]
+  ]
+ },
+ "learning_curve": {
+  "0.25": {
+   "auc": 0.5430463342054456,
+   "train_rows": 55
+  },
+  "0.5": {
+   "auc": 0.5500656472786137,
+   "train_rows": 111
+  },
+  "0.75": {
+   "auc": 0.5704775425329472,
+   "train_rows": 166
+  },
+  "1.0": {
+   "auc": 0.5584059353334828,
+   "train_rows": 222
+  }
+ }
+}

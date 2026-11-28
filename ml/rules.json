@@ -1,0 +1,258 @@
+{
+ "note": "Copied from app/index.html by ml/export_rules.mjs. Do not edit by hand.",
+ "ints": [
+  [
+   "Cooking",
+   "cooking food"
+  ],
+  [
+   "Music",
+   "music audio instrument"
+  ],
+  [
+   "Movies and shows",
+   "movies tv"
+  ],
+  [
+   "Sports",
+   "sports fitness running"
+  ],
+  [
+   "Outdoors",
+   "outdoors camping hiking"
+  ],
+  [
+   "Art",
+   "art drawing painting"
+  ],
+  [
+   "Crafts",
+   "crafts sewing knit diy"
+  ],
+  [
+   "Books",
+   "books reading"
+  ],
+  [
+   "Style",
+   "fashion style clothes"
+  ],
+  [
+   "Room setup",
+   "room decor desk"
+  ],
+  [
+   "Coffee and tea",
+   "coffee tea"
+  ],
+  [
+   "Gaming",
+   "gaming games controller"
+  ],
+  [
+   "Travel",
+   "travel"
+  ],
+  [
+   "Pets",
+   "pets dog cat"
+  ],
+  [
+   "Self-care",
+   "selfcare spa bath"
+  ],
+  [
+   "Beauty",
+   "beauty makeup skincare"
+  ],
+  [
+   "Jewelry",
+   "jewelry"
+  ],
+  [
+   "Puzzles",
+   "puzzles"
+  ],
+  [
+   "Friends and parties",
+   "party friends games"
+  ],
+  [
+   "Tech",
+   "tech electronics gadgets phone computer"
+  ],
+  [
+   "Making",
+   "maker build tools 3dprinting electronics"
+  ],
+  [
+   "Cars",
+   "cars driving"
+  ],
+  [
+   "Space and science",
+   "space science astronomy rockets"
+  ]
+ ],
+ "pairs": [
+  {
+   "id": "sat2",
+   "o": [
+    {
+     "words": "friends party games",
+     "cat": "Experiences"
+    },
+    {
+     "words": "cozy room decor sleep blanket",
+     "cat": "Room"
+    }
+   ]
+  },
+  {
+   "id": "aft",
+   "o": [
+    {
+     "words": "outdoors hiking bike beach",
+     "cat": "Outdoors"
+    },
+    {
+     "words": "art crafts drawing painting diy",
+     "cat": "Art"
+    }
+   ]
+  },
+  {
+   "id": "ears",
+   "o": [
+    {
+     "words": "music audio",
+     "cat": "Music"
+    },
+    {
+     "words": "gaming games controller",
+     "cat": "Gaming"
+    }
+   ]
+  },
+  {
+   "id": "treat2",
+   "o": [
+    {
+     "words": "clothes fashion shoes cozy",
+     "cat": "Style"
+    },
+    {
+     "words": "tech gadgets phone",
+     "cat": "Tech"
+    }
+   ]
+  },
+  {
+   "id": "mind2",
+   "o": [
+    {
+     "words": "books reading movies manga",
+     "cat": "Books"
+    },
+    {
+     "words": "science space experiments",
+     "cat": "Science"
+    }
+   ]
+  },
+  {
+   "id": "move",
+   "o": [
+    {
+     "words": "sports fitness running",
+     "cat": "Sports"
+    },
+    {
+     "words": "cooking food",
+     "cat": "Food"
+    }
+   ]
+  }
+ ],
+ "cat2int": {
+  "Making": "Making",
+  "Outdoors": "Outdoors",
+  "Tech": "Tech",
+  "Art": "Art",
+  "Music": "Music",
+  "Gaming": "Gaming",
+  "Room": "Room setup",
+  "Science": "Space and science",
+  "Books": "Books",
+  "Sports": "Sports",
+  "Food": "Cooking",
+  "Style": "Style",
+  "Experiences": "",
+  "Beauty": "Beauty",
+  "Other": ""
+ },
+ "crowd_cat": {
+  "Science": 1.2,
+  "Making": 0.8,
+  "Tech": 0.5,
+  "Outdoors": 0.3,
+  "Books": 0.3,
+  "Room": 0.1,
+  "Food": -1.4,
+  "Gaming": -0.8,
+  "Beauty": -0.7,
+  "Art": -0.7,
+  "Music": -0.6,
+  "Style": -0.3,
+  "Sports": -0.3
+ },
+ "age_fit": {
+  "teen": [
+   "gaming games school desk room decor lights skateboard sneakers friends party phone anime manga trampoline arcade concert hoodie",
+   "kitchen cooker grilling bbq mattress car cars espresso knife skillet beard cologne golf"
+  ],
+  "young": [
+   "room decor desk coffee travel concert friends party fitness gym fashion sneakers plants",
+   "kids slime"
+  ],
+  "adult": [
+   "kitchen cooking coffee home travel outdoors garden plants fitness books sleep",
+   "kids slime school dorm anime manga trampoline arcade"
+  ],
+  "mid": [
+   "kitchen cooking garden plants books travel outdoors coffee tea home grilling golf",
+   "kids slime school dorm anime manga controller skateboard trampoline arcade streaming"
+  ],
+  "older": [
+   "garden plants books reading puzzles photos memories birds tea cozy sleep family travel",
+   "kids slime school dorm anime manga controller skateboard vr streaming trampoline arcade sneakers drone"
+  ]
+ },
+ "niche_re": "robot|coding|electronic(?! drum)|arduino|raspberry|solder|3d ?print|telescope|microscope|chemistr|experiment|rocket|aerospace|astronom|meteorite|mineral|circuit|\\bdna\\b|science|drone|caliper|machining|laser engrav|linux|engine kit|model railroad|balsa",
+ "gen_re": "makeup|lip gloss|nail polish|nail care|curling|straighten|hair dryer|earring|necklace|bracelet|stackable ring|jewelry|perfume|cologne|beard|shav|scrunchie|claw clip|crossbody|legging|gua sha|nail salon",
+ "fem_re": "makeup|lip gloss|nail polish|nail care|curling|straighten|hair dryer|earring|necklace|bracelet|stackable ring|jewelry|perfume|scrunchie|claw clip|crossbody|legging|gua sha|nail salon",
+ "masc_re": "beard|shav|cologne",
+ "style_bonus": {
+  "Practical": [
+   "Food",
+   "Room",
+   "Sports",
+   "Other"
+  ],
+  "Wow factor": [
+   "Experiences",
+   "Style",
+   "Tech"
+  ],
+  "Cozy": [
+   "Room",
+   "Food",
+   "Books"
+  ],
+  "Surprise me": [
+   "Experiences",
+   "Other",
+   "Art"
+  ]
+ }
+}
