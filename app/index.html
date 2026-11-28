@@ -1418,9 +1418,9 @@ function tasteProfile(){
     put(P.cat,b[1],Math.abs(w));tasteWords(b).forEach(x=>put(P.word,x,Math.abs(w)));put(P.band,band((b[2]+b[3])/2),Math.abs(w));P.n+=Math.abs(w)};
   const rank=new Map(S.kept.map((id,i)=>[id,i]));
   S.items.forEach(i=>{const b=itemBank(i);
-    if(i.status==="kept"){const r=rank.has(i.id)?rank.get(i.id):99;add(b,1+(r<3?(3-r)*0.5:0))}
+    if(i.status==="kept"){const r=rank.has(i.id)?rank.get(i.id):99;add(b,1.5+(r<3?(3-r)*0.25:0))}
     else if(i.status==="have")add(b,0.6);
-    else if(i.status==="cut")add(b,-1.5);
+    else if(i.status==="cut")add(b,-2.5);
     else if(i.status==="new"&&!i.mine&&(i.round||0)<(S.round||0))add(b,-0.5)});
   return P;
 }
@@ -1463,20 +1463,34 @@ function shownInterest(P,b,re){ // circles on ideas like this one
 const PLAIN_RE=/\b(subscriptions?|class(es)?|courses?|lessons?|gift cards?|membership)\b/i;
 const CUSTOM_RE=/^(custom|personalized)\b/i;
 const jac=(a,b)=>{let n=0;a.forEach(x=>{if(b.has(x))n++});return n/(a.size+b.size-n||1)};
+/* Title words that say what a thing is (no filler like kit, set or mini). A starter idea that
+   shares 2 or more of these with a cut item's title (or its only word) is the same kind of thing
+   and drops out, unless it shares at least as many with something they kept. */
+const TITLE_SKIP=new Set("kit set pack bundle collection gift gifts mini small large big little personalized custom customized diy premium deluxe smart portable sampler starter holder stand organizer".split(" "));
+const titleWords=t=>new Set(String(t).toLowerCase().split(/[^a-z0-9]+/).filter(x=>x.length>2&&!STOP.has(x)&&!TITLE_SKIP.has(x)).map(stem));
+const shared=(a,b)=>{let n=0;a.forEach(x=>{if(b.has(x))n++});return n};
+/* Everyone's keeps, stars and cuts so far, by kind of gift: a snapshot of the shared idea pool
+   from Nov 28, 2026, smoothed as if 10 extra average votes and capped at 1.5 points. Most of it is
+   testing, so keep it this light. Refresh it from the pool before each release. */
+const CROWD_CAT={Science:1.2,Making:0.8,Tech:0.5,Outdoors:0.3,Books:0.3,Room:0.1,Food:-1.4,Gaming:-0.8,Beauty:-0.7,Art:-0.7,Music:-0.6,Style:-0.3,Sports:-0.3};
 function bankIdeas(n){
   const seen=new Set([...S.items.map(i=>i.title.toLowerCase()),...S.have]);const sig=signals();const mb=maxB();
   const owned=S.items.filter(i=>i.status==="have").map(i=>tasteWords(itemBank(i))).concat(S.have.filter(t=>BANK_BY.has(t)).map(t=>tasteWords(BANK_BY.get(t))));
   const cutW=S.items.filter(i=>i.status==="cut").map(i=>tasteWords(itemBank(i)));
   const pool=BANK.filter(b=>!seen.has(b[0].toLowerCase())&&b[2]<=mb&&(S.budget!=="9999"||b[3]>=150)).filter(b=>{const w=tasteWords(b);return!owned.some(g=>jac(w,g)>=0.5)&&!cutW.some(g=>jac(w,g)>=0.6)});
+  const cutT=S.items.filter(i=>i.status==="cut").map(i=>titleWords(i.title)),keptT=S.items.filter(i=>i.status==="kept").map(i=>titleWords(i.title));
+  const keptNiche=S.items.some(i=>i.status==="kept"&&NICHE_RE.test((i.title+" "+(i.search||"")).toLowerCase()));
   const SB={Practical:["Making","Food","Sports","Tech"],"Wow factor":["Tech","Experiences"],Cozy:["Room","Food","Books"],"Surprise me":["Experiences","Other","Art"]}[S.style]||[];
-  const P=tasteProfile();const learn=Math.min(1,P.n/4);
+  const P=tasteProfile();const learn=Math.min(1,P.n/3);
   let noteHit=false;const foodOk=S.ints.includes("Cooking")||S.ints.includes("Coffee and tea");
   const scored=pool.map(b=>{const iw=ideaWords(b);const hit=new Map();let note=false;
     let strong=false,light=false;
     sig.forEach(g=>{for(const x of g.set)if(iw.has(x)){hit.set(g.key,Math.max(hit.get(g.key)||0,g.w));if(g.note)note=true;if(g.strong)strong=true;else light=true;break}});
     let s=0;hit.forEach(w=>s+=w);if(hit.size>1)s+=3*(hit.size-1);if(note){s+=4;noteHit=true}
     if(SB.includes(b[1]))s+=2;if(S.style==="Wow factor"&&b[3]>=200)s+=1;
-    s+=learn*learned(P,b);
+    s+=learn*learned(P,b);s+=CROWD_CAT[b[1]]||0;
+    if(cutT.length){const tw=titleWords(b[0]);let cm=0;cutT.forEach(ct=>{const k=shared(tw,ct);if(k>=2||(k===1&&(ct.size===1||tw.size===1)))cm=Math.max(cm,k)});
+      if(cm&&!keptT.some(kt=>shared(tw,kt)>=cm))s-=12}
     const gen=isGen(b),niche=isNiche(b);let gate=0;
     let held=false;
     s+=ageFit(b);
@@ -1484,7 +1498,7 @@ function bankIdeas(n){
     if(!note){if(PLAIN_RE.test(b[0]))s-=3;if(custom)s-=2.5;if(b[1]==="Food"&&!foodOk&&lo(P.cat,"Food")<=0.3)s-=2.5}
     const leanOk=gen&&((S.lean==="fem"&&FEM_RE.test(ideaText(b)))||(S.lean==="masc"&&MASC_RE.test(ideaText(b))));if(leanOk)s+=1;
     if(gen&&!strong&&!leanOk&&!shownInterest(P,b,GEN_RE))held=true;
-    else if(niche&&!strong&&!shownInterest(P,b,NICHE_RE)){if(light)gate=1;else held=true}
+    else if(niche&&!strong&&!keptNiche&&!shownInterest(P,b,NICHE_RE)){if(light)gate=1;else held=true}
     const r=Math.random()*(S.style==="Surprise me"?4:1.5);
     return{b,s:s+r-(held?50:0),s0:s+r,w:tasteWords(b),gate,held,custom}}).sort((a,b)=>b.s-a.s);
   const picks=[],cats={},left=scored.slice();
@@ -1508,7 +1522,7 @@ function bankIdeas(n){
 /* AI ideas kept since the last round, so the idea pool counts each keep once */
 const keptAiNew=()=>{const sent=new Set(S.keptSent||[]);return S.items.filter(i=>i.status==="kept"&&i.src==="AI pick"&&!sent.has(i.title)).map(i=>i.title).slice(0,40)};
 async function aiIdeas(n){
-  const kept=S.items.filter(i=>i.status==="kept").map(i=>i.title);
+  const kept=S.kept.map(byId).filter(i=>i&&i.status==="kept").map(i=>i.title);const top=kept.slice(0,3);
   const cut=S.items.filter(i=>i.status==="cut").map(i=>i.title);
   const seen=[...S.items.map(i=>i.title),...S.have];
   const who=S.forWho==="me"?"the person making the list (a teen or adult)":"someone the user is shopping for";
@@ -1518,13 +1532,14 @@ Taste quiz picks: ${PAIRS.filter(p=>picks(p).length).map(p=>p.q+" "+picks(p).map
 Gift style: ${S.style||"any"}${S.style==="Surprise me"?" (include a few unexpected picks)":""}.
 Details from the user: ${S.notes||"none"}.
 Budget per gift: ${S.budget==="any"?"any":S.budget==="9999"?"$200 and up":"up to $"+S.budget}.
-They kept (want more like these): ${kept.join("; ")||"nothing yet"}.
-They cut (avoid things like these): ${cut.join("; ")||"nothing yet"}.
+${top.length?`Their favorites, at the top of their ranked list (the strongest sign of what they want): ${top.join("; ")}.\n`:""}They kept (want more like these): ${kept.join("; ")||"nothing yet"}.
+They cut (they don't want these; avoid the same kind of thing): ${cut.join("; ")||"nothing yet"}.
+What they kept and cut counts more than the quiz. If they kept items, about half of the ideas should be close cousins of those, led by their favorites. Never suggest the same kind of thing as a cut item.
 Do not repeat any of: ${seen.join("; ")||"none"}.
 Mix obvious hits with a few surprising picks that fit the details. Prefer real product types; a brand is fine when it matters. Use typical US prices.
 Use American English. Never use dashes of any kind in text.
 Reply with only a JSON array. Each element: {"title": short name under 50 characters, "category": one of ${Object.keys(CATS).join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a store search phrase}.`;
-  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.flatMap(p=>picks(p).map(o=>o[1]+" ("+o[2]+")")),style:S.style,notes:S.notes,budget:S.budget,kept,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
+  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.flatMap(p=>picks(p).map(o=>o[1]+" ("+o[2]+")")),style:S.style,notes:S.notes,budget:S.budget,kept,top,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
   const arr=Array.isArray(out)?out:(out&&Array.isArray(out.ideas)?out.ideas:[]);
   const have=new Set(S.items.map(i=>i.title.toLowerCase()));let c=0;
   arr.forEach(o=>{if(c<n&&o&&o.title&&!have.has(String(o.title).toLowerCase())){have.add(String(o.title).toLowerCase());addItem({title:o.title,cat:o.category,lo:o.lo,hi:o.hi,why:o.why,search:o.search,src:"AI pick"});c++}});
