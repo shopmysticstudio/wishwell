@@ -901,7 +901,7 @@ export default {
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "content-type, x-beta-code, x-device-id, x-pass-key, x-pass-email, x-pass-product",
-      "Access-Control-Expose-Headers": "x-trial-left, x-trial-limit, x-trial-reset, x-pass-left, x-bonus-left",
+      "Access-Control-Expose-Headers": "x-trial-left, x-trial-limit, x-trial-reset, x-pass-left, x-bonus-left, x-dry-left",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin"
     } : { "Vary": "Origin" };
