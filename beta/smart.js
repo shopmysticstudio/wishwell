@@ -12,7 +12,11 @@ const DBG = /[?&]smartdebug=1/.test(location.search);
 if (DBG) { const d = document.createElement("pre"); d.id = "wwDebug"; d.textContent = "smart.js loaded";
   d.style.cssText = "position:fixed;left:6px;bottom:6px;z-index:99;background:#000c;color:#fff;font:11px monospace;padding:6px;border-radius:6px;max-width:96vw;white-space:pre-wrap;margin:0";
   document.body.appendChild(d); addEventListener("error", e => { window.__wwErr = (window.__wwErr || "") + "\nerror: " + e.message + " @" + (e.filename || "").split("/").pop() + ":" + e.lineno; d.textContent += window.__wwErr; }); }
-if (!/\/beta\/($|index\.html)/.test(location.pathname) || typeof S === "undefined") { if (DBG) document.getElementById("wwDebug").textContent += "\nstopped: path " + location.pathname + " S " + typeof S; return; }
+const A = window.__WW;
+if (!/\/beta\/($|index\.html)/.test(location.pathname) || !A) { if (DBG) document.getElementById("wwDebug").textContent += "\nstopped: path " + location.pathname + " app " + typeof A; return; }
+// The app's own values and helpers (index.html shares them on window.__WW; S, qi and LOG_URL are read live).
+const { AI_ON, CFG, $, BANK, INTS, STOP, stem, CATS, PAIRS, picks, byId, ageFit, GEN_RE, FEM_RE, MASC_RE, cutPenalty, maxB, addItem,
+  logNames, logSafe, STEPS, fresh, save, show, render, toast, esc } = A;
 const BASE = AI_ON ? String(CFG.aiUrl).trim().replace(/\/+$/, "") : "";
 const code = () => window.WISHWELL_ACCESS_CODE || "";
 const ML = new URL("ml/", location.href).href;
@@ -24,7 +28,7 @@ const OWNED = 0.72;     // this close to something they already have: leave it o
 const WEAK_MS = 60;     // one embedding slower than this: the phone is too slow, use server ranking
 const W = { emb: null, embState: "", slow: false, pool: null, f: {}, seeds: {}, vec: new Map(), tvec: new Map(),
   found: { dups: [], gaps: new Set(), m: [] }, pre: null };
-const POS = () => S.forWho === "me" ? "your" : "their";
+const POS = () => A.S.forWho === "me" ? "your" : "their";
 const catCap = n => Math.max(2, Math.ceil(n / 4));
 const wildCount = n => n >= 6 ? Math.floor(n / 6) : 0;
 const idle = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 2500 }) : setTimeout(f, 200));
@@ -138,7 +142,7 @@ function poolVectors(done) {
 /* ---------- what we know about their taste ---------- */
 const HAS_RE = /^(already )?(has|have|owns|own|got)\s+/;
 function noteParts() {
-  const parts = String(S.notes || "").split(/[,.;!?\n]|\band\b|\bor\b|\bbut\b|\bplus\b/i).map(x => x.trim()).filter(Boolean);
+  const parts = String(A.S.notes || "").split(/[,.;!?\n]|\band\b|\bor\b|\bbut\b|\bplus\b/i).map(x => x.trim()).filter(Boolean);
   const likes = [], owned = [];
   for (const raw of parts) {
     const low = raw.toLowerCase();
@@ -150,7 +154,7 @@ function noteParts() {
   return { likes, owned };
 }
 function ownedList() {
-  const typed = String(S.owned || "").split(/[,;\n]|\band\b/).map(x => x.trim().replace(/^(a|an|the|two|three|\d+)\s+/i, "")).filter(x => x.length >= 2);
+  const typed = String(A.S.owned || "").split(/[,;\n]|\band\b/).map(x => x.trim().replace(/^(a|an|the|two|three|\d+)\s+/i, "")).filter(x => x.length >= 2);
   return [...new Set([...typed, ...noteParts().owned])].slice(0, 20);
 }
 // Safe word to report: one plain word typed in lowercase; a capitalized word only as a hash (so only a
@@ -165,15 +169,15 @@ async function safeTerm(orig) {
 // Each term: what to match (text), how much it counts (w), how to say it in a reason, and what to report.
 function terms() {
   const t = [];
-  S.ints.forEach(n => { const f = INTS.find(x => x[0] === n); t.push({ kind: "int", text: n + ": " + (f ? f[1] : ""), w: 1, label: n.toLowerCase(), rep: n.toLowerCase() }); });
+  A.S.ints.forEach(n => { const f = INTS.find(x => x[0] === n); t.push({ kind: "int", text: n + ": " + (f ? f[1] : ""), w: 1, label: n.toLowerCase(), rep: n.toLowerCase() }); });
   PAIRS.forEach(p => picks(p).forEach(o => t.push({ kind: "quiz", text: o[2], w: 0.8, label: o[1], rep: o[1].toLowerCase() })));
   noteParts().likes.forEach(l => t.push({ kind: "note", text: l.text, w: 1.25, label: l.text.toLowerCase(), orig: l.orig, one: /^[A-Za-z]+$/.test(l.text) ? l.text : "" }));
-  S.kept.map(byId).filter(i => i && !i.mine).slice(0, 12).forEach((i, k) => t.push({ kind: "kept", text: i.title, w: k < 3 ? 1.35 : 1.1, label: i.title, rep: "kept", id: i.id }));
+  A.S.kept.map(byId).filter(i => i && !i.mine).slice(0, 12).forEach((i, k) => t.push({ kind: "kept", text: i.title, w: k < 3 ? 1.35 : 1.1, label: i.title, rep: "kept", id: i.id }));
   (W.swipes || []).forEach(s => t.push({ kind: "swipe", text: s, w: 1.3, label: s, rep: "swipe" }));
   t.forEach(x => x.v = vec(x.text));
   return t;
 }
-const cutTerms = () => S.items.filter(i => i.status === "cut").slice(-30).map(i => ({ text: i.title, v: vec(i.title) }));
+const cutTerms = () => A.S.items.filter(i => i.status === "cut").slice(-30).map(i => ({ text: i.title, v: vec(i.title) }));
 
 /* ---------- ranking a round ---------- */
 function score(p, T, C, cutP) {
@@ -184,13 +188,13 @@ function score(p, T, C, cutP) {
   const f = W.f[p.k] || {};
   let s = best + 0.25 * second + 0.12 * (p.kept + 2 * p.top - p.cut) / (p.kept + p.top + p.cut + 4) + 0.03 * ageFit(p.b) - 0.04 * cutP(p.b);
   if (cutS > 0.6) s -= (cutS - 0.5) * 2;
-  if (Array.isArray(f.age)) { if (S.age === "teen" && f.age[1] === 0) s -= 0.15; if (S.age && S.age !== "teen" && f.age[2] === 0) s -= 0.15; }
+  if (Array.isArray(f.age)) { if (A.S.age === "teen" && f.age[1] === 0) s -= 0.15; if (A.S.age && A.S.age !== "teen" && f.age[2] === 0) s -= 0.15; }
   return { p, s, best: bt ? best / bt.w : 0, t: bt, pv };
 }
 function allowed(p, mb, seen) {
-  if (seen.has(p.t.toLowerCase()) || p.lo > mb || (S.budget === "9999" && p.hi < 150)) return false;
+  if (seen.has(p.t.toLowerCase()) || p.lo > mb || (A.S.budget === "9999" && p.hi < 150)) return false;
   const tx = (p.t + " " + p.b[4]).toLowerCase();
-  if (GEN_RE.test(tx) && !((S.lean === "fem" && FEM_RE.test(tx)) || (S.lean === "masc" && MASC_RE.test(tx)))) return false;
+  if (GEN_RE.test(tx) && !((A.S.lean === "fem" && FEM_RE.test(tx)) || (A.S.lean === "masc" && MASC_RE.test(tx)))) return false;
   return true;
 }
 function why(t, p) {
@@ -198,11 +202,11 @@ function why(t, p) {
   if (t.kind === "kept") return "Close to the " + t.label.toLowerCase().slice(0, 40) + " you circled";
   if (t.kind === "quiz") return "Picked for " + POS() + " " + t.label.toLowerCase() + " side";
   if (t.kind === "swipe") return "Fits what they liked when they swiped";
-  if (t.kind === "seed") return "Often kept by people " + (S.age ? "this age" : "on this budget");
+  if (t.kind === "seed") return "Often kept by people " + (A.S.age ? "this age" : "on this budget");
   return "Fits " + POS() + " love of " + t.label.slice(0, 40);
 }
 // Everything already on the list, and what they own, so near repeats are left out.
-function shownTexts() { return S.items.map(i => ({ t: i.title, v: vec(i.title), src: i.src })); }
+function shownTexts() { return A.S.items.map(i => ({ t: i.title, v: vec(i.title), src: i.src })); }
 function nearRepeat(p, pv, shown, record) {
   for (const s of shown) { const x = sim(p.t, s.t, pv, s.v); if (x >= DUP) { if (record && s.src !== "Added by you") record.push([p.t, s.t, Math.round(x * 100)]); return true; } }
   return false;
@@ -213,7 +217,7 @@ function ownedHit(t, v, own) { for (const o of own) { const x = sim(t, o.t, v, o
 function rankRound(n) {
   const T = terms(); if (!W.pool) return { picks: [], confident: false };
   const C = cutTerms(), cutP = cutPenalty(), mb = maxB();
-  const seen = new Set([...S.items.map(i => i.title.toLowerCase()), ...S.have.map(h => String(h).toLowerCase())]);
+  const seen = new Set([...A.S.items.map(i => i.title.toLowerCase()), ...A.S.have.map(h => String(h).toLowerCase())]);
   const shown = shownTexts(), own = ownedList().map(t => ({ t, v: vec(t) }));
   // No taste yet: start from what people of the same age and budget kept most.
   const seedT = seedTerms();
@@ -235,8 +239,8 @@ function rankRound(n) {
     if (wild) { wild.wild = true; picks.splice(Math.min(3, picks.length), 0, wild); }
   }
   // Budget bundles: under $25 or $75, two small ideas that go together become one gift.
-  if (S.budget === "25" || S.budget === "75") {
-    const lim = +S.budget, small = scored.filter(x => x.p.hi && x.p.hi <= lim * 0.6 && !picks.includes(x) && x.best >= TH * 0.8).slice(0, 40);
+  if (A.S.budget === "25" || A.S.budget === "75") {
+    const lim = +A.S.budget, small = scored.filter(x => x.p.hi && x.p.hi <= lim * 0.6 && !picks.includes(x) && x.best >= TH * 0.8).slice(0, 40);
     let bundle = null;
     for (let i = 0; i < small.length && !bundle; i++) for (let j = i + 1; j < small.length; j++) {
       const a = small[i], b = small[j], s = sim(a.p.t, b.p.t, a.pv, b.pv);
@@ -250,7 +254,7 @@ function rankRound(n) {
   return { picks, confident: good >= Math.min(n - wn, 6) || (!T.length && seedT.length > 0 && picks.length >= n - wn), T, seed: !T.length };
 }
 function seedTerms() {
-  const s = W.seeds || {}, rows = s[(S.age || "") + "|" + (S.budget || "")] || s[(S.age || "") + "|"] || s["|" + (S.budget || "")] || [];
+  const s = W.seeds || {}, rows = s[(A.S.age || "") + "|" + (A.S.budget || "")] || s[(A.S.age || "") + "|"] || s["|" + (A.S.budget || "")] || [];
   return rows.slice(0, 8).map(r => ({ kind: "seed", text: r[0], w: 1, label: r[0], rep: "seed", v: vec(r[0]) }));
 }
 function addPicks(picks, round) {
@@ -281,9 +285,9 @@ async function noteGaps(T) {
 
 /* ---------- "Because you kept..." for every idea, AI ones too ---------- */
 function labelBecause(round) {
-  const kept = S.kept.map(byId).filter(i => i && !i.mine && (i.round || 0) < round).slice(0, 15).map(i => ({ t: i.title, v: vec(i.title) }));
+  const kept = A.S.kept.map(byId).filter(i => i && !i.mine && (i.round || 0) < round).slice(0, 15).map(i => ({ t: i.title, v: vec(i.title) }));
   if (!kept.length) return;
-  S.items.filter(i => (i.round || 0) === round && i.status === "new" && !i.bc && !i.mine).forEach(i => {
+  A.S.items.filter(i => (i.round || 0) === round && i.status === "new" && !i.bc && !i.mine).forEach(i => {
     const v = vec(i.title); let best = 0, bt = null;
     for (const k of kept) { const s = sim(i.title, k.t, v, k.v); if (s > best) { best = s; bt = k; } }
     if (bt && best >= (v ? 0.5 : 0.55) && best < DUP) i.bc = bt.t;
@@ -292,14 +296,14 @@ function labelBecause(round) {
 // After an AI round: drop near repeats of earlier ideas and things they already have.
 function cleanRound(round) {
   const own = ownedList().map(t => ({ t, v: vec(t) }));
-  const older = S.items.filter(i => (i.round || 0) !== round).map(i => ({ t: i.title, v: vec(i.title), src: i.src }));
-  const mine = S.items.filter(i => (i.round || 0) === round && i.status === "new" && !i.mine);
+  const older = A.S.items.filter(i => (i.round || 0) !== round).map(i => ({ t: i.title, v: vec(i.title), src: i.src }));
+  const mine = A.S.items.filter(i => (i.round || 0) === round && i.status === "new" && !i.mine);
   const keep = [];
   for (const i of mine) {
     const v = vec(i.title);
     const rep = older.find(o => sim(i.title, o.t, v, o.v) >= DUP) || keep.find(o => sim(i.title, o.t, v, o.v) >= DUP);
-    if (rep) { if (rep.src !== "Added by you") W.found.dups.push([i.title, rep.t, Math.round(sim(i.title, rep.t, v, rep.v) * 100)]); S.items = S.items.filter(x => x !== i); continue; }
-    if (own.length && ownedHit(i.title, v, own)) { S.items = S.items.filter(x => x !== i); continue; }
+    if (rep) { if (rep.src !== "Added by you") W.found.dups.push([i.title, rep.t, Math.round(sim(i.title, rep.t, v, rep.v) * 100)]); A.S.items = A.S.items.filter(x => x !== i); continue; }
+    if (own.length && ownedHit(i.title, v, own)) { A.S.items = A.S.items.filter(x => x !== i); continue; }
     keep.push({ t: i.title, v });
   }
 }
@@ -307,10 +311,10 @@ function cleanRound(round) {
 /* ---------- server ranking for phones too slow for the model ---------- */
 async function serverRank(n) {
   if (!BASE || !code()) return [];
-  const kept = S.kept.map(byId).filter(Boolean).map(i => i.title), cut = S.items.filter(i => i.status === "cut").map(i => i.title);
+  const kept = A.S.kept.map(byId).filter(Boolean).map(i => i.title), cut = A.S.items.filter(i => i.status === "cut").map(i => i.title);
   try {
     const r = await fetch(BASE + "/rank", { method: "POST", headers: { "content-type": "application/json", "x-beta-code": code() },
-      body: JSON.stringify({ n, age: S.age || "", ints: S.ints, quiz: PAIRS.flatMap(p => picks(p).map(o => o[2])), budget: S.budget, kept, cut, seen: [...S.items.map(i => i.title), ...S.have].slice(-120) }) });
+      body: JSON.stringify({ n, age: A.S.age || "", ints: A.S.ints, quiz: PAIRS.flatMap(p => picks(p).map(o => o[2])), budget: A.S.budget, kept, cut, seen: [...A.S.items.map(i => i.title), ...A.S.have].slice(-120) }) });
     if (!r.ok) return [];
     return ((await r.json()).ideas || []).map(i => ({ p: { k: keyOf(i.title), t: i.title, c: CATS[i.category] ? i.category : "Other", lo: i.lo, hi: i.hi }, t: null, best: 0 }));
   } catch (e) { return []; }
@@ -318,10 +322,10 @@ async function serverRank(n) {
 
 /* ---------- findings back to the server (only with sharing on) ---------- */
 function report() {
-  if (!BASE || !code() || typeof LOG_URL === "undefined" || !LOG_URL) return;
+  if (!BASE || !code() || typeof A.LOG_URL === "undefined" || !A.LOG_URL) return;
   const m = [];
-  S.items.forEach(i => { if (!i.pool || !i.mt || i.mts) return; if ((i.round || 0) >= (S.round || 0) && i.status === "new") return;
-    const k = S.kept.indexOf(i.id), o = i.status === "kept" ? (k >= 0 && k < 3 ? "top" : "kept") : i.status === "cut" ? "cut" : "none";
+  A.S.items.forEach(i => { if (!i.pool || !i.mt || i.mts) return; if ((i.round || 0) >= (A.S.round || 0) && i.status === "new") return;
+    const k = A.S.kept.indexOf(i.id), o = i.status === "kept" ? (k >= 0 && k < 3 ? "top" : "kept") : i.status === "cut" ? "cut" : "none";
     m.push([i.mt, i.title, o]); i.mts = 1; });
   const body = { dups: W.found.dups.splice(0, 20), gaps: [...W.found.gaps].slice(0, 10), m: m.slice(0, 40) };
   W.found.gaps.clear();
@@ -333,10 +337,10 @@ addEventListener("pagehide", report);
 
 /* ---------- smarter quiz: ask next the question that splits the ideas best ---------- */
 function orderQuiz() {
-  const id = STEPS[qi]; if (!PAIRS.some(p => p.id === id)) return;
-  const rest = []; for (let j = qi + 1; j < STEPS.length; j++) if (PAIRS.some(p => p.id === STEPS[j])) rest.push(j);
+  const id = STEPS[A.qi]; if (!PAIRS.some(p => p.id === id)) return;
+  const rest = []; for (let j = A.qi + 1; j < STEPS.length; j++) if (PAIRS.some(p => p.id === STEPS[j])) rest.push(j);
   if (rest.length < 2) return;
-  const answered = PAIRS.filter(p => S.quiz[p.id] != null && S.quiz[p.id] >= 0).flatMap(picks);
+  const answered = PAIRS.filter(p => A.S.quiz[p.id] != null && A.S.quiz[p.id] >= 0).flatMap(picks);
   const items = (W.pool && W.pool.length ? W.pool.map(p => ({ t: p.t, w: words(p.t + " " + p.b[4]), v: W.vec.get(p.k) })) : BANK.map(b => ({ t: b[0], w: words(b[0] + " " + b[4]), v: null })));
   const hit = (it, o) => { const ov = vec(o[2]); if (ov && it.v) return dot(ov, it.v) >= 0.3; const ow = words(o[2]); for (const x of ow) if (it.w.has(x)) return true; return false; };
   const live = answered.length ? items.filter(it => answered.some(o => hit(it, o))) : items;
@@ -348,24 +352,24 @@ function orderQuiz() {
     const v = Math.min(a, b) + 0.1 * (a + b);
     if (v > bv) { bv = v; bj = j; }
   }
-  if (bj !== qi + 1) { const [s] = STEPS.splice(bj, 1); STEPS.splice(qi + 1, 0, s); }
+  if (bj !== A.qi + 1) { const [s] = STEPS.splice(bj, 1); STEPS.splice(A.qi + 1, 0, s); }
 }
 
 /* ---------- past lists, kept on the phone ---------- */
 function pastLists() { try { return JSON.parse(localStorage.getItem(PAST_KEY) || "[]"); } catch (e) { return []; } }
 function archive() {
-  const kept = S.items.filter(i => i.status === "kept" || i.status === "have" || i.mine);
+  const kept = A.S.items.filter(i => i.status === "kept" || i.status === "have" || i.mine);
   if (!kept.length) return;
-  const snap = JSON.parse(JSON.stringify(S)); delete snap.past;
-  const list = pastLists().filter(x => x.lid !== S.lid);
-  list.unshift({ lid: S.lid || "", at: Date.now(), name: S.listName || S.name || "", n: kept.length, top: S.kept.map(byId).filter(Boolean).slice(0, 3).map(i => i.title), s: snap });
+  const snap = JSON.parse(JSON.stringify(A.S)); delete snap.past;
+  const list = pastLists().filter(x => x.lid !== A.S.lid);
+  list.unshift({ lid: A.S.lid || "", at: Date.now(), name: A.S.listName || A.S.name || "", n: kept.length, top: A.S.kept.map(byId).filter(Boolean).slice(0, 3).map(i => i.title), s: snap });
   try { localStorage.setItem(PAST_KEY, JSON.stringify(list.slice(0, 8))); } catch (e) { try { localStorage.setItem(PAST_KEY, JSON.stringify(list.slice(0, 3))); } catch (x) {} }
 }
 function openPast(k) {
   const list = pastLists(), x = list[k]; if (!x) return;
   archive();
-  const keep = { ageOk: S.ageOk, u13: S.u13, m: S.m, trialUsed: S.trialUsed, trialUntil: S.trialUntil, trialFree: S.trialFree, aiRounds: S.aiRounds };
-  Object.keys(S).forEach(key => delete S[key]); Object.assign(S, fresh(), x.s, keep);
+  const keep = { ageOk: A.S.ageOk, u13: A.S.u13, m: A.S.m, trialUsed: A.S.trialUsed, trialUntil: A.S.trialUntil, trialFree: A.S.trialFree, aiRounds: A.S.aiRounds };
+  Object.keys(A.S).forEach(key => delete A.S[key]); Object.assign(A.S, fresh(), x.s, keep);
   save(); show("ideas"); render(); toast("Opened " + (x.name || "your earlier list"));
 }
 function pastPanel() {
@@ -379,9 +383,9 @@ function pastPanel() {
 /* ---------- swipe link: the person it's for swipes ideas; the giver's list tunes to them ---------- */
 async function makeSwipe() {
   if (!BASE || !code()) return toast("Swipe links need the beta code");
-  if (S.forWho !== "them") return toast("Swipe links are for lists you make for someone else");
+  if (A.S.forWho !== "them") return toast("Swipe links are for lists you make for someone else");
   await loadPool();
-  const kept = S.kept.map(byId).filter(i => i && !i.mine).slice(0, 8);
+  const kept = A.S.kept.map(byId).filter(i => i && !i.mine).slice(0, 8);
   const nms = logNames();
   const own = kept.map(i => ({ t: i.title, c: i.cat }));
   const others = (W.pool || []).filter(p => !own.some(o => o.t.toLowerCase() === p.t.toLowerCase()) && p.lo <= maxB()).sort(() => Math.random() - 0.5).slice(0, 20 - own.length).map(p => ({ t: p.t, c: p.c }));
@@ -390,7 +394,7 @@ async function makeSwipe() {
   try {
     const r = await fetch(BASE + "/swipe/new", { method: "POST", headers: { "content-type": "application/json", "x-beta-code": code() }, body: JSON.stringify({ deck }) });
     const d = await r.json(); if (!d.id) throw 0;
-    S.swipe = { id: d.id, deck: deck.map(c => c.t), at: Date.now() }; save();
+    A.S.swipe = { id: d.id, deck: deck.map(c => c.t), at: Date.now() }; save();
     const url = new URL("swipe/#" + d.id, location.href).href;
     const text = "Help me pick gift ideas? Swipe through a few, it takes a minute: " + url;
     if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) {} }
@@ -399,19 +403,19 @@ async function makeSwipe() {
 }
 // Their likes become taste (which card they liked is never shown); passes go on as quiet cuts.
 async function checkSwipe() {
-  const sw = S.swipe; if (!sw || sw.got || !BASE || !code() || Date.now() - sw.at > 14 * 864e5) return;
+  const sw = A.S.swipe; if (!sw || sw.got || !BASE || !code() || Date.now() - sw.at > 14 * 864e5) return;
   try {
     const r = await fetch(BASE + "/swipe/votes", { method: "POST", headers: { "content-type": "application/json", "x-beta-code": code() }, body: JSON.stringify({ id: sw.id }) });
     const d = await r.json(); if (!d.votes) return;
-    sw.got = 1; S.swipeLiked = sw.deck.filter((t, i) => d.votes[i] === 1); S.swipePassed = sw.deck.filter((t, i) => d.votes[i] === 0);
-    W.swipes = S.swipeLiked; save();
+    sw.got = 1; A.S.swipeLiked = sw.deck.filter((t, i) => d.votes[i] === 1); A.S.swipePassed = sw.deck.filter((t, i) => d.votes[i] === 0);
+    W.swipes = A.S.swipeLiked; save();
     // New ideas still on the screen move to fit their taste, so the list changes without saying what they liked.
     resortNew(); render(); toast("Their swipes are in. New ideas now lean their way.");
   } catch (e) {}
 }
 function resortNew() {
   const T = terms(); if (!T.length) return;
-  const items = S.items.filter(i => i.status === "new" && !i.mine && (i.round || 0) === (S.round || 0));
+  const items = A.S.items.filter(i => i.status === "new" && !i.mine && (i.round || 0) === (A.S.round || 0));
   const val = i => { const v = vec(i.title); let b = 0; for (const t of T) b = Math.max(b, sim(i.title, t.text, v, t.v) * t.w); return b; };
   const ords = items.map(i => i.ord ?? i.no).sort((a, b) => a - b);
   items.sort((a, b) => val(b) - val(a)).forEach((i, k) => i.ord = ords[k]);
@@ -427,30 +431,30 @@ async function round(n, opt) {
   if (!W.emb && (W.slow || W.embState === "off")) {
     // Slow phone or no model: the server ranks the pool instead (no AI).
     if (!opt.force) return { got: 0 };
-    const p = await serverRank(n); return { got: addPicks(p, S.round || 0) };
+    const p = await serverRank(n); return { got: addPicks(p, A.S.round || 0) };
   }
   const r = rankRound(n);
   if (r.T) await noteGaps(r.T);
-  W.last = "round " + (S.round || 0) + ": " + r.picks.length + " picks, " + r.picks.filter(x => x.best >= TH).length + " good, top " + r.picks.slice(0, 3).map(x => x.p.t + " " + x.best.toFixed(2)).join("; ") + (r.confident ? "" : " (AI)");
+  W.last = "round " + (A.S.round || 0) + ": " + r.picks.length + " picks, " + r.picks.filter(x => x.best >= TH).length + " good, top " + r.picks.slice(0, 3).map(x => x.p.t + " " + x.best.toFixed(2)).join("; ") + (r.confident ? "" : " (AI)");
   if (!r.confident && !opt.force) return { got: 0, why: "few_matches" };
-  return { got: addPicks(r.picks.slice(0, n), S.round || 0) };
+  return { got: addPicks(r.picks.slice(0, n), A.S.round || 0) };
 }
-function after(round) { if (W.emb) cleanRound(round); labelBecause(round); const sb = $("#wwSwipe"); if (sb) sb.hidden = S.forWho !== "them"; idle(prep); }
+function after(round) { if (W.emb) cleanRound(round); labelBecause(round); const sb = $("#wwSwipe"); if (sb) sb.hidden = A.S.forWho !== "them"; idle(prep); }
 // Next round ready early: vectors for anything new on the list and their latest taste.
-function prep() { if (!W.emb) return; S.items.slice(-40).forEach(i => vec(i.title)); terms(); }
+function prep() { if (!W.emb) return; A.S.items.slice(-40).forEach(i => vec(i.title)); terms(); }
 
 /* ---------- start up ---------- */
 // The access code is checked a moment after the page loads (and later if they type it at the gate), so wait for it.
 function start(tries) {
   if (!code()) { tries = (tries || 0) + 1; if (tries < 600) setTimeout(() => start(tries), 500); return; }
-  W.swipes = S.swipeLiked || [];
+  W.swipes = A.S.swipeLiked || [];
   idle(async () => { await loadPool(); await loadEmbedder(); poolVectors(); checkSwipe(); });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkSwipe(); else report(); });
   // Buttons: past lists and the swipe link, beside More ideas.
   const more = $("#moreBtn");
   if (more && !$("#wwSwipe")) {
     const sb = document.createElement("button"); sb.type = "button"; sb.className = "btn"; sb.id = "wwSwipe"; sb.textContent = "Let them swipe";
-    sb.hidden = S.forWho !== "them"; sb.addEventListener("click", makeSwipe); more.parentNode.appendChild(sb);
+    sb.hidden = A.S.forWho !== "them"; sb.addEventListener("click", makeSwipe); more.parentNode.appendChild(sb);
   }
   const rt = $("#retake");
   if (rt && !$("#wwPast")) { const pb = document.createElement("button"); pb.type = "button"; pb.className = "btn quiet"; pb.id = "wwPast"; pb.textContent = "Past lists"; pb.addEventListener("click", pastPanel); rt.parentNode.appendChild(pb); }

@@ -2036,9 +2036,11 @@ if(CFG.aiUrl){sample={json:async(_p,o)=>{
   return r.json()}}}
 setAi();
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+/* beta: what smart.js (the on-phone matcher) reads from the app; this script is one block, so nothing here is global */
+window.__WW={get S(){return S},get qi(){return qi},get LOG_URL(){return LOG_URL},AI_ON,CFG,$,BANK,INTS,STOP,stem,CATS,PAIRS,picks,byId,ageFit,GEN_RE,FEM_RE,MASC_RE,cutPenalty,maxB,addItem,logNames,logSafe,STEPS,fresh,save,show,render,toast,esc};
 }
 </script>
-<script src="smart.js?v=6"></script>
+<script src="smart.js?v=7"></script>
 <script src="../count.js?v=3" defer></script>
 </body>
 </html>
