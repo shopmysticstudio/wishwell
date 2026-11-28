@@ -17,6 +17,12 @@ who may use AI. Cloudflare deploys it automatically from the `payments` branch
   Then `402 {"error":"trial_used"}` and the app shows the Holiday Pass wall.
   Test: `node server/ai-ideas/test/limits.test.mjs`.
 - Holiday Pass: a valid Gumroad key (`x-pass-key`) gets 25 rounds a day.
+- `POST /reward` Holiday Games: a level's first win (`{"level": 1..25}`, `x-device-id`) earns one
+  bonus AI round. Levels above `GAMES_FREE_LEVELS` (4) need a Games Pass or Holiday Pass key.
+  Once per level per device, `REWARD_DAILY` (3) a day per device, `REWARD_GLOBAL_DAILY` (300) a day
+  for everyone, at most `BONUS_MAX` (10) held, kept `BONUS_DAYS` (60) days. When a device's free
+  rounds run out, a bonus round is spent instead (header `x-bonus-left`); it still counts toward
+  `TRIAL_GLOBAL_DAILY`. `REWARDS = "off"` turns it off.
 - Every other problem answers 429, and the app quietly shows starter ideas.
 - Ideas over the budget or with brand names are dropped; the model is asked for a
   few extra to make up for it.
@@ -34,7 +40,7 @@ who may use AI. Cloudflare deploys it automatically from the `payments` branch
   `DB` the Worker falls back to the old KV `pool:` keys.
 
 Settings live in `wrangler.toml` `[vars]`. Secrets (dashboard > Settings >
-Variables and Secrets > Type: Secret): `GUMROAD_PRODUCT_ID` (needed for passes),
+Variables and Secrets > Type: Secret): `GUMROAD_PRODUCT_ID` (needed for passes), `GAMES_PRODUCT_ID` (optional, the Games Pass for Holiday Games levels; `/verify` with `"product": "games"` then takes either pass),
 `BETA_CODE` (optional, overrides the beta code fingerprint in `worker.js`).
 
 Bindings: `AI` (Workers AI), `KV` (namespace `wishwell-ai-ideas-data`),
