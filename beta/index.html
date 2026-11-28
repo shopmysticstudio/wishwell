@@ -1454,11 +1454,13 @@ async function getIdeas(){
       if(c==="not_granted")sample=null}
     await thinkShow(tm,got?S.items.filter(i=>i.round===S.round&&i.src==="AI pick"):[]);
   }
-  if(SM&&got<4){try{got+=(await SM.round(8-got,{force:true})).got}catch(e){}}
+  let fill=0;if(SM&&got<4){try{fill=(await SM.round(8-got,{force:true})).got;got+=fill}catch(e){}}
   if(SM)try{SM.after(S.round)}catch(e){}
   if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
   if(got&&!msg.querySelector(".err"))msg.innerHTML=!sample&&bankIdeas.noteMiss?`<p class="note">None of the starter ideas matched the words in Details, so these come from the quiz. Words like puzzles, camping or coffee match best.</p>`:"";
   if(note)msg.innerHTML=`<p class="note">${note}</p>`;
+  /* beta: when the on-phone matcher filled the round, these aren't starter ideas */
+  if(fill>=4){const e=msg.querySelector(".note");if(e)e.innerHTML=e.innerHTML.replace("Showing starter ideas instead","Showing matched ideas instead").replace(/These are starter ideas/g,"These are matched ideas").replace(/so these are starter ideas/g,"so these are matched ideas")}
   logRound();setAi();busy=false;mb.disabled=false;mb.textContent="More ideas";save();render();
 }
 $("#moreBtn").addEventListener("click",getIdeas);
