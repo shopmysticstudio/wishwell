@@ -35,6 +35,13 @@ const call = async (body, code = "TESTCODE12", dev = "") => {
 sql.exec(`INSERT INTO ideas (key, title, category, lo_sum, hi_sum, shown, kept, top, cut, first_day, last_day) VALUES
  ('moon lamp','Moon lamp','Room',50,80,2,3,1,0,'2026-11-01','2026-11-02')`);
 sql.exec(`INSERT INTO idea_tags VALUES ('moon lamp','int:Gaming',2)`);
+// Test runs use the beta rules: a hint must fit their interests by the gift map. The candle is tagged
+// Gaming only because a gamer once ticked it, so it is left out.
+sql.exec(`INSERT INTO idea_factors VALUES ('moon lamp','Moon lamp','Room','{"ints":["Gaming"]}','m','2026-11-01')`);
+sql.exec(`INSERT INTO ideas (key, title, category, lo_sum, hi_sum, shown, kept, top, cut, first_day, last_day) VALUES
+ ('scented candle','Scented candle','Room',20,40,3,3,1,0,'2026-11-01','2026-11-02')`);
+sql.exec(`INSERT INTO idea_tags VALUES ('scented candle','int:Gaming',5)`);
+sql.exec(`INSERT INTO idea_factors VALUES ('scented candle','Scented candle','Room','{"ints":["Self-care"]}','m','2026-11-01')`);
 const snap = () => JSON.stringify([
   sql.prepare("SELECT key, shown, kept, cut, lo_sum FROM ideas ORDER BY key").all(),
   sql.prepare("SELECT * FROM idea_tags ORDER BY key, tag").all(),

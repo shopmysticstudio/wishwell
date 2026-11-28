@@ -200,6 +200,24 @@ function budgetRule(b) {
   return `Hard limit: every gift must typically cost $${b} or less. Both "lo" and "hi" must be at or under ${b}. Use honest typical store prices: if something usually costs more than $${b}, leave it out instead of lowering its price.`;
 }
 
+// Beta: 1 wildcard in every 6 ideas, and at most this many ideas from one category per round.
+const wildCount = n => n >= 6 ? Math.floor(n / 6) : 0;
+const catCap = n => Math.max(2, Math.ceil(n / 4));
+// Beta: words capitalized in the middle of a sentence in the details are names (a band, a show, a team,
+// a store), so ideas with them in the title are dropped. The first word of a sentence is skipped.
+const NOT_NAMES = new Set(("i christmas halloween easter thanksgiving hanukkah valentine valentines diwali " +
+  "monday tuesday wednesday thursday friday saturday sunday january february march april may june july august september october november december " +
+  "american english spanish french italian japanese korean chinese mexican").split(" "));
+function properNames(notes) {
+  const out = new Set();
+  for (const part of String(notes || "").split(/[.!?;:\n]+/)) {
+    const words = part.trim().split(/[\s,()"]+/).filter(Boolean);
+    words.forEach((w, i) => { if (i > 0 && /^[A-Z][A-Za-z']{2,}$/.test(w) && !NOT_NAMES.has(w.toLowerCase()) && !NOT_NAMES.has(w.toLowerCase().replace(/s$/, ""))) out.add(w.toLowerCase().replace(/'s$/, "")); });
+  }
+  for (const i of INTERESTS) for (const w of i.toLowerCase().split(/\s+/)) out.delete(w);
+  return out;
+}
+
 function buildMessages(q) {
   const who = q.forWho === "me" ? "the person making the list (a teen or adult)" : "someone the user is shopping for";
   const system = [
@@ -213,6 +231,8 @@ function buildMessages(q) {
     "Reply with only a JSON array and nothing else."
   ].join(" ");
   const n = Math.min(MAX_IDEAS + EXTRA_ASK, q.n + EXTRA_ASK);
+  // Beta only: some wildcards from outside their taste, a cap per category, and no band or show names.
+  const w = q.beta ? wildCount(q.n) : 0, cap = q.beta ? catCap(q.n) : 2;
   const user = `Suggest ${n} specific, buyable gifts for ${who}.
 What they told us, most specific first:
 1. Details in their own words (matter most): ${q.notes || "none"}.
@@ -227,8 +247,8 @@ They cut (they don't want these; avoid the same kind of thing): ${q.cut.join("; 
 ${(q.catUp && q.catUp.length) || (q.catDown && q.catDown.length) ? `Across everyone so far, ${[q.catUp && q.catUp.length ? andList(q.catUp) + " gifts get kept more often" : "", q.catDown && q.catDown.length ? andList(q.catDown) + " gifts get cut more often" : ""].filter(Boolean).join(", and ")}. Use this only as a light tie breaker; this person's own choices come first.\n` : ""}${q.liked && q.liked.length ? `Other people with these interests kept ideas like: ${q.liked.join("; ")}. Match how specific these are; one or two may be suggested if they fit.\n` : ""}${q.avoid && q.avoid.length ? `Other people often cut these (avoid them and close cousins): ${q.avoid.join("; ")}.\n` : ""}Do not repeat any of: ${q.seen.join("; ") || "none"}.
 How to choose:
 ${q.notes ? "- At least half of the ideas must fit the details directly. Read the details for the feeling too: \"quirky, keeps my brain busy\" means puzzles, brain teasers and odd clever gadgets, not plain items from each interest.\n" : ""}- Start broad and everyday: home and comfort, hobbies, style, books and stories, music, games, outdoors and experiences. Only suggest food, drink or kitchen gifts when they picked Cooking or Coffee and tea, or a detail or quiz pick is about food.
-- Every idea must tie clearly to at least one detail, quiz pick or interest above, and its "why" says which in plain words.
-- Be specific: name the exact kind of thing, like "moon phase desk lamp" or "3D printer filament sampler", never a vague "smart light", "art supplies" or "gourmet basket".
+- Every idea${w ? " except the wildcards" : ""} must tie clearly to at least one detail, quiz pick or interest above, and its "why" says which in plain words.
+${w ? `- Exactly ${w} of the ideas ${w > 1 ? "are wildcards" : "is a wildcard"}: a well loved gift from a kind of gift that nothing above points to (not their details, quiz, interests or what they kept), so they can try something new. ${w > 1 ? "Each" : "It"} must still fit their age, gender and budget, must not be like anything they cut, and gets "wild": true, with a "why" that says it is something new to try.\n` : ""}${q.beta ? "- Never use band, singer, artist, team, show, game, store or restaurant names, even when the details mention them; suggest the generic kind of gift instead.\n" : ""}- Be specific: name the exact kind of thing, like "moon phase desk lamp" or "3D printer filament sampler", never a vague "smart light", "art supplies" or "gourmet basket".
 - No subscriptions, classes, courses, lessons or gift cards unless the details ask for them.
 - At most one personalized or custom-printed item, and only when it ties to a specific detail.
 - Only suggest tech, gadgets, electronics, science or space items when the interests, quiz picks, details or kept items show that interest, and even then keep them to a third of the list or less.
@@ -236,9 +256,9 @@ ${q.notes ? "- At least half of the ideas must fit the details directly. Read th
 - Do not hand out one plain idea per interest. Skip generic picks almost anyone could get (gift cards, plain headphones, generic decor) unless the details ask for them.
 - What they kept and cut counts more than the quiz and interests, because it is what they actually chose. If they kept items, about half of the ideas should be close cousins of those (same theme or use, a different kind of thing), led by their favorites.
 - Never suggest the same kind of thing as a cut item: a cut puzzle book rules out other puzzle books. If two or more cut items share a theme, leave that theme out.
-- Vary the kinds of gifts: no more than two from the same category.
+- Vary the kinds of gifts: no more than ${cap === 2 ? "two" : cap} from the same category.
 Use honest, typical current US store prices.
-Each element uses exactly these keys: {"title": generic product name under 50 characters in sentence case, "category": one of ${CATS.join(", ")}, "lo": low price in whole US dollars as a number, "hi": high price as a number, "why": one natural reason under 14 words in sentence case that says what it fits in plain words, like "Brain teasers for a mystery novel fan" (never quote their answers), "search": a generic store search phrase}.`;
+Each element uses exactly these keys: {"title": generic product name under 50 characters in sentence case, "category": one of ${CATS.join(", ")}, "lo": low price in whole US dollars as a number, "hi": high price as a number, "why": one natural reason under 14 words in sentence case that says what it fits in plain words, like "Brain teasers for a mystery novel fan" (never quote their answers), "search": a generic store search phrase${w ? ', and "wild": true only on the wildcards' : ""}}.`;
   return [{ role: "system", content: system }, { role: "user", content: user }];
 }
 
@@ -336,20 +356,35 @@ async function crowdHints(db, q, env) {
   const minShows = num(env.CROWD_BLOCK_SHOWS, 4);
   try {
     const cutQ = db.prepare("SELECT title, shown, kept, top, cut FROM ideas WHERE cut >= 2 AND cut >= 2 * (kept + top) ORDER BY cut DESC, shown DESC LIMIT 40");
-    const likedQ = tags.length
+    // Beta: tags carry every interest a person ticked, so a power bank gets tagged Cooking. Hints there
+    // must also fit one of this person's interests by the gift map (idea_factors), or share a word with
+    // what they told us. No interests ticked means no hints.
+    const likedQ = q.beta
+      ? (tags.length ? db.prepare(`SELECT i.title AS title, MAX(x.f) AS f FROM ideas i JOIN idea_tags t ON t.key = i.key LEFT JOIN idea_factors x ON x.key = i.key WHERE t.tag IN (${tags.map((_, k) => "?" + (k + 1)).join(", ")}) AND i.kept + i.top >= 1 AND i.kept + 2 * i.top > 2 * i.cut GROUP BY i.key ORDER BY SUM(t.n) * (i.kept + 2 * i.top - i.cut) DESC, i.shown DESC LIMIT 60`).bind(...tags) : null)
+      : tags.length
       ? db.prepare(`SELECT i.title AS title FROM ideas i JOIN idea_tags t ON t.key = i.key WHERE t.tag IN (${tags.map((_, k) => "?" + (k + 1)).join(", ")}) AND i.kept + i.top >= 1 AND i.kept + 2 * i.top > 2 * i.cut GROUP BY i.key ORDER BY SUM(t.n) * (i.kept + 2 * i.top - i.cut) DESC, i.shown DESC LIMIT 20`).bind(...tags)
       : db.prepare("SELECT title FROM ideas WHERE kept + top >= 2 AND kept + 2 * top > 2 * cut ORDER BY kept + 2 * top - cut DESC LIMIT 20");
     const catQ = db.prepare("SELECT category, SUM(kept) + SUM(top) AS pos, SUM(cut) AS neg FROM ideas GROUP BY category");
-    const [cuts, liked, cats] = await withTime(Promise.all([cutQ.all(), likedQ.all(), catQ.all()]), num(env.CROWD_TIMEOUT_MS, 1500));
+    const [cuts, liked, cats] = await withTime(Promise.all([cutQ.all(), likedQ ? likedQ.all() : { results: [] }, catQ.all()]), num(env.CROWD_TIMEOUT_MS, 1500));
     Object.assign(res, crowdCategories((cats && cats.results) || []));
     for (const r of (cuts && cuts.results) || []) {
       const k = ideaKey(r.title);
       if (r.shown >= minShows && r.cut >= 0.6 * r.shown && (r.kept + r.top) * 3 <= r.cut) res.blocked.add(k);
       if (!mine.has(k) && res.avoid.length < 8) res.avoid.push(clean(r.title, 60));
     }
+    const own = q.beta ? titleWords([q.notes, ...q.quiz, ...q.kept, ...(q.top || [])].join(" ")) : null;
+    const names = q.beta ? properNames(q.notes) : null;
+    const fits = r => {
+      if (!q.beta) return true;
+      if (titleWords(r.title).size && [...titleWords(r.title)].some(w => own.has(w))) return true;
+      let f = null; try { f = r.f ? JSON.parse(r.f) : null; } catch (e) {}
+      return !!(f && Array.isArray(f.ints) && f.ints.some(i => q.ints.includes(i)));
+    };
     for (const r of (liked && liked.results) || []) {
       const k = ideaKey(r.title);
-      if (!mine.has(k) && !brandRe.test(r.title) && res.liked.length < 6) res.liked.push(clean(r.title, 60));
+      if (mine.has(k) || brandRe.test(r.title) || res.liked.length >= 6) continue;
+      if (names && String(r.title).toLowerCase().split(/[^a-z']+/).some(w => names.has(w))) continue;
+      if (fits(r)) res.liked.push(clean(r.title, 60));
     }
   } catch (e) {}
   return res;
@@ -401,11 +436,16 @@ function parseIdeas(out, q) {
   const cutList = q.cut || [], keptList = [...(q.kept || []), ...(q.top || [])];
   const blocked = q.blocked || new Set();
   const asked = [q.notes, ...q.quiz, ...q.ints].join(" ").toLowerCase();
+  const wildMax = q.beta ? wildCount(q.n) : 0, cap = q.beta ? catCap(q.n) : Infinity;
+  const names = q.beta ? properNames(q.notes) : new Set();
+  const cats = {}, spare = [];
+  let wilds = 0;
   // Some models rename keys ("Title", "name", "price_low"), so read them loosely.
   const pick = (o, keys) => { for (const k of Object.keys(o)) if (keys.includes(k.toLowerCase().replace(/[^a-z]/g, ""))) return o[k]; };
   for (let o of raw) {
     if (ideas.length >= q.n) break;
     if (!o || typeof o !== "object") { dropped.other++; continue; }
+    const wv = pick(o, ["wild", "wildcard"]), wild = wildMax > 0 && (wv === true || wv === "true");
     o = { title: pick(o, ["title", "name", "gift", "idea", "item", "product"]), category: pick(o, ["category", "cat", "type"]),
       lo: pick(o, ["lo", "low", "pricelow", "lowprice", "min", "minprice"]), hi: pick(o, ["hi", "high", "pricehigh", "highprice", "max", "maxprice"]),
       why: pick(o, ["why", "reason", "because"]), search: pick(o, ["search", "searchphrase", "query", "searchterm"]) };
@@ -414,7 +454,7 @@ function parseIdeas(out, q) {
     let title = clean(o.title, 60);
     if (/^[a-z]/.test(title)) title = title[0].toUpperCase() + title.slice(1);
     if (title.length < 2 || have.has(title.toLowerCase())) { dropped.other++; continue; }
-    if (brandRe.test(title)) { dropped.brand++; continue; }
+    if (brandRe.test(title) || (names.size && title.toLowerCase().split(/[^a-z']+/).some(w => names.has(w.replace(/'s$/, ""))))) { dropped.brand++; continue; }
     if (blocked.has(ideaKey(title))) { dropped.crowd++; continue; }
     if (cutList.length) { const c = closeness(title, cutList); if (c && closeness(title, keptList) < c) { dropped.cut++; continue; } }
     const kind = genericKind(title);
@@ -428,11 +468,25 @@ function parseIdeas(out, q) {
     const why = clean(o.why, 120).replace(brandReG, "").replace(/\s+/g, " ").trim();
     const search = clean(o.search, 80).replace(brandReG, "").replace(/\s+/g, " ").trim() || title;
     have.add(title.toLowerCase());
-    ideas.push({ title, category: cat, lo, hi, why, search });
+    const idea = { title, category: cat, lo, hi, why, search };
+    if (wild) idea.wild = true;
+    // Over the wildcard count or the category cap: kept aside, used only if the round comes up short.
+    if ((wild && wilds >= wildMax) || (cats[cat] || 0) >= cap) { if (wild) delete idea.wild; spare.push(idea); dropped.spread = (dropped.spread || 0) + 1; continue; }
+    if (wild) wilds++;
+    cats[cat] = (cats[cat] || 0) + 1;
+    ideas.push(idea);
   }
-  ideas.dropped = dropped;
-  ideas.raw = raw.length;
-  return ideas;
+  let res = ideas;
+  if (q.beta) {
+    for (const s of spare) { if (res.length >= q.n) break; res.push(s); dropped.spread--; }
+    // Wildcards go after the first three ideas, then one every six, so the list opens on their taste.
+    const tied = res.filter(i => !i.wild), wl = res.filter(i => i.wild);
+    res = tied.slice();
+    wl.forEach((x, k) => res.splice(Math.min(res.length, 3 + 6 * k), 0, x));
+  }
+  res.dropped = dropped;
+  res.raw = raw.length;
+  return res;
 }
 
 /* ---------- idea pool (no notes, names, IPs or device ids) ---------- */
@@ -814,7 +868,7 @@ function cleanLog(raw) {
       const pos = intIn(it && it.p, 0, 23), title = clean(it && it.t, 60);
       if (pos == null || title.length < 2 || brandRe.test(title)) continue;
       out.ideas.push({ pos, key: ideaKey(title), title, cat: CATS.find(x => x === it.c) || "Other",
-        src: ["ai", "starter", "rec"].includes(it.src) ? it.src : "starter", lo: intIn(it.lo, 0, 10000) || 0, hi: intIn(it.hi, 0, 10000) || 0 });
+        src: ["ai", "starter", "rec", "wild"].includes(it.src) ? it.src : "starter", lo: intIn(it.lo, 0, 10000) || 0, hi: intIn(it.hi, 0, 10000) || 0 });
     }
   }
   for (const u of (Array.isArray(p.out) ? p.out : []).slice(0, 200)) {
@@ -910,7 +964,7 @@ async function runAll(db, st) {
 /* ---------- handler ---------- */
 export default {
   // For tests only; not used by Cloudflare.
-  _test: { mapItems, mapMessages, parseFactors, mapList, MAP_TABLE, cleanLog, logStatements, crowdCategories, closeness, cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
+  _test: { wildCount, catCap, properNames, mapItems, mapMessages, parseFactors, mapList, MAP_TABLE, cleanLog, logStatements, crowdCategories, closeness, cleanCode, listCodes, cleanHit, crowdHints, genericKind, readPayload, buildMessages, parseIdeas, poolRecord, poolStatements, signalStatements, ideaKey, network, reserve, windows, parsePhoto, photoMessages },
 
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
@@ -1171,6 +1225,7 @@ export default {
     /* / : gift ideas */
     if (!env.KV || !env.AI) return reply({ error: "not_set_up" }, 429);
     const q = readPayload(path === "/photo" ? {} : raw);
+    q.beta = beta;
     const day = today();
     let mode, counterKeys = [], left, refund = null;
 
