@@ -79,6 +79,11 @@ ol#picks li span{color:var(--muted);font-size:13px}
   <div class="bars" id="cBars"></div>
   <div class="acts"><button id="aKeep">Circle</button><button id="aStar" class="star">Star</button><button id="aCut" class="cut">Cut</button></div>
 </div>
+<script>
+addEventListener("error",e=>{const s=document.getElementById("status");if(s)s.textContent="The map hit a problem: "+(e.message||(e.target&&e.target.src)||"unknown")},true);
+addEventListener("unhandledrejection",e=>{const s=document.getElementById("status");if(s)s.textContent="The map hit a problem: "+String(e.reason&&e.reason.message||e.reason)});
+setTimeout(()=>{const s=document.getElementById("status");if(s&&s.textContent==="Loading ideas...")s.textContent="Still loading. If this stays, the 3D library didn't load; check your connection and reload."},15000);
+</script>
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
