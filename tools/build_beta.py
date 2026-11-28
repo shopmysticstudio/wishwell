@@ -76,7 +76,7 @@ def main():
     with open(sw, encoding="utf-8") as f:
         s = f.read()
     s = re.sub(r'const VERSION = "wishwell-v(\d+)";', r'const VERSION = "wishwell-beta-v\1";', s)
-    s = sub(s, 'ks.filter(k => !k.startsWith("wishwell-beta-") && k !== VERSION)', 'ks.filter(k => k.startsWith("wishwell-beta-") && k !== VERSION)')
+    s = sub(s, 'ks.filter(k => /^wishwell-v\\d+$/.test(k) && k !== VERSION)', 'ks.filter(k => /^wishwell-beta-v\\d+$/.test(k) && k !== VERSION)')
     with open(sw, "w", encoding="utf-8") as f:
         f.write(s)
 
@@ -96,7 +96,7 @@ def main():
     h = sub(h, "Test draft by Wishwell", "Beta by Wishwell")
     # Link to the beta's Advent calendar (beta/advent, kept in the main branch beside the build).
     h = sub(h, '<button class="plans" id="openPlans" type="button">Plans</button>',
-            '<a class="plans" href="advent/" style="text-decoration:none;display:inline-flex;align-items:center;background:#ffc94a">\U0001F384 Advent</a>\n  <button class="plans" id="openPlans" type="button">Plans</button>')
+            '<a class="plans" href="advent/" style="text-decoration:none;display:inline-flex;align-items:center;background:#ffc94a">\U0001F384 Games</a>\n  <button class="plans" id="openPlans" type="button">Plans</button>')
     h = sub(h, '"wishbook-v1"', '"wishbook-beta-v1"', None)
     h = sub(h, '"wishwell-pass"', '"wishwell-beta-pass"', None)
     gate_head = GATE_HEAD.replace("@SALT@", salt).replace("@HASH@", digest).replace("@ITER@", str(ITERATIONS))
