@@ -1039,7 +1039,7 @@ function logSend(body){if(!LOG_URL)return Promise.resolve(false);const u=LOG_URL
   return fetch(u,{method:"POST",body:b,keepalive:b.length<60000,headers:{"content-type":"text/plain"}}).then(r=>r.ok)
     .catch(()=>{try{return !!(navigator.sendBeacon&&navigator.sendBeacon(u,new Blob([b],{type:"text/plain"})))}catch(e){return false}})}catch(e){return Promise.resolve(false)}}
 const logCtx=()=>({fw:S.forWho,age:S.age,lean:S.lean,style:S.style,budget:S.budget,ints:S.ints,quiz:Object.keys(S.quiz).filter(id=>PAIRS.some(p=>p.id===id)).map(id=>id+"="+S.quiz[id]),det:!!String(S.notes||"").trim()});
-const logSrc=i=>i.like?"rec":i.wild?"wild":i.src==="AI pick"?"ai":"starter";
+const logSrc=i=>i.like?"rec":i.wild?"wild":i.seed?"seed":i.pool?"pool":i.src==="AI pick"?"ai":"starter";
 /* Ideas whose title shares a word with a name or a capitalized word from Details are never logged. */
 const logNames=()=>{const w=new Set(),words=t=>String(t||"").split(/\s+/).forEach(x=>{x=x.toLowerCase().replace(/[^a-z]/g,"");if(x.length>1)w.add(x)});
   String(S.notes||"").replace(/\b[A-Z][a-z]{2,}\b/g,m=>{w.add(m.toLowerCase());return m});words(S.name);((S.g&&S.g.people)||[]).forEach(p=>words(p&&typeof p==="object"?p.name:p));return w};
@@ -1195,10 +1195,11 @@ function renderQuiz(){
   else if(id==="style"){h=`<h2 class="qq">What kind of gifts?</h2><div class="tiles">${STYLES.map(([n,d])=>`<button type="button" class="tile" data-style="${esc(n)}" aria-pressed="${S.style===n}">${esc(n)}<small>${esc(d)}</small></button>`).join("")}</div>`}
   else if(id==="budget"){h=`<h2 class="qq">Budget per gift?</h2><div class="tiles">${BUDGETS.map(([v,n])=>`<button type="button" class="tile" data-b="${v}" aria-pressed="${S.budget===v}">${esc(n)}</button>`).join("")}</div>`}
   else{const tags=tasteTags();h=`<h2 class="qq">Anything specific?</h2><p class="qsub">Optional. Hobbies, favorite things, what ${S.forWho==="me"?"you":"they"} already have.</p>${tags.length?`<div class="taste" aria-label="Taste so far">${tags.map(t=>`<span>${esc(t)}</span>`).join("")}</div>`:""}
-   <label class="field" style="max-width:720px"><span class="small muted">Details</span><textarea id="qNotes" maxlength="400" placeholder="Loves baking and true crime shows, already has a stand mixer">${esc(S.notes)}</textarea></label><button type="button" class="btn primary wide" style="max-width:720px" id="qGo">Fish out my ideas</button>`}
+   <label class="field" style="max-width:720px"><span class="small muted">Details</span><textarea id="qNotes" maxlength="400" placeholder="Loves baking and true crime shows, already has a stand mixer">${esc(S.notes)}</textarea></label>
+   <label class="field" style="max-width:720px"><span class="small muted">Already has <span class="muted small">(optional, ideas too close to these are left out)</span></span><input type="text" id="qOwned" maxlength="200" autocomplete="off" value="${esc(S.owned||"")}" placeholder="PS4, two iPads, a stand mixer"></label><button type="button" class="btn primary wide" style="max-width:720px" id="qGo">Fish out my ideas</button>`}
   $("#qbody").innerHTML=h;
 }
-const qNext=()=>{if(qi<STEPS.length-1){qi++;save();renderQuiz();window.scrollTo(0,0)}};
+const qNext=()=>{if(qi<STEPS.length-1){try{window.WWSmart&&WWSmart.orderQuiz()}catch(e){}qi++;save();renderQuiz();window.scrollTo(0,0)}};
 $("#qbody").addEventListener("click",e=>{
   const id=STEPS[qi];const t=e.target;
   const ag=t.closest("[data-age]");if(ag){S.age=ag.dataset.age;qNext();return}
@@ -1209,14 +1210,14 @@ $("#qbody").addEventListener("click",e=>{
   if(t.closest("[data-next]")){qNext();return}
   const st=t.closest("[data-style]");if(st){S.style=st.dataset.style;qNext();return}
   const b=t.closest("[data-b]");if(b){S.budget=b.dataset.b;qNext();return}
-  if(t.closest("#qGo")){S.notes=($("#qNotes")?.value||"").trim();finishQuiz()}
+  if(t.closest("#qGo")){S.notes=($("#qNotes")?.value||"").trim();S.owned=($("#qOwned")?.value||"").trim();finishQuiz()}
 });
-$("#qbody").addEventListener("input",e=>{if(e.target.id==="qName"){S.name=e.target.value.trim();save()}if(e.target.id==="qNotes"){S.notes=e.target.value;save()}});
+$("#qbody").addEventListener("input",e=>{if(e.target.id==="qName"){S.name=e.target.value.trim();save()}if(e.target.id==="qNotes"){S.notes=e.target.value;save()}if(e.target.id==="qOwned"){S.owned=e.target.value;save()}});
 $("#qBack").addEventListener("click",()=>{if(qi>0){qi--;renderQuiz()}});
 function finishQuiz(){
   seedInts();
   S.m.quizDone=(S.m.quizDone||0)+1;
-  logFlush();S.lid=newLid();
+  logFlush();try{window.WWSmart&&WWSmart.archive()}catch(e){}S.lid=newLid();
   S.items=S.items.filter(i=>i.status==="kept"||i.status==="have"||i.mine);
   $("#qbar").style.width="100%";const tags=tasteTags();
   show("ideas");if(tags.length)toast("Taste: "+tags.slice(0,3).join(", "));getIdeas();
@@ -1392,7 +1393,7 @@ Do not repeat any of: ${seen.join("; ")||"none"}.
 Mix obvious hits with a few surprising picks that fit the details. Prefer real product types; a brand is fine when it matters. Use typical US prices.
 Use American English. Never use dashes of any kind in text.
 Reply with only a JSON array. Each element: {"title": short name under 50 characters, "category": one of ${Object.keys(CATS).join(", ")}, "lo": low price in whole US dollars, "hi": high price, "why": one reason under 14 words, "search": a store search phrase}.`;
-  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.flatMap(p=>picks(p).map(o=>o[1]+" ("+o[2]+")")),style:S.style,notes:S.notes,budget:S.budget,kept,top,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
+  const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.flatMap(p=>picks(p).map(o=>o[1]+" ("+o[2]+")")),style:S.style,notes:(S.notes+(S.owned?" Already has: "+S.owned+".":"")).slice(0,400),budget:S.budget,kept,top,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
   const arr=Array.isArray(out)?out:(out&&Array.isArray(out.ideas)?out.ideas:[]);
   const have=new Set(S.items.map(i=>i.title.toLowerCase()));let c=0;
   arr.forEach(o=>{if(c<n&&o&&o.title&&!have.has(String(o.title).toLowerCase())){have.add(String(o.title).toLowerCase());const it=addItem({title:o.title,cat:o.category,lo:o.lo,hi:o.hi,why:o.why,search:o.search,src:"AI pick"});if(o.wild===true)it.wild=1;c++}});
@@ -1434,7 +1435,10 @@ async function getIdeas(){
   const msg=$("#msg");msg.innerHTML="";let got=0;
   const passBtn=`<button class="btn" type="button" id="capPlans" style="min-height:40px;padding:4px 10px">Get the Holiday Pass</button>`;
   trialTick();const trialOver=!!(sample&&S.trialUsed&&!hasPass());let note=trialOver?`${usedMsg()} These are starter ideas for now. ${passBtn}`:"";
-  if(sample&&!trialOver){
+  /* beta: the phone ranks the saved pool first; the AI only runs when the pool has too few good matches */
+  const SM=window.WWSmart&&WWSmart.on()?WWSmart:null;
+  if(SM){SM.report();mb.textContent="Matching...";try{got=(await SM.round(8)).got}catch(e){got=0}if(got)S.m.smart=(S.m.smart||0)+1}
+  if(sample&&!trialOver&&!got){
     mb.textContent="Thinking...";msg.innerHTML=`<p class="note">Asking AI for ideas that fit. This takes a few seconds.</p>`;
     const tm=thinkOpen();
     try{const ka=keptAiNew();got=await aiIdeas(8);S.aiRounds++;S.m.ai++;S.keptSent=[...(S.keptSent||[]),...ka].slice(-300)}
@@ -1450,6 +1454,8 @@ async function getIdeas(){
       if(c==="not_granted")sample=null}
     await thinkShow(tm,got?S.items.filter(i=>i.round===S.round&&i.src==="AI pick"):[]);
   }
+  if(SM&&got<4){try{got+=(await SM.round(8-got,{force:true})).got}catch(e){}}
+  if(SM)try{SM.after(S.round)}catch(e){}
   if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
   if(got&&!msg.querySelector(".err"))msg.innerHTML=!sample&&bankIdeas.noteMiss?`<p class="note">None of the starter ideas matched the words in Details, so these come from the quiz. Words like puzzles, camping or coffee match best.</p>`:"";
   if(note)msg.innerHTML=`<p class="note">${note}</p>`;
@@ -1720,7 +1726,7 @@ ${it.img?`<div class="mono pic" aria-hidden="true"><img src="${esc(it.img)}" alt
 ${it.hi?`<span class="price">${esc(est(it))}</span>`:`<span class="small muted">Price not set</span>`}
 ${it.why?`<p class="why">${esc(it.why)}</p>`:""}
 <div class="acts"><button type="button" class="btn keep" data-a="keep" data-id="${esc(it.id)}" aria-pressed="${k}">${keepIcon(k)}${k?"Circled":"Circle it"}</button><button type="button" class="btn quiet" data-a="have" data-id="${esc(it.id)}">Have it</button><button type="button" class="btn quiet" data-a="cut" data-id="${esc(it.id)}">Cut</button>${buyLink(it)}${SHOP?`<button type="button" class="btn quiet cmpBtn" data-a="cmp" data-id="${esc(it.id)}">Compare prices</button>`:""}</div>
-<div class="src">${it.like?"More like "+esc(it.like):esc(it.src)}</div></article>`;
+<div class="src">${it.like?"More like "+esc(it.like):it.bc?"Because you kept "+esc(it.bc):esc(it.src)}</div></article>`;
 }
 function render(){
   syncKept();
@@ -2032,6 +2038,7 @@ setAi();
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
 </script>
+<script src="smart.js?v=1"></script>
 <script src="../count.js?v=3" defer></script>
 </body>
 </html>

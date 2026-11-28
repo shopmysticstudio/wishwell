@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Help pick gift ideas · Wishwell</title>
+<script src="../config.js"></script>
+<style>
+:root{--navy:#23284d;--teal:#0f766e;--paper:#fffdf7;--ink:#1f2333;--muted:#5b6070}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--navy);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.box{background:var(--paper);border-radius:22px;padding:22px;max-width:440px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+h1{font-size:1.4rem;margin:0 0 6px}p{line-height:1.45}.muted{color:var(--muted);font-size:.92rem}
+.card{border:2px solid #e4e1d6;border-radius:18px;padding:26px 18px;margin:16px 0;min-height:170px;display:flex;flex-direction:column;justify-content:center;text-align:center;touch-action:pan-y;transition:transform .18s,opacity .18s;background:#fff;user-select:none}
+.card h2{font-size:1.35rem;margin:8px 0}.card .cat{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.row{display:flex;gap:10px}.btn{flex:1;font:inherit;font-weight:700;font-size:1.05rem;border:0;border-radius:14px;padding:14px;cursor:pointer;color:#fff}
+.pass{background:#6b7280}.like{background:var(--teal)}select{font:inherit;padding:10px;border-radius:10px;border:1px solid #ccc;flex:1}
+.bar{height:6px;background:#eee;border-radius:3px;overflow:hidden}.bar i{display:block;height:100%;background:var(--teal);width:0}
+a.go{display:block;text-align:center;background:var(--navy);color:#fff;text-decoration:none;border-radius:14px;padding:14px;font-weight:700;margin-top:12px}
+</style>
+</head>
+<body>
+<main class="box" id="box" aria-live="polite"><p class="muted">Loading...</p></main>
+<script>
+/* Swipe page for the person a Wishwell list is for. No sign-up. Each like or pass is sent once, with
+   nothing about who swiped. The person who sent the link sees new ideas lean their way, never which
+   cards were liked. For ages 13 and up. */
+(() => {
+const box = document.getElementById("box");
+const BASE = String((window.WISHWELL_CONFIG || {}).aiUrl || "").trim().replace(/\/+$/, "");
+const id = location.hash.slice(1);
+const esc = v => String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const post = (p, b) => fetch(BASE + p, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }).then(r => r.json());
+const msg = (h, extra) => box.innerHTML = h + (extra || "");
+const own = `<a class="go" href="../../app/">Make your own wishlist</a>`;
+if (!BASE || !/^[0-9a-f]{24}$/.test(id)) return msg("<h1>This link doesn't work</h1><p class='muted'>Ask for a new one.</p>");
+let deck = [], votes = [], at = 0;
+function age() {
+  const y = new Date().getFullYear(), months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  msg(`<h1>Help pick gift ideas</h1><p>Someone is making you a wishlist. Swipe through about 20 ideas: tap Like or Pass. They won't see which ones you liked.</p>
+  <p class="muted">First, when were you born?</p><div class="row"><select id="m" aria-label="Birth month"><option value="">Month</option>${months.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("")}</select>
+  <select id="y" aria-label="Birth year"><option value="">Year</option>${Array.from({ length: 100 }, (_, i) => y - i).map(v => `<option>${v}</option>`).join("")}</select></div>
+  <div class="row" style="margin-top:14px"><button class="btn like" id="ok">Start</button></div>`);
+  document.getElementById("ok").onclick = () => {
+    const m = +document.getElementById("m").value, yy = +document.getElementById("y").value;
+    if (!m || !yy) return;
+    const now = new Date(), yrs = now.getFullYear() - yy - (now.getMonth() + 1 < m ? 1 : 0);
+    if (yrs < 13) return msg("<h1>Thanks!</h1><p>Wishwell is for people 13 and up, so this isn't open to you yet.</p>");
+    load();
+  };
+}
+async function load() {
+  msg("<p class='muted'>Loading ideas...</p>");
+  try {
+    const d = await post("/swipe/get", { id });
+    if (d.error) return msg("<h1>This link has run out</h1><p class='muted'>Links last two weeks. Ask for a new one.</p>", own);
+    if (d.done) return msg("<h1>Already done</h1><p>These ideas were already swiped. Thanks!</p>", own);
+    deck = d.deck; votes = deck.map(() => -1); at = 0; show();
+  } catch (e) { msg("<h1>Couldn't load</h1><p class='muted'>Check your connection and open the link again.</p>"); }
+}
+function show() {
+  if (at >= deck.length) return send();
+  const c = deck[at];
+  msg(`<div class="bar"><i style="width:${Math.round(at / deck.length * 100)}%"></i></div>
+  <div class="card" id="card"><div class="cat">${esc(c.c)}</div><h2>${esc(c.t)}</h2><div class="muted">${at + 1} of ${deck.length}</div></div>
+  <div class="row"><button class="btn pass" id="no">Pass</button><button class="btn like" id="yes">Like</button></div>
+  <p class="muted" style="text-align:center">Or swipe the card: right to like, left to pass.</p>`);
+  const card = document.getElementById("card");
+  const pick = v => { votes[at] = v; card.style.transform = `translateX(${v ? 120 : -120}%) rotate(${v ? 8 : -8}deg)`; card.style.opacity = 0; at++; setTimeout(show, 170); };
+  document.getElementById("yes").onclick = () => pick(1);
+  document.getElementById("no").onclick = () => pick(0);
+  let x0 = null;
+  card.addEventListener("pointerdown", e => { x0 = e.clientX; });
+  card.addEventListener("pointermove", e => { if (x0 != null) card.style.transform = `translateX(${e.clientX - x0}px) rotate(${(e.clientX - x0) / 20}deg)`; });
+  card.addEventListener("pointerup", e => { const dx = e.clientX - (x0 ?? e.clientX); x0 = null; if (Math.abs(dx) > 70) pick(dx > 0 ? 1 : 0); else card.style.transform = ""; });
+}
+async function send() {
+  msg("<p class='muted'>Sending...</p>");
+  try { await post("/swipe/vote", { id, v: votes }); msg("<h1>Thanks!</h1><p>Your swipes are in. The list will lean toward what you like, and the surprise stays a surprise.</p>", own); }
+  catch (e) { msg("<h1>Couldn't send</h1><p class='muted'>Check your connection.</p><div class='row'><button class='btn like' id='again'>Try again</button></div>"); document.getElementById("again").onclick = send; }
+}
+age();
+})();
+</script>
+</body>
+</html>
