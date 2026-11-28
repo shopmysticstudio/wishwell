@@ -51,7 +51,7 @@ ol#picks li span{color:var(--muted);font-size:13px}
 .row button{font:inherit;font-weight:800;border-radius:999px;border:2px solid var(--gold);background:none;color:var(--gold);padding:8px 14px;min-height:40px;cursor:pointer}
 #need{display:none;padding:30px 18px;text-align:center}
 </style>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="importmap">{"imports":{"three":"./lib/three.module.min.js"}}</script>
 </head>
 <body>
 <header><h1>Gift map<small>Draft</small></h1><a href="../">Back to Wishwell</a></header>
@@ -86,7 +86,7 @@ setTimeout(()=>{const s=document.getElementById("status");if(s&&s.textContent===
 </script>
 <script type="module">
 import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { OrbitControls } from "./lib/OrbitControls.js";
 
 const API = "https://wishwell-ai-ideas.shopmysticstudio.workers.dev";
 const $ = s => document.querySelector(s);
