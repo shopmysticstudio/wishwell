@@ -43,7 +43,13 @@ import org.json.JSONArray;
 @CapacitorPlugin(name = "WishwellNative")
 public class WishwellNativePlugin extends Plugin {
     private static final String MODEL = "models/use.tflite";
-    private static final String CACHE = "emb-cache-v1.bin";
+    private static final String CACHE = "emb-cache-v2.bin";
+    /**
+     * This model's vectors all point roughly the same way, so raw closeness is about 0.76 even for
+     * unrelated gift ideas. Taking away this average vector (the same one the website uses) and
+     * normalizing again puts unrelated ideas near 0 and a clear match at 0.3 and up.
+     */
+    private static final float[] MEAN = {0.1361f, -0.0323f, -0.0621f, 0.1438f, 0.0423f, 0.0634f, -0.1085f, -0.1528f, 0.2101f, 0.0053f, -0.0803f, -0.0659f, 0.1199f, -0.173f, 0.1259f, 0.1119f, -0.0153f, -0.0632f, -0.0048f, -0.1244f, -0.1228f, 0.1087f, 0.0916f, -0.0277f, 0.11f, 0.117f, 0.0068f, -0.1162f, 0.0203f, 0.0694f, -0.036f, -0.1117f, -0.012f, -0.0157f, 0.0241f, 0.0886f, -0.0658f, -0.0553f, -0.0091f, 0.0046f, -0.0634f, 0.073f, 0.101f, 0.1054f, -0.0695f, 0.0786f, -0.0936f, 0.1185f, 0.0864f, 0.0125f, -0.0441f, 0.1266f, 0.0715f, 0.061f, 0.0881f, 0.0417f, 0.0467f, 0.0589f, 0.0102f, 0.1515f, -0.0828f, -0.133f, 0.1277f, 0.0335f, 0.0192f, 0.1955f, -0.0225f, 0.0044f, -0.0316f, 0.1089f, -0.007f, -0.0567f, -0.0651f, 0.0044f, -0.0246f, -0.1164f, 0.1023f, -0.0205f, 0.0227f, 0.0116f, 0.1023f, -0.0321f, 0.1216f, 0.01f, -0.0486f, 0.04f, 0.2687f, 0.0436f, -0.098f, 0.0127f, -0.1339f, 0.0269f, -0.063f, -0.1799f, -0.0712f, 0.0202f, 0.1166f, 0.112f, 0.0181f, -0.0327f};
     private final ExecutorService work = Executors.newSingleThreadExecutor();
     private TextEmbedder embedder;
     private boolean failed = false;
@@ -76,8 +82,10 @@ public class WishwellNativePlugin extends Plugin {
         if (e == null) return null;
         TextEmbedderResult r = e.embed(text);
         Embedding em = r.embeddingResult().embeddings().get(0);
-        v = em.floatEmbedding();
-        // Normalize again in case the model's output isn't exactly unit length.
+        float[] raw = em.floatEmbedding();
+        v = new float[raw.length];
+        for (int i = 0; i < raw.length; i++) v[i] = raw[i] - (i < MEAN.length ? MEAN[i] : 0f);
+        // Back to unit length after centering.
         double n = 0;
         for (float x : v) n += x * x;
         n = Math.sqrt(n);

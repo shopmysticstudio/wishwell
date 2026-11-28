@@ -1739,7 +1739,7 @@ function bankIdeas(n){
     let held=false;
     s+=ageFit(b);
     // Meaning score from the phone's embedder: closeness to likes, minus closeness to a cut idea. A clear match counts as a real interest.
-    if(EMB){const e=EMB.get(b[0].toLowerCase());if(e){s+=18*e[0];if(e[0]>=0.2)strong=true;if(e[1]>0.55)s-=12*(e[1]-0.55);if(e[2]>=0.72)s-=80}}
+    if(EMB){const e=EMB.get(b[0].toLowerCase());if(e){s+=18*e[0];if(e[0]>=0.2)strong=true;if(e[1]>0.55)s-=12*(e[1]-0.55);if(e[2]>=0.7)s-=80}}
     const custom=CUSTOM_RE.test(b[0]);
     if(!note){if(PLAIN_RE.test(b[0]))s-=3;if(custom)s-=2.5;if(b[1]==="Food"&&!foodOk&&lo(P.cat,"Food")<=0.3)s-=2.5}
     const leanOk=gen&&((S.lean==="fem"&&FEM_RE.test(ideaText(b)))||(S.lean==="masc"&&MASC_RE.test(ideaText(b))));if(leanOk)s+=1;
@@ -2149,8 +2149,8 @@ async function labelBecause(){
   try{const r=await nat("score",{items:fresh.map(i=>[i.id,i.title]),pos:kept.map(i=>[i.title,1]),neg:[],own},1500);
     if(!r||!r.ready||!r.s)return;
     fresh.forEach(i=>{const e=r.s[i.id];if(!e)return;
-      if(e[2]>=0.72){S.items=S.items.filter(x=>x!==i);S.m.ownSkip=(S.m.ownSkip||0)+1;return}
-      const k=kept[e[3]];if(k&&e[4]>=0.5&&e[4]<0.86)i.bc=k.title.slice(0,60)})}catch(e){}
+      if(e[2]>=0.7){S.items=S.items.filter(x=>x!==i);S.m.ownSkip=(S.m.ownSkip||0)+1;return}
+      const k=kept[e[3]];if(k&&e[4]>=0.45&&e[4]<0.85)i.bc=k.title.slice(0,60)})}catch(e){}
 }
 const embText=b=>b[0]+". "+b[4];
 async function embScore(){
