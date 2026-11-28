@@ -955,7 +955,9 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 const LOG_URL=AI_ON&&location.hostname==="shopmysticstudio.github.io"&&!(navigator.globalPrivacyControl||navigator.doNotTrack==="1"||window.doNotTrack==="1")?String(CFG.aiUrl).trim().replace(/\/+$/,"")+"/log":"";
 const LOG_SURF=/\/beta\//.test(location.pathname)?"beta":"web";
 const newLid=()=>{const a=new Uint8Array(16);crypto.getRandomValues(a);return [...a].map(x=>x.toString(16).padStart(2,"0")).join("")};
-function logSend(body){if(!LOG_URL)return;try{const b=JSON.stringify(body);if(!(navigator.sendBeacon&&navigator.sendBeacon(LOG_URL,new Blob([b],{type:"text/plain"}))))fetch(LOG_URL,{method:"POST",body:b,keepalive:true,mode:"no-cors"}).catch(()=>{})}catch(e){}}
+/* a plain fetch first, like the AI calls (some blockers drop beacons), and a beacon only if fetch fails */
+function logSend(body){if(!LOG_URL)return;try{const b=JSON.stringify(body),beacon=()=>{try{navigator.sendBeacon&&navigator.sendBeacon(LOG_URL,new Blob([b],{type:"text/plain"}))}catch(e){}};
+  fetch(LOG_URL,{method:"POST",body:b,keepalive:b.length<60000,mode:"no-cors",headers:{"content-type":"text/plain"}}).catch(beacon)}catch(e){}}
 const logCtx=()=>({fw:S.forWho,age:S.age,lean:S.lean,style:S.style,budget:S.budget,ints:S.ints,quiz:Object.keys(S.quiz).filter(id=>PAIRS.some(p=>p.id===id)).map(id=>id+"="+S.quiz[id]),det:!!String(S.notes||"").trim()});
 const logSrc=i=>i.like?"rec":i.src==="AI pick"?"ai":"starter";
 /* Ideas whose title shares a word with a name or a capitalized word from Details are never logged. */
