@@ -59,6 +59,13 @@ textarea{min-height:84px;resize:vertical}
 .btn.wide{width:100%}
 .bfask{position:fixed;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));max-width:520px;margin:0 auto;background:var(--bg);color:var(--ink);border:2px solid var(--ink);border-radius:16px;padding:14px 16px;z-index:40;box-shadow:0 10px 30px rgba(0,0,0,.25)}
 .bfask p{margin:0 0 8px}
+.thinkmap{position:fixed;inset:0;z-index:60;background:rgba(10,12,30,.72);display:flex;align-items:center;justify-content:center;padding:14px;animation:tmIn .3s ease;transition:opacity .35s}
+.thinkmap.out{opacity:0}
+.tmbox{position:relative;width:100%;max-width:520px;background:#161a33;border-radius:20px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.tmbox iframe{display:block;width:100%;height:min(60vh,460px);border:0;background:#161a33}
+.tmcap{margin:0;padding:10px 92px 14px 14px;color:#fff;font-weight:800;font-size:15px;line-height:1.35;min-height:62px}
+.tmskip{position:absolute;right:10px;bottom:12px;font:inherit;font-weight:800;border-radius:999px;border:2px solid #ffc94a;background:none;color:#ffc94a;padding:6px 14px;min-height:40px;cursor:pointer}
+@keyframes tmIn{from{opacity:0}}
 .bfrow{display:flex;gap:8px}.bfrow .btn{flex:1}
 .btn:disabled{opacity:.55;cursor:wait}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
@@ -1315,6 +1322,32 @@ Reply with only a JSON array. Each element: {"title": short name under 50 charac
 }
 /* AI ideas kept since the last round, so the idea pool counts each keep once */
 const keptAiNew=()=>{const sent=new Set(S.keptSent||[]);return S.items.filter(i=>i.status==="kept"&&i.src==="AI pick"&&!sent.has(i.title)).map(i=>i.title).slice(0,40)};
+/* Beta: while the AI thinks, the gift map shows your dot moving to fit your latest picks, then the new ideas landing around it. */
+const THINKMAP=SHOP&&!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
+function thinkOpen(){
+  if(!THINKMAP)return null;
+  const o=document.createElement("div");o.className="thinkmap";o.setAttribute("role","dialog");o.setAttribute("aria-label","Thinking up ideas");
+  o.innerHTML=`<div class="tmbox"><iframe title="Gift map" src="${new URL("map/?think=1",location.href).href}"></iframe><p class="tmcap">Thinking up ideas. The white dot is you, moving to fit your latest picks.</p><button type="button" class="tmskip">Skip</button></div>`;
+  document.body.appendChild(o);
+  const tm={o,f:o.querySelector("iframe"),ready:false,q:null,fin:null,gone:false};
+  tm.on=e=>{if(e.origin!==location.origin||e.source!==tm.f.contentWindow)return;const d=e.data||{};
+    if(d.ww==="ready"){tm.ready=true;if(tm.q){tm.f.contentWindow.postMessage(tm.q,location.origin);tm.q=null}}
+    else if(d.ww==="shown"||d.ww==="fail"){tm.fin?tm.fin():thinkClose(tm)}};
+  addEventListener("message",tm.on);
+  o.querySelector(".tmskip").onclick=()=>tm.fin?tm.fin():thinkClose(tm);
+  return tm;
+}
+function thinkClose(tm){if(!tm||tm.gone)return;tm.gone=true;removeEventListener("message",tm.on);tm.o.classList.add("out");setTimeout(()=>tm.o.remove(),380)}
+function thinkShow(tm,ideas){
+  return new Promise(res=>{
+    if(!tm||tm.gone||!ideas.length){thinkClose(tm);return res()}
+    let t1=0,t2=0;tm.fin=()=>{clearTimeout(t1);clearTimeout(t2);thinkClose(tm);res()};
+    tm.o.querySelector(".tmcap").textContent=`Here come ${ideas.length} new ideas, landing near you.`;
+    const m={ww:"ideas",ideas:ideas.map(i=>({t:i.title,c:i.cat,lo:i.lo,hi:i.hi}))};
+    if(tm.ready)tm.f.contentWindow.postMessage(m,location.origin);else tm.q=m;
+    t1=setTimeout(tm.fin,8000);t2=setTimeout(()=>{if(!tm.ready)tm.fin()},3000);
+  });
+}
 async function getIdeas(){
   if(busy)return;busy=true;S.round=(S.round||0)+1;const mb=$("#moreBtn");mb.disabled=true;
   const msg=$("#msg");msg.innerHTML="";let got=0;
@@ -1322,6 +1355,7 @@ async function getIdeas(){
   trialTick();const trialOver=!!(sample&&S.trialUsed&&!hasPass());let note=trialOver?`${usedMsg()} These are starter ideas for now. ${passBtn}`:"";
   if(sample&&!trialOver){
     mb.textContent="Thinking...";msg.innerHTML=`<p class="note">Asking AI for ideas that fit. This takes a few seconds.</p>`;
+    const tm=thinkOpen();
     try{const ka=keptAiNew();got=await aiIdeas(8);S.aiRounds++;S.m.ai++;S.keptSent=[...(S.keptSent||[]),...ka].slice(-300)}
     catch(e){const c=e&&e.code;
       if(c==="trial_used"){trialSpent(e.limit,e.reset);note=`${usedMsg()} These are starter ideas for now. ${passBtn}`;
@@ -1333,6 +1367,7 @@ async function getIdeas(){
       else if(c==="pass_invalid"){PASS=null;try{localStorage.removeItem("wishwell-pass")}catch(x){}note=`Your Holiday Pass key didn't check out (it may have been refunded), so these are starter ideas. ${passBtn}`}
       else msg.innerHTML=`<p class="note err">AI ideas didn't load${c==="rate_limited"?" (too many asks, try again in a minute)":c==="slow"?" (the AI was too slow just now)":c==="ai_busy"?" (free AI ideas are full for today, more tomorrow)":""}. Showing starter ideas instead.</p>`;
       if(c==="not_granted")sample=null}
+    await thinkShow(tm,got?S.items.filter(i=>i.round===S.round&&i.src==="AI pick"):[]);
   }
   if(got<4){const b=bankIdeas(8-got);got+=b;if(!got)msg.innerHTML=`<p class="note">You've seen every starter idea for these interests. Add more details on the Start page.</p>`}
   if(got&&!msg.querySelector(".err"))msg.innerHTML=!sample&&bankIdeas.noteMiss?`<p class="note">None of the starter ideas matched the words in Details, so these come from the quiz. Words like puzzles, camping or coffee match best.</p>`:"";
