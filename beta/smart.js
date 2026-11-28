@@ -88,8 +88,11 @@ function loadEmbedder() {
       const m = await import(ML + "text_bundle.mjs");
       const fs = await m.FilesetResolver.forTextTasks(ML + "wasm");
       const e = await m.TextEmbedder.createFromOptions(fs, { baseOptions: { modelAssetPath: ML + "use.tflite" }, l2Normalize: true });
-      const t0 = performance.now(); e.embed("cozy reading nook blanket"); e.embed("beginner telescope");
-      if ((performance.now() - t0) / 2 > WEAK_MS) { W.slow = true; W.embState = "slow"; return null; }
+      // The first call sets the model up and is always slow, so it isn't timed. Then the middle of three timed calls.
+      e.embed("warm up");
+      const ms = ["cozy reading nook blanket", "beginner telescope", "cat window perch"].map(t => { const t0 = performance.now(); e.embed(t); return performance.now() - t0; }).sort((a, b) => a - b)[1];
+      W.ms = Math.round(ms);
+      if (ms > WEAK_MS) { W.slow = true; W.embState = "slow"; return null; }
       W.emb = e; W.embState = "ready"; return e;
     } catch (err) { W.embState = "off"; return null; }
   })();
@@ -472,6 +475,6 @@ try { start(); } catch (e) { if (DBG) document.getElementById("wwDebug").textCon
 // ?smartdebug=1 shows what the matcher is doing, for testing.
 if (DBG) {
   const d = document.getElementById("wwDebug");
-  setInterval(() => { const st = WWSmart.state(); d.textContent = "matcher " + st.emb + " · pool " + st.pool + " · vectors " + st.vec + (st.slow ? " · slow" : "") + (W.last ? "\n" + W.last : "") + (window.__wwErr || ""); }, 1000);
+  setInterval(() => { const st = WWSmart.state(); d.textContent = "matcher " + st.emb + (W.ms != null ? " " + W.ms + "ms" : "") + " · pool " + st.pool + " · vectors " + st.vec + (st.slow ? " · slow" : "") + (W.last ? "\n" + W.last : "") + (window.__wwErr || ""); }, 1000);
 }
 })();

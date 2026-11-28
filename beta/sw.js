@@ -1,6 +1,6 @@
 /* Wishwell service worker: keeps the app working offline.
    Bump VERSION whenever you change any file so phones pick up the update. */
-const VERSION = "wishwell-beta-v46";
+const VERSION = "wishwell-beta-v47";
 const FILES = ["./", "index.html", "config.js", "manifest.webmanifest", "img/mark.png",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-192.png", "icons/icon-maskable-512.png",
   "icons/apple-touch-icon.png", "icons/favicon-32.png"];
