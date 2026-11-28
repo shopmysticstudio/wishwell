@@ -14,8 +14,9 @@
   function send(ev) {
     try {
       var body = JSON.stringify({ p: page, e: ev || "view", r: ev ? "" : ref, d: phone ? "phone" : "desktop" });
-      if (!(navigator.sendBeacon && navigator.sendBeacon(to, new Blob([body], { type: "text/plain" }))))
-        fetch(to, { method: "POST", body: body, keepalive: true, mode: "no-cors" }).catch(function () {});
+      // A plain fetch first (some blockers drop beacons), a beacon only if fetch fails.
+      fetch(to, { method: "POST", body: body, keepalive: true, mode: "no-cors", headers: { "content-type": "text/plain" } })
+        .catch(function () { try { navigator.sendBeacon && navigator.sendBeacon(to, new Blob([body], { type: "text/plain" })); } catch (e) {} });
     } catch (e) {}
   }
   window.wishwellCount = send;
