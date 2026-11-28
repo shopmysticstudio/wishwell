@@ -353,7 +353,7 @@ function sendSignal(){
    interest chips and quiz answers (never Details text or a name) and every idea shown with what was
    done with it: circled, top 3, cut, have or nothing. Keyed by a random list id made for each quiz,
    not the device id, a key or an email. On for everyone unless the switch under the ideas is off. */
-const LOG_URL=AI_BASE?AI_BASE+"/log":"";
+const LOG_URL=AI_BASE?AI_BASE+"/r":"";
 const logOn=()=>!!LOG_URL&&S.track!==false;
 function newLid(){let a;try{a=crypto.getRandomValues(new Uint8Array(16))}catch(e){a=Array.from({length:16},()=>Math.floor(Math.random()*256))}return Array.from(a,x=>x.toString(16).padStart(2,"0")).join("")}
 function logSend(body){try{fetch(LOG_URL,{method:"POST",headers:{"content-type":"text/plain"},body:JSON.stringify(body),keepalive:true}).catch(()=>{})}catch(e){}}
