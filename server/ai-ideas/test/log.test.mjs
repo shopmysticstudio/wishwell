@@ -12,8 +12,8 @@ const env = { DB: { prepare: stmt }, ALLOWED_ORIGINS: "https://shopmysticstudio.
   HITS: { async limit() { return { success: hitsLeft-- > 0 }; } } };
 const pending = [];
 const ctx = { waitUntil(p) { pending.push(p); } };
-const log = async (body, origin = "https://shopmysticstudio.github.io") => {
-  const r = await worker.fetch(new Request("https://w.example/log", { method: "POST", body: JSON.stringify(body),
+const log = async (body, origin = "https://shopmysticstudio.github.io", at = "/log") => {
+  const r = await worker.fetch(new Request("https://w.example" + at, { method: "POST", body: JSON.stringify(body),
     headers: { Origin: origin, "content-type": "text/plain;charset=UTF-8", "CF-Connecting-IP": "1.1.1.1" } }), env, ctx);
   await Promise.all(pending.splice(0)); return r.status;
 };
@@ -54,3 +54,13 @@ sql.exec("DELETE FROM rounds WHERE list_id = '" + "d".repeat(32) + "'");
 hitsLeft = 0; await log({ lid: "c".repeat(32), r: 1, ideas: [{ p: 0, t: "Lamp", c: "Room" }] });
 assert.equal(sql.prepare("SELECT COUNT(*) c FROM rounds").get().c, 2);
 console.log("all log tests passed");
+// The short path /r is the same as /log (some blockers drop paths called /log).
+hitsLeft = 1000;
+{
+  const lid2 = "0123456789abcdef0123456789abcdef";
+  assert.equal(await log({ lid: lid2, r: 1, s: "app", src: "ai", ctx: { fw: "me" }, ideas: [{ p: 0, t: "Star map poster", c: "Room", src: "ai", lo: 20, hi: 40 }] }, "https://shopmysticstudio.github.io", "/r"), 204);
+  assert.equal(sql.prepare("SELECT COUNT(*) n FROM rounds WHERE list_id = ?1").get({ "?1": lid2 }).n, 1);
+  assert.equal(await log({ lid: lid2, out: [[1, 0, "kept", 1]] }, "https://shopmysticstudio.github.io", "/r"), 204);
+  assert.equal(sql.prepare("SELECT outcome FROM round_ideas WHERE list_id = ?1").get({ "?1": lid2 }).outcome, "kept");
+}
+console.log("short path ok");

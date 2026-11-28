@@ -342,7 +342,7 @@ footer{max-width:1100px;margin:0 auto;padding:10px max(5vw,16px) 30px;font-size:
   <div class="toggles"><label><input type="checkbox" id="optPrice" checked> Show estimated prices</label><label><input type="checkbox" id="optWhy"> Include notes</label></div>
   <div class="sheet" id="sheet"></div>
   <div class="row" style="margin:16px 0"><button class="btn primary" type="button" id="linkBtn">Copy share link</button><button class="btn" type="button" id="copyBtn">Copy as text</button><button class="btn" type="button" id="famBtn">See what family sees</button></div>
-  <p class="small muted" id="bfLine" hidden><button class="btn quiet" type="button" id="bfAgain">Share my past picks</button> Helps train Wishwell to suggest better gifts. It's anonymous: only the ideas you saw and what you did with them, plus your quiz answers.</p>
+  <p class="small muted" id="bfLine" hidden><button class="btn quiet" type="button" id="bfAgain">Share my past picks</button> Helps train Wishwell to suggest better gifts. It's anonymous: only the ideas you saw and what you did with them, plus your quiz answers. Tapping it also turns on sharing if your browser asks sites not to track you.</p>
   <p class="note">The share link opens your list for family, where they can buy and mark things as already bought. Paste it in a text or family chat.</p>
   <div class="note"><strong>Testing this?</strong> When you're done, copy your test report and send it back to whoever sent you Wishwell. It has counts only, none of your list.<div class="row" style="margin-top:10px"><button class="btn reportBtn" type="button">Copy my test report</button></div></div>
 </section>
@@ -953,12 +953,22 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 /* Anonymous round log, to train better suggestions: each round's quiz answers (never Details text or a
    name) and every idea shown with what was done with it. Uses a random id made for each quiz, not the
    device id. Off when the browser asks sites not to track. */
-const LOG_URL=AI_ON&&location.hostname==="shopmysticstudio.github.io"&&!(navigator.globalPrivacyControl||navigator.doNotTrack==="1"||window.doNotTrack==="1")?String(CFG.aiUrl).trim().replace(/\/+$/,"")+"/log":"";
+/* The round log goes to /r (some blockers drop any path called /log). If the browser asks sites not to track
+   (Do Not Track or Global Privacy Control), nothing is sent unless the person taps Share on the pop-up or the
+   Share my past picks button; that choice is kept on this device. */
+const PRIV=!!(navigator.globalPrivacyControl||navigator.doNotTrack==="1"||window.doNotTrack==="1");
+const LOG_BASE=AI_ON&&location.hostname==="shopmysticstudio.github.io"?String(CFG.aiUrl).trim().replace(/\/+$/,"")+"/r":"";
+let LOGOK="";try{LOGOK=localStorage.getItem("wishwell-share-ok")||""}catch(e){}
+const setLogOk=v=>{LOGOK=v;try{localStorage.setItem("wishwell-share-ok",v)}catch(e){}};
+let LOG_URL=LOG_BASE&&(!PRIV||LOGOK==="yes")?LOG_BASE:"";
+function logOptIn(){setLogOk("yes");LOG_URL=LOG_BASE}
 const LOG_SURF=/\/beta\//.test(location.pathname)?"beta":"web";
 const newLid=()=>{const a=new Uint8Array(16);crypto.getRandomValues(a);return [...a].map(x=>x.toString(16).padStart(2,"0")).join("")};
 /* a plain fetch first, like the AI calls (some blockers drop beacons), and a beacon only if fetch fails */
-function logSend(body){if(!LOG_URL)return;try{const b=JSON.stringify(body),beacon=()=>{try{navigator.sendBeacon&&navigator.sendBeacon(LOG_URL,new Blob([b],{type:"text/plain"}))}catch(e){}};
-  fetch(LOG_URL,{method:"POST",body:b,keepalive:b.length<60000,mode:"no-cors",headers:{"content-type":"text/plain"}}).catch(beacon)}catch(e){}}
+/* Resolves true once Wishwell's server took it (a plain text POST needs no preflight, and the reply is readable). */
+function logSend(body){if(!LOG_URL)return Promise.resolve(false);const u=LOG_URL;try{const b=JSON.stringify(body);
+  return fetch(u,{method:"POST",body:b,keepalive:b.length<60000,headers:{"content-type":"text/plain"}}).then(r=>r.ok)
+    .catch(()=>{try{return !!(navigator.sendBeacon&&navigator.sendBeacon(u,new Blob([b],{type:"text/plain"})))}catch(e){return false}})}catch(e){return Promise.resolve(false)}}
 const logCtx=()=>({fw:S.forWho,age:S.age,lean:S.lean,style:S.style,budget:S.budget,ints:S.ints,quiz:Object.keys(S.quiz).filter(id=>PAIRS.some(p=>p.id===id)).map(id=>id+"="+S.quiz[id]),det:!!String(S.notes||"").trim()});
 const logSrc=i=>i.like?"rec":i.src==="AI pick"?"ai":"starter";
 /* Ideas whose title shares a word with a name or a capitalized word from Details are never logged. */
@@ -983,20 +993,21 @@ function logFlush(){
   S.items.forEach(i=>{if(i.lr==null||!i.ll)return;const k=S.kept.indexOf(i.id);
     const o=i.status==="kept"?(k>=0&&k<3?"top":"kept"):i.status==="cut"||i.status==="have"?i.status:"none";const rk=i.status==="kept"&&k>=0?k+1:0;const v=o+":"+rk;
     if(i.lx===v)return;i.lx=v;(by[i.ll]=by[i.ll]||[]).push([i.lr,i.lp,o,rk])});
-  const ids=Object.keys(by);if(!ids.length)return;
-  ids.forEach(lid=>{for(let j=0;j<by[lid].length;j+=200)logSend({lid,out:by[lid].slice(j,j+200)})});
+  const ids=Object.keys(by);if(!ids.length)return[];const ps=[];
+  ids.forEach(lid=>{for(let j=0;j<by[lid].length;j+=200)ps.push(logSend({lid,out:by[lid].slice(j,j+200)}))});
   try{localStorage.setItem("wishbook-v1",JSON.stringify(S))}catch(e){}
+  return ps;
 }
 /* One-time ask for people who used Wishwell before the log started: share those earlier picks the same
    anonymous way, only after they tap Share. Marked as backfill; each idea is sent once. */
 function bfItems(){const n=logNames();return S.items.filter(i=>i.lr==null&&!i.mine&&(i.src==="AI pick"||i.src==="Starter idea")&&logSafe(i.title,n))}
 function logBackfill(){
-  const its=bfItems();if(!its.length)return;const lid=newLid(),by={};
+  const its=bfItems();if(!its.length)return[];const lid=newLid(),by={},ps=[];
   its.forEach(i=>{const r=Math.min(200,Math.max(1,i.round||1));(by[r]=by[r]||[]).push(i)});
   Object.keys(by).forEach(r=>{const list=by[r].slice(0,24);list.forEach((i,k)=>{i.ll=lid;i.lr=+r;i.lp=k;i.lx="none:0"});
     const ai=list.some(i=>i.src==="AI pick"),st=list.some(i=>i.src!=="AI pick");
-    logSend({lid,r:+r,s:LOG_SURF,bf:1,src:ai&&st?"mixed":ai?"ai":"starter",ctx:logCtx(),ideas:list.map(i=>({p:i.lp,t:i.title,c:i.cat,src:logSrc(i),lo:i.lo,hi:i.hi}))})});
-  setTimeout(logFlush,3000);
+    ps.push(logSend({lid,r:+r,s:LOG_SURF,bf:1,src:ai&&st?"mixed":ai?"ai":"starter",ctx:logCtx(),ideas:list.map(i=>({p:i.lp,t:i.title,c:i.cat,src:logSrc(i),lo:i.lo,hi:i.hi}))}))});
+  setTimeout(logFlush,3000);return ps;
 }
 function askBackfill(){
   if(!LOG_URL||S.bf||bfItems().length<3||document.querySelector(".bfask"))return;
@@ -1010,8 +1021,27 @@ setTimeout(askBackfill,2500);
 /* Always-there button to share past picks, for people who said no, or whose earlier picks never arrived
    (before 11-28 the log used beacons, which some phones dropped). It sends every idea on the list again, marked as shared later. */
 function bfAll(){const n=logNames();return S.items.filter(i=>!i.mine&&(i.src==="AI pick"||i.src==="Starter idea")&&logSafe(i.title,n))}
-function bfLineShow(){const l=$("#bfLine");if(l)l.hidden=!LOG_URL||bfAll().length<3}
-$("#bfAgain").addEventListener("click",()=>{const its=bfAll();if(its.length<3)return;its.forEach(i=>{i.lr=null;i.ll=null;i.lx=null});S.bf="shared";logBackfill();save();toast(`Thanks! Shared ${its.length} picks anonymously.`);const b=$("#bfAgain");b.disabled=true;b.textContent="Shared"});
+function bfLineShow(){const l=$("#bfLine");if(l)l.hidden=!LOG_BASE||bfAll().length<3}
+/* Send every idea on the list as shared later, then what was done with each; resolves with how it went. */
+async function shareAll(){const its=bfAll();if(its.length<3)return{n:0,ok:false};
+  its.forEach(i=>{i.lr=null;i.ll=null;i.lx=null});S.bf="shared";const a=await Promise.all(logBackfill());save();const b=await Promise.all(logFlush()||[]);
+  const all=[...a,...b];return{n:its.length,ok:all.length>0&&all.every(Boolean)}}
+async function shareTap(btn){if(!LOG_URL)logOptIn();if(btn){btn.disabled=true;btn.textContent="Sending..."}
+  const r=await shareAll();
+  if(r.ok){if(btn)btn.textContent="Sent";toast(`Sent ${r.n} picks. Thanks!`)}
+  else{if(btn){btn.disabled=false;btn.textContent="Try again"}toast(r.n?"Couldn't reach Wishwell's server. Check your connection and try again.":"Nothing to share yet.")}}
+$("#bfAgain").addEventListener("click",()=>shareTap($("#bfAgain")));
+/* Browser asks sites not to track: ask once whether to share anyway. Nothing is sent before Share. */
+function askTrack(){
+  if(!PRIV||!LOG_BASE||LOGOK||document.querySelector(".bfask"))return;
+  if(document.querySelector(".unwrap:not([hidden]):not(.gone)")){setTimeout(askTrack,2500);return}
+  const d=document.createElement("div");d.className="bfask";d.setAttribute("role","dialog");d.setAttribute("aria-label","Share anonymous picks");
+  d.innerHTML=`<p><b>Your browser asks sites not to track you.</b> Wishwell only logs anonymous picks, to suggest better gifts. Share them anyway?</p><p class="small muted">Only the ideas you see and what you do with them, plus your quiz answers. Never your name, Details or items you added. You can change this on the Share tab.</p><div class="bfrow"><button type="button" class="btn primary" data-tk="yes">Share</button><button type="button" class="btn" data-tk="no">No thanks</button></div>`;
+  d.addEventListener("click",e=>{const b=e.target.closest("[data-tk]");if(!b)return;d.remove();
+    if(b.dataset.tk==="yes"){logOptIn();if(bfAll().length>=3)shareTap(null);else{logRound();toast("Thanks! Sharing anonymous picks.")}}else setLogOk("no")});
+  document.body.appendChild(d);
+}
+setTimeout(askTrack,2500);
 const toast=t=>{const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400)};
 const money=(lo,hi)=>lo===hi?"$"+lo:"$"+lo+" to $"+hi;
 const est=it=>it.hi?"est. "+money(it.lo,it.hi):"";

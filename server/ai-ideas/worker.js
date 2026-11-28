@@ -863,7 +863,10 @@ export default {
     const later = p => { if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {})); else p.catch(() => {}); };
 
     if (!okOrigin) return reply({ error: "origin_not_allowed" }, 403);
-    const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
+    const path0 = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
+    // Short names for the page counter and the round log: some content blockers drop any request to a path
+    // called /hit or /log, so the site uses /v and /r. The old names keep working.
+    const path = path0 === "/r" ? "/log" : path0 === "/v" ? "/hit" : path0;
     if (request.method === "OPTIONS") {
       if (appOrigin && path !== "/verify" && path !== "/" && path !== "/signal" && path !== "/log" && !path.startsWith("/codes")) return reply({ error: "origin_not_allowed" }, 403);
       return new Response(null, { status: 204, headers: cors });
