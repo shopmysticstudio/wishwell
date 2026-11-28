@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gift map · Wishwell</title>
+<link rel="stylesheet" href="../fonts/fonts.css">
+<style>
+:root{--navy:#232849;--deep:#161a33;--gold:#ffc94a;--red:#e0453a;--ink:#141414;--muted:#aab0d6}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--deep);color:#fff;font:15px/1.45 Nunito,system-ui,sans-serif}
+a{color:var(--gold)}
+header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--navy);padding-top:max(10px,env(safe-area-inset-top))}
+header h1{font-size:19px;margin:0;font-weight:900;flex:1}
+header h1 small{font-size:12px;font-weight:800;color:var(--gold);margin-left:6px;letter-spacing:.04em;text-transform:uppercase}
+header a{font-weight:800;font-size:14px;text-decoration:none}
+#wrap{position:relative;height:min(64vh,620px);min-height:340px;touch-action:none}
+#stage{position:absolute;inset:0}
+#stage canvas{display:block;width:100%!important;height:100%!important}
+#status{position:absolute;left:10px;top:10px;right:10px;font-size:13px;font-weight:700;color:var(--muted);pointer-events:none}
+#hint{position:absolute;left:10px;bottom:10px;font-size:12px;color:var(--muted);pointer-events:none}
+#legend{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px 0}
+#legend span{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#dfe2f7}
+#legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+#legend .you i{background:#fff;box-shadow:0 0 0 3px var(--gold)}
+section{padding:12px 14px}
+h2{font-size:17px;margin:4px 0 8px;font-weight:900}
+.muted{color:var(--muted);font-size:13px}
+#card{display:none;position:fixed;left:8px;right:8px;bottom:8px;max-width:520px;margin:0 auto;background:#fff;color:var(--ink);border-radius:18px;padding:14px 16px 16px;box-shadow:0 10px 40px rgba(0,0,0,.45);z-index:20;padding-bottom:max(16px,env(safe-area-inset-bottom))}
+#card.on{display:block}
+#card .cat{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+#card h3{margin:2px 0 2px;font-size:20px;font-weight:900;padding-right:30px}
+#card .x{position:absolute;right:10px;top:8px;border:0;background:none;font-size:26px;line-height:1;cursor:pointer;color:#555;min-width:40px;min-height:40px}
+.bars{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:10px 0 4px;font-size:13px;font-weight:700}
+.bar{height:9px;border-radius:9px;background:#eceef6;align-self:center;overflow:hidden}
+.bar b{display:block;height:100%;background:var(--navy);border-radius:9px}
+.acts{display:flex;gap:8px;margin-top:12px}
+.acts button{flex:1;font:inherit;font-weight:900;border-radius:999px;border:2px solid var(--navy);background:#fff;color:var(--navy);min-height:44px;cursor:pointer}
+.acts button.on{background:var(--navy);color:#fff}
+.acts button.cut.on{background:#6b7280;border-color:#6b7280}
+.acts button.star.on{background:var(--gold);border-color:var(--gold);color:var(--ink)}
+ol#picks{margin:0;padding-left:22px}
+ol#picks li{margin:4px 0;cursor:pointer}
+ol#picks li b{font-weight:800}
+ol#picks li span{color:var(--muted);font-size:13px}
+#axes li{margin:3px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.row button{font:inherit;font-weight:800;border-radius:999px;border:2px solid var(--gold);background:none;color:var(--gold);padding:8px 14px;min-height:40px;cursor:pointer}
+#need{display:none;padding:30px 18px;text-align:center}
+#deckBar{display:none;align-items:center;gap:8px;margin:-2px 0 6px;font-size:12px;font-weight:800;color:#5a5f80;text-transform:uppercase;letter-spacing:.05em}
+#card.deck #deckBar{display:flex}
+#deckBar span{flex:1}
+.acts button.skip{border-color:#c7cbe0;color:#5a5f80}
+#card:not(.deck) .acts button.skip{display:none}
+body.deck #wrap{height:calc(100svh - 330px);min-height:230px}
+#taste{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:8px 0 4px;font-size:13px;font-weight:700;color:#dfe2f7}
+#taste .bar{background:#2c3260}
+#taste .bar b{background:var(--gold)}
+.row button.main{background:var(--gold);color:var(--ink)}
+/* Think mode: the map alone, shown inside Wishwell while the AI thinks up ideas. */
+body.think header,body.think #legend,body.think section,body.think #status,body.think #hint,body.think #need,body.think #card{display:none!important}
+body.think #wrap{height:100vh;height:100svh;min-height:0}
+</style>
+</head>
+<body>
+<header><h1>Gift map</h1><a href="../index.html" id="back">Back to my ideas</a></header>
+<div id="main">
+  <div id="wrap"><div id="stage"></div><div id="status">Loading ideas...</div><div id="hint">Drag to spin, pinch to zoom, tap a dot.</div></div>
+  <div id="legend"></div>
+  <section>
+    <h2>Your top picks</h2>
+    <div class="row" style="margin:0 0 10px"><button id="deckGo" class="main">Go through ideas one by one</button></div>
+    <p class="muted" id="youNote">The white dot is you. It starts from your quiz answers and budget, moves toward ideas you circle or star, and away from ones you cut. The closest ideas are your picks, joined by gold lines. The map also reshapes itself after every pick: whatever your circles and stars have in common, and whatever sets your cuts apart, gets more room, so ideas spread out along what matters to you. Picks you make on your Wishwell list count here too.</p>
+    <h2 style="font-size:15px;margin-top:12px">Your taste so far</h2>
+    <div id="taste"></div>
+    <ol id="picks"></ol>
+    <div class="row"><button id="reset">Start over from my list</button><button id="spin">Stop spinning</button></div>
+  </section>
+  <section>
+    <h2>What the directions mean</h2>
+    <ul id="axes" class="muted"></ul>
+    <p class="muted">Each idea gets a score for its kind of gift, interests, age fit, price, hands-on, social, lasting, outdoor and skill level. The map squeezes all of those into three directions, so ideas that are alike sit close together. Circles, stars, cuts and skips on this page stay on this page; your Wishwell list doesn't change.</p>
+  </section>
+</div>
+<div id="card" role="dialog" aria-modal="false" aria-labelledby="cTitle">
+  <button class="x" aria-label="Close" id="cClose">&times;</button>
+  <div id="deckBar"><span id="deckN"></span></div>
+  <div class="cat" id="cCat"></div>
+  <h3 id="cTitle"></h3>
+  <div class="muted" id="cMeta"></div>
+  <div class="bars" id="cBars"></div>
+  <div class="acts"><button id="aKeep">Circle</button><button id="aStar" class="star">Star</button><button id="aCut" class="cut">Cut</button><button id="aSkip" class="skip">Skip</button></div>
+</div>
+<script>
+addEventListener("error",e=>{const s=document.getElementById("status");if(s)s.textContent="The map hit a problem: "+(e.message||(e.target&&e.target.src)||"unknown")},true);
+addEventListener("unhandledrejection",e=>{const s=document.getElementById("status");if(s)s.textContent="The map hit a problem: "+String(e.reason&&e.reason.message||e.reason)});
+setTimeout(()=>{const s=document.getElementById("status");if(s&&s.textContent==="Loading ideas...")s.textContent="Still loading. If this stays, check your connection and reload."},15000);
+</script>
+<script type="module">
+
+const API = "https://wishwell-ai-ideas.shopmysticstudio.workers.dev";
+const $ = s => document.querySelector(s);
+/* ?think=1: Wishwell shows this page while the AI thinks. Nothing is saved here except where your dot was. */
+const THINK = new URLSearchParams(location.search).has("think") && parent !== window;
+const tell = m => { try { parent.postMessage(m, location.origin); } catch (e) {} };
+if (THINK) document.body.classList.add("think");
+
+const COLORS = { Tech: "#3b82f6", Gaming: "#8b5cf6", Making: "#f97316", Art: "#ec4899", Music: "#06b6d4", Sports: "#22c55e", Outdoors: "#84cc16", Science: "#6366f1", Books: "#d97706", Food: "#ef4444", Style: "#94a3b8", Room: "#14b8a6", Experiences: "#fb923c", Beauty: "#f472b6", Other: "#a3a3a3" };
+const CATS = Object.keys(COLORS);
+const INTERESTS = ["Tech", "Gaming", "Making", "Art", "Music", "Sports", "Outdoors", "Space and science", "Books", "Cooking", "Style", "Room setup", "Cars", "Pets", "Puzzles", "Beauty", "Jewelry", "Travel", "Movies and shows", "Crafts", "Coffee and tea", "Self-care", "Friends and parties"];
+const CAT_INT = { Tech: "Tech", Gaming: "Gaming", Making: "Making", Art: "Art", Music: "Music", Sports: "Sports", Outdoors: "Outdoors", Science: "Space and science", Books: "Books", Food: "Cooking", Style: "Style", Room: "Room setup", Beauty: "Beauty", Experiences: "Travel" };
+const FACT = [["hands", "Hands-on", "build or make it", "watch, wear or use it"], ["social", "Social", "with friends or family", "on your own"], ["lasting", "Lasting", "lasts for years", "used up fast"], ["outdoor", "Outdoor", "outdoors", "indoors"], ["skill", "Skill", "takes practice", "easy to enjoy"]];
+/* Some AI titles come in lowercase; show them with a capital, and DIY in capitals. */
+const nice = t => String(t || "").replace(/\bdiy\b/gi, "DIY").replace(/^./, c => c.toUpperCase());
+const key = t => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().slice(0, 80);
+const post = async (path, body) => {
+  const r = await fetch(API + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) });
+  if (!r.ok) throw new Error("http " + r.status);
+  return r.json();
+};
+
+/* Rough factors from words, used only until the AI has scored an idea. */
+function guess(it) {
+  const w = (it.t + " " + (it.tags || "")).toLowerCase(), has = re => re.test(w);
+  const age = has(/\bkids?\b|toddler|plush|\btoy\b/) ? [1, 1, 0] : [0, 1, 1];
+  return {
+    age,
+    hands: has(/kit|build|diy|make|craft|lego|model|knit|paint|draw|sew|solder|garden|cook|bake|brew|carv|print/) ? 3 : 1,
+    social: has(/game|party|board|cards|couple|family|group|friends|tickets|class|duo|picnic/) ? 3 : 1,
+    lasting: has(/snack|candy|chocolate|coffee|\btea\b|candle|bath|soap|treat|sauce|jerky|cookie|subscription|tickets|class|experience|lesson|refill|bomb/) ? 1 : 3,
+    outdoor: it.c === "Outdoors" || has(/hike|hiking|camp|bike|garden|beach|trail|fishing|tent|ski|kayak|outdoor/) ? 3 : it.c === "Sports" ? 2 : 0,
+    skill: has(/pro\b|advanced|expert|instrument|guitar|drone|telescope|ukulele|piano|violin|camera/) ? 3 : 1,
+    ints: CAT_INT[it.c] ? [CAT_INT[it.c]] : []
+  };
+}
+
+/* Feature vector: kind of gift, interests, age fit, the five factors and price. */
+const W = { cat: 1.1, int: 0.75, age: 0.6, fac: 1.0, price: 1.3 };
+const DIM = CATS.length + INTERESTS.length + 3 + FACT.length + 1;
+const NAMES = [...CATS.map(c => ["cat", c]), ...INTERESTS.map(i => ["int", i]), ["age", "kids"], ["age", "teens"], ["age", "adults"], ...FACT.map(f => ["fac", f[0]]), ["price", "price"]];
+const priceDim = p => Math.min(1, Math.log2(Math.max(1, p) + 1) / Math.log2(1000));
+function vec(it) {
+  const v = new Float32Array(DIM), f = it.f || it.g;
+  v[Math.max(0, CATS.indexOf(it.c))] = W.cat;
+  const ints = new Set([...(f.ints || []), ...(it.ints || [])]);
+  INTERESTS.forEach((x, i) => { if (ints.has(x)) v[CATS.length + i] = W.int; });
+  let o = CATS.length + INTERESTS.length;
+  f.age.forEach((a, i) => v[o + i] = a * W.age); o += 3;
+  FACT.forEach((x, i) => v[o + i] = (f[x[0]] ?? 2) / 4 * W.fac); o += FACT.length;
+  v[o] = priceDim((it.lo + it.hi) / 2) * W.price;
+  return v;
+}
+
+/* PCA to three directions by power iteration on the covariance. */
+function pca(rows, prev) {
+  const n = rows.length, mean = new Float32Array(DIM);
+  rows.forEach(r => r.forEach((x, i) => mean[i] += x / n));
+  const C = Array.from({ length: DIM }, () => new Float64Array(DIM));
+  for (const r of rows) for (let i = 0; i < DIM; i++) { const a = r[i] - mean[i]; if (!a) continue; for (let j = 0; j < DIM; j++) C[i][j] += a * (r[j] - mean[j]) / n; }
+  const comps = [];
+  for (let k = 0; k < 3; k++) {
+    let v = prev ? Float64Array.from(prev.comps[k]) : Float64Array.from({ length: DIM }, (_, i) => Math.sin(i * 7.3 + k * 3.1) + 1.1);
+    for (let it = 0; it < 120; it++) {
+      const nv = new Float64Array(DIM);
+      for (let i = 0; i < DIM; i++) { let s = 0; for (let j = 0; j < DIM; j++) s += C[i][j] * v[j]; nv[i] = s; }
+      for (const c of comps) { let d = 0; for (let i = 0; i < DIM; i++) d += nv[i] * c[i]; for (let i = 0; i < DIM; i++) nv[i] -= d * c[i]; }
+      const len = Math.hypot(...nv) || 1; for (let i = 0; i < DIM; i++) nv[i] /= len; v = nv;
+    }
+    if (prev) { let d = 0; for (let i = 0; i < DIM; i++) d += v[i] * prev.comps[k][i]; if (d < 0) for (let i = 0; i < DIM; i++) v[i] = -v[i]; }
+    comps.push(v);
+  }
+  return { mean, comps };
+}
+const project = (P, v) => P.comps.map(c => { let s = 0; for (let i = 0; i < DIM; i++) s += (v[i] - P.mean[i]) * c[i]; return s; });
+
+/* Your Wishwell list and quiz, read from this browser. */
+let S = {};
+try { S = JSON.parse(localStorage.getItem("wishbook-v1") || "{}") || {}; } catch (e) {}
+const MKEY = "wishwell-app-map-v1";
+let M = null;
+try { M = JSON.parse(localStorage.getItem(MKEY) || "null"); } catch (e) {}
+function fromList() {
+  const items = Array.isArray(S.items) ? S.items : [], byId = new Map(items.map(i => [i.id, i]));
+  const keptIds = Array.isArray(S.kept) ? S.kept : [];
+  const kept = keptIds.map(id => byId.get(id)).filter(i => i && i.status !== "cut" && i.status !== "have").map(i => key(i.title));
+  return { keep: kept.slice(3), top: kept.slice(0, 3), cut: items.filter(i => i.status === "cut").map(i => key(i.title)) };
+}
+if (!M) { M = fromList(); M.app = [...M.keep, ...M.top, ...M.cut]; }
+M.skip = M.skip || []; M.app = M.app || [];
+/* New circles, stars and cuts from the Wishwell list join the map, once each, so a change made here isn't undone. */
+function mergeList() {
+  const L = fromList(), seen = new Set(M.app), all = new Set([...M.keep, ...M.top, ...M.cut]); let n = 0;
+  for (const [arr, dst] of [[L.top, "top"], [L.keep, "keep"], [L.cut, "cut"]]) for (const k of arr) {
+    if (seen.has(k)) continue; M.app.push(k); seen.add(k);
+    if (!all.has(k)) { M[dst].push(k); all.add(k); n++; }
+  }
+  return n;
+}
+if (THINK) { M = fromList(); M.skip = []; M.app = []; } else mergeList();
+const saveM = () => { if (THINK) return; try { localStorage.setItem(MKEY, JSON.stringify(M)); } catch (e) {} };
+const budget = Number(S.budget) || 0;
+
+function startVec(items) {
+  // Ideas that match the picked interests and budget, averaged, then the quiz answers set the factors.
+  const ints = new Set(Array.isArray(S.ints) ? S.ints : []);
+  const fit = items.filter(it => { const f = it.f || it.g; return (f.ints || []).some(x => ints.has(x)) || ints.has(CAT_INT[it.c]); })
+    .filter(it => !budget || budget >= 9999 || it.lo <= budget);
+  const base = (fit.length >= 5 ? fit : items).map(it => it.v0), v = new Float32Array(DIM);
+  base.forEach(r => r.forEach((x, i) => v[i] += x / base.length));
+  INTERESTS.forEach((x, i) => { if (ints.has(x)) v[CATS.length + i] = Math.max(v[CATS.length + i], W.int * 0.8); });
+  let o = CATS.length + INTERESTS.length;
+  const age = { teen: [0.3, 1, 0.3], young: [0, 0.4, 1], adult: [0, 0.1, 1], mid: [0, 0, 1], older: [0, 0, 1] }[S.age];
+  if (age) age.forEach((a, i) => v[o + i] = a * W.age);
+  o += 3;
+  const q = S.quiz || {}, setF = (name, val) => { v[o + FACT.findIndex(f => f[0] === name)] = val * W.fac; };
+  if (q.sat2 === 0) setF("social", 0.8); else if (q.sat2 === 1) setF("social", 0.2); else if (q.sat2 === 2) setF("social", 0.5);
+  if (q.aft === 0) { setF("outdoor", 0.75); } else if (q.aft === 1) { setF("hands", 0.85); setF("outdoor", 0.15); } else if (q.aft === 2) { setF("hands", 0.7); setF("outdoor", 0.55); }
+  if (q.move === 0) setF("outdoor", 0.6);
+  if (S.style === "Practical") setF("lasting", 0.85); else if (S.style === "Cozy") setF("social", 0.3);
+  o += FACT.length;
+  if (budget && budget < 9999) v[o] = priceDim(budget * 0.6) * W.price; else if (budget >= 9999) v[o] = priceDim(300) * W.price;
+  return v;
+}
+function youVec(items, start) {
+  const by = new Map(items.map(it => [it.k, it]));
+  const v = Float32Array.from(start), add = (ks, w) => ks.forEach(k => { const it = by.get(k); if (!it) return; tot += w; it.v0.forEach((x, i) => acc[i] += x * w); });
+  const acc = Float32Array.from(start, x => x * 2); let tot = 2;
+  add(M.keep, 1); add(M.top, 2.5);
+  acc.forEach((x, i) => v[i] = x / tot);
+  const cuts = M.cut.map(k => by.get(k)).filter(Boolean);
+  if (cuts.length) {
+    const cm = new Float32Array(DIM); cuts.forEach(c => c.v0.forEach((x, i) => cm[i] += x / cuts.length));
+    const push = 0.35 * Math.min(1, cuts.length / 3);
+    v.forEach((x, i) => v[i] = x + push * (x - cm[i]));
+  }
+  return v;
+}
+/* Personal weights: the parts of an idea that your likes share, or that set your cuts apart, count for more,
+   so the map stretches along them. With no picks every weight is 1. */
+let PW = new Float32Array(DIM).fill(1);
+function personalWeights() {
+  const by = new Map(items.map(it => [it.k, it])), w = new Float32Array(DIM).fill(1);
+  const liked = [...M.keep.map(k => [by.get(k), 1]), ...M.top.map(k => [by.get(k), 2.5])].filter(x => x[0]);
+  const cuts = M.cut.map(k => by.get(k)).filter(Boolean), n = liked.length + cuts.length;
+  if (!n || items.length < 5) return w;
+  const mu = new Float32Array(DIM), sd = new Float32Array(DIM);
+  items.forEach(it => it.v0.forEach((x, i) => mu[i] += x / items.length));
+  items.forEach(it => it.v0.forEach((x, i) => sd[i] += (x - mu[i]) ** 2 / items.length));
+  const mL = new Float32Array(DIM), mC = new Float32Array(DIM); let tw = 0;
+  liked.forEach(([it, k]) => { tw += k; it.v0.forEach((x, i) => mL[i] += x * k); });
+  cuts.forEach(it => it.v0.forEach((x, i) => mC[i] += x / cuts.length));
+  const d = new Float32Array(DIM); let mx = 0;
+  for (let i = 0; i < DIM; i++) {
+    d[i] = ((tw ? Math.abs(mL[i] / tw - mu[i]) : 0) + (cuts.length ? 0.6 * Math.abs(mC[i] - mu[i]) : 0)) / (Math.sqrt(sd[i]) + 0.05);
+    mx = Math.max(mx, d[i]);
+  }
+  const k = 1.6 * Math.min(1, n / 8);
+  if (mx > 0) for (let i = 0; i < DIM; i++) w[i] = 1 + k * d[i] / mx;
+  return w;
+}
+function reweight() {
+  PW = personalWeights();
+  items.forEach(it => { it.v = it.v0.map((x, i) => x * PW[i]); });
+}
+const dist = (a, b) => { let s = 0; for (let i = 0; i < DIM; i++) { const d = a[i] - b[i]; s += d * d; } return s; };
+
+/* Scene: a plain 2D canvas with its own 3D projection, so it works on any phone without WebGL. */
+const stage = $("#stage");
+const cv = document.createElement("canvas"), g = cv.getContext("2d");
+stage.appendChild(cv);
+let SW = 0, SH = 0;
+const DPR = Math.min(2, devicePixelRatio || 1);
+function resize() { SW = stage.clientWidth; SH = stage.clientHeight; cv.width = SW * DPR; cv.height = SH * DPR; cv.style.width = SW + "px"; cv.style.height = SH + "px"; }
+addEventListener("resize", resize); resize();
+const view = { yaw: 0.6, pitch: 0.3, zoom: THINK ? 0.8 : 1, auto: true };
+function toScreen(p) {
+  const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+  const x = p[0] * cy - p[2] * sy, z1 = p[0] * sy + p[2] * cy;
+  const y = p[1] * cp - z1 * sp, z = p[1] * sp + z1 * cp;
+  const d = 30 / view.zoom, f = Math.min(SW, SH) * 1.25 / Math.max(4, d - z);
+  return { x: SW / 2 + x * f, y: SH / 2 - y * f, z, f };
+}
+
+let items = [], P = null, start = null, picks = [], scale = 1;
+const you = { pos: [0, 0, 0], to: [0, 0, 0] };
+const lerp3 = (a, b, k) => { for (let i = 0; i < 3; i++) a[i] += (b[i] - a[i]) * k; };
+
+function layout(animate) {
+  P = pca(items.map(it => it.v), P);
+  const raw = items.map(it => project(P, it.v));
+  const rs = raw.map(p => Math.hypot(...p)).sort((a, b) => a - b);
+  scale = 10 / (rs[Math.floor(rs.length * 0.95)] || 1);
+  items.forEach((it, i) => { it.to = raw[i].map(x => x * scale); if (!animate || !it.pos) it.pos = it.to.slice(); });
+  axesText();
+}
+function stateOf(k) { return M.top.includes(k) ? "top" : M.keep.includes(k) ? "keep" : M.cut.includes(k) ? "cut" : ""; }
+function refresh() {
+  const yr = youVec(items, start), yv = yr.map((x, i) => x * PW[i]);
+  tasteBars(yr);
+  const p = project(P, yv).map(x => x * scale);
+  you.to = p;
+  const chosen = new Set([...M.keep, ...M.top, ...M.cut]);
+  picks = items.filter(it => !chosen.has(it.k) && (!budget || budget >= 9999 || it.lo <= budget * 1.15))
+    .map(it => [dist(yv, it.v), it]).sort((a, b) => a[0] - b[0]).slice(0, 8).map(x => x[1]);
+  const pickSet = new Set(picks);
+  items.forEach((it, i) => {
+    const st = stateOf(it.k);
+    it.size = st === "top" ? 2.2 : st === "keep" ? 1.7 : st === "cut" ? 0.7 : pickSet.has(it) ? 1.9 : 1;
+    it.col = st === "cut" ? "#4b5070" : st === "top" ? "#ffc94a" : COLORS[it.c] || COLORS.Other;
+    it.ring = st === "keep" || st === "top"; it.pick = pickSet.has(it);
+    it.dim = THINK && !st;
+  });
+  $("#picks").innerHTML = "";
+  picks.forEach(it => {
+    const li = document.createElement("li");
+    li.innerHTML = `<b></b> <span></span>`;
+    li.querySelector("b").textContent = it.t;
+    li.querySelector("span").textContent = `${it.c}, about $${it.lo} to $${it.hi}`;
+    li.onclick = () => show(it);
+    $("#picks").appendChild(li);
+  });
+}
+function axesText() {
+  const names = ["Left and right", "Up and down", "Front and back"];
+  $("#axes").innerHTML = "";
+  P.comps.forEach((c, k) => {
+    const idx = [...c.keys()].sort((a, b) => Math.abs(c[b]) - Math.abs(c[a])).slice(0, 3);
+    const word = i => { const [kind, n] = NAMES[i]; if (kind === "fac") { const f = FACT.find(x => x[0] === n); return c[i] > 0 ? f[2] : f[3]; } if (kind === "price") return c[i] > 0 ? "pricier" : "cheaper"; if (kind === "age") return (c[i] > 0 ? "" : "less for ") + n; return (c[i] > 0 ? "" : "less ") + n.toLowerCase(); };
+    const li = document.createElement("li");
+    li.textContent = `${names[k]}: mostly ${[...new Set(idx.map(word))].join(", ")}.`;
+    $("#axes").appendChild(li);
+  });
+}
+
+/* Drag to spin, pinch or scroll to zoom, tap a dot to see it. */
+const ptrs = new Map();
+let down = null, pinch = 0, current = null;
+const stopSpin = () => { view.auto = false; $("#spin").textContent = "Spin"; };
+cv.addEventListener("pointerdown", e => { try { cv.setPointerCapture(e.pointerId); } catch (x) {} ptrs.set(e.pointerId, [e.clientX, e.clientY]); down = ptrs.size === 1 ? [e.clientX, e.clientY, false] : null; stopSpin(); });
+cv.addEventListener("pointermove", e => {
+  const was = ptrs.get(e.pointerId); if (!was) return;
+  if (ptrs.size === 1) {
+    view.yaw += (e.clientX - was[0]) * 0.01; view.pitch = Math.max(-1.3, Math.min(1.3, view.pitch + (e.clientY - was[1]) * 0.01));
+    if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) down[2] = true;
+  }
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 2) {
+    const [p1, p2] = [...ptrs.values()], d = Math.hypot(p1[0] - p2[0], p1[1] - p2[1]);
+    if (pinch) view.zoom = Math.max(0.6, Math.min(3, view.zoom * d / pinch));
+    pinch = d;
+  }
+});
+const up = e => {
+  ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0;
+  if (e.type !== "pointerup" || !down || down[2] || !items.length) { down = null; return; }
+  const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  let best = null, bd = 22 * 22;
+  for (const it of items) { const q = it.scr; if (!q) continue; const d = (q.x - x) ** 2 + (q.y - y) ** 2; if (d < bd) { bd = d; best = it; } }
+  down = null;
+  if (best) show(best);
+};
+cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+cv.addEventListener("wheel", e => { e.preventDefault(); view.zoom = Math.max(0.6, Math.min(3, view.zoom * (e.deltaY > 0 ? 0.92 : 1.08))); }, { passive: false });
+function show(it) {
+  if (THINK) return;
+  current = it;
+  const f = it.f || it.g;
+  $("#cCat").textContent = it.c + (it.src === "ai" ? " · AI idea" : " · Starter idea");
+  $("#cCat").style.color = COLORS[it.c] || COLORS.Other;
+  $("#cTitle").textContent = it.t;
+  const ages = ["kids", "teens", "adults"].filter((_, i) => f.age[i]);
+  $("#cMeta").textContent = `About $${it.lo} to $${it.hi} · for ${ages.join(", ") || "anyone"}` + (it.f ? "" : " · rough scores");
+  $("#cBars").innerHTML = "";
+  FACT.forEach(([k, label]) => {
+    const l = document.createElement("span"); l.textContent = label;
+    const b = document.createElement("div"); b.className = "bar"; b.innerHTML = `<b style="width:${(f[k] ?? 2) * 25}%"></b>`;
+    $("#cBars").append(l, b);
+  });
+  const st = stateOf(it.k);
+  $("#aKeep").classList.toggle("on", st === "keep"); $("#aStar").classList.toggle("on", st === "top"); $("#aCut").classList.toggle("on", st === "cut");
+  $("#card").classList.add("on");
+}
+/* Every pick moves you and reshapes the map right away. */
+function remap() { reweight(); layout(true); refresh(); }
+let deck = false, deckN = 0, deckT = 0;
+const setState = s => {
+  if (!current) return;
+  const k = current.k, was = stateOf(k);
+  M.keep = M.keep.filter(x => x !== k); M.top = M.top.filter(x => x !== k); M.cut = M.cut.filter(x => x !== k);
+  if (was !== s || deck) (s === "keep" ? M.keep : s === "top" ? M.top : M.cut).push(k);
+  saveM(); remap();
+  if (deck) { deckN++; show(current); clearTimeout(deckT); deckT = setTimeout(nextCard, 450); } else show(current);
+};
+$("#aKeep").onclick = () => setState("keep");
+$("#aStar").onclick = () => setState("top");
+$("#aCut").onclick = () => setState("cut");
+$("#aSkip").onclick = () => { if (!current) return; if (!M.skip.includes(current.k)) M.skip.push(current.k); saveM(); nextCard(); };
+const closeCard = () => { $("#card").classList.remove("on", "deck"); document.body.classList.remove("deck"); deck = false; current = null; clearTimeout(deckT); };
+$("#cClose").onclick = closeCard;
+$("#reset").onclick = () => { M = fromList(); M.app = [...M.keep, ...M.top, ...M.cut]; M.skip = []; saveM(); remap(); };
+
+/* One idea at a time: mostly the closest ones to you, and every third card one from a kind of gift
+   you haven't rated much, so the map learns your edges too. */
+function nextCard() {
+  const done = new Set([...M.keep, ...M.top, ...M.cut, ...M.skip]);
+  const yv = youVec(items, start).map((x, i) => x * PW[i]);
+  const pool = items.filter(it => !done.has(it.k) && (!budget || budget >= 9999 || it.lo <= budget * 1.15));
+  if (!pool.length) { $("#deckN").textContent = `${deckN} rated · you've seen them all`; current = null; $("#cTitle").textContent = "That's every idea"; $("#cCat").textContent = ""; $("#cMeta").textContent = "Tap Start over from my list to go again, or close this card."; $("#cBars").innerHTML = ""; return; }
+  let cand = pool;
+  if (deckN % 3 === 2) {
+    const count = {}; [...M.keep, ...M.top, ...M.cut, ...M.skip].forEach(k => { const it = items.find(x => x.k === k); if (it) count[it.c] = (count[it.c] || 0) + 1; });
+    const cats = [...new Set(pool.map(it => it.c))].sort((a, b) => (count[a] || 0) - (count[b] || 0));
+    cand = pool.filter(it => it.c === cats[0]);
+  }
+  const it = cand.map(x => [dist(yv, x.v), x]).sort((a, b) => a[0] - b[0])[0][1];
+  show(it);
+  $("#deckN").textContent = deckN ? `${deckN} rated` : "Pick, cut or skip each one";
+  $("#card").classList.add("deck");
+}
+$("#deckGo").onclick = () => { deck = true; deckN = 0; document.body.classList.add("deck"); scrollTo({ top: 0, behavior: "smooth" }); if (items.length) nextCard(); };
+
+/* Picks made on the Wishwell list in another tab show up here too. */
+addEventListener("storage", e => {
+  if (THINK || e.key !== "wishbook-v1" || !items.length) return;
+  try { S = JSON.parse(e.newValue || "{}") || {}; } catch (x) { return; }
+  if (mergeList()) { saveM(); remap(); }
+});
+
+/* Your taste: where the white dot sits on each factor and on price. */
+function tasteBars(yr) {
+  const el = $("#taste"); if (!el) return;
+  let o = CATS.length + INTERESTS.length + 3, h = "";
+  FACT.forEach(([, label, hi, lo], i) => { const x = Math.max(0, Math.min(1, yr[o + i] / W.fac)); h += `<span>${label}</span><div class="bar" title="${x >= 0.5 ? hi : lo}"><b style="width:${Math.round(x * 100)}%"></b></div>`; });
+  const pr = Math.max(0, Math.min(1, yr[o + FACT.length] / W.price));
+  h += `<span>Price</span><div class="bar"><b style="width:${Math.round(pr * 100)}%"></b></div>`;
+  el.innerHTML = h;
+}
+$("#spin").onclick = () => { view.auto = !view.auto; $("#spin").textContent = view.auto ? "Stop spinning" : "Spin"; };
+
+/* Legend */
+const legend = $("#legend");
+legend.innerHTML = `<span class="you"><i></i>You</span><span><i style="background:#ffc94a"></i>Starred</span>`;
+
+/* Draw loop */
+let t0 = performance.now();
+const ring = [];
+for (let i = 0; i <= 64; i++) { const a = i / 64 * Math.PI * 2; ring.push([Math.cos(a) * 13, -11, Math.sin(a) * 13]); }
+function dot(x, y, r, col, alpha) { g.globalAlpha = alpha; g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+function frame(t) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, Math.max(0, (t - t0) / 1000)); t0 = t;
+  if (view.auto) view.yaw += dt * (THINK ? 0.35 : 0.25);
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  g.globalAlpha = 1; g.fillStyle = "#161a33"; g.fillRect(0, 0, SW, SH);
+  g.strokeStyle = "#3a4070"; g.lineWidth = 1; g.beginPath();
+  ring.forEach((p, i) => { const q = toScreen(p); i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y); }); g.stroke();
+  if (!items.length || !items[0].pos) return;
+  const pulse = 1 + Math.sin(t / 300) * 0.15;
+  for (const it of items) { lerp3(it.pos, it.to, Math.min(1, dt * 3)); it.scr = toScreen(it.pos); }
+  lerp3(you.pos, you.to, Math.min(1, dt * (THINK ? 0.9 : 2.5)));
+  const ys = toScreen(you.pos);
+  g.strokeStyle = "#ffc94a"; g.lineWidth = 1.2; g.globalAlpha = 0.55; g.beginPath();
+  for (const it of picks) { if (it.hide) continue; g.moveTo(ys.x, ys.y); g.lineTo(it.scr.x, it.scr.y); } g.stroke();
+  const order = items.slice().sort((a, b) => a.scr.z - b.scr.z);
+  let youDrawn = false;
+  const drawYou = () => {
+    const r = Math.max(5, 0.55 * ys.f);
+    g.globalAlpha = 0.9; g.strokeStyle = "#ffc94a"; g.lineWidth = 2.5; g.beginPath(); g.arc(ys.x, ys.y, r * 1.7, 0, Math.PI * 2); g.stroke();
+    dot(ys.x, ys.y, r, "#ffffff", 1); youDrawn = true;
+  };
+  for (const it of order) {
+    if (it.hide) continue;
+    if (!youDrawn && it.scr.z > ys.z) drawYou();
+    const q = it.scr, fog = Math.max(0.35, Math.min(1, 0.75 + q.z / 30)) * (it.dim ? 0.4 : 1);
+    const r = Math.max(1.6, 0.24 * q.f * (it.size || 1) * (it.pick ? pulse : 1));
+    dot(q.x, q.y, r, it.col || COLORS[it.c] || COLORS.Other, fog);
+    if (it.ring) { g.globalAlpha = fog; g.strokeStyle = "#ffffff"; g.lineWidth = 1.5; g.beginPath(); g.arc(q.x, q.y, r + 2.5, 0, Math.PI * 2); g.stroke(); }
+    if (it.born) { const a = (t - it.born) / 1400; if (a < 1) { g.globalAlpha = 1 - a; g.strokeStyle = it.col; g.lineWidth = 3; g.beginPath(); g.arc(q.x, q.y, r + 4 + a * 18, 0, Math.PI * 2); g.stroke(); } }
+    if (it === current && $("#card").classList.contains("on")) { g.globalAlpha = 1; g.strokeStyle = "#ff6b6b"; g.lineWidth = 2.5; g.beginPath(); g.arc(q.x, q.y, r + 6 + 3 * Math.sin(t / 200), 0, Math.PI * 2); g.stroke(); }
+  }
+  if (!youDrawn) drawYou();
+  g.globalAlpha = 1;
+}
+requestAnimationFrame(frame);
+
+/* Load: starter ideas from the app page, plus AI ideas and saved scores from the AI service when it answers. */
+async function load() {
+  const status = $("#status");
+  const html = await (await fetch("../index.html", { cache: "no-cache" })).text();
+  const m = html.match(/const BANK=\[\n([\s\S]*?)\n\];/);
+  const bank = m ? JSON.parse("[" + m[1].replace(/,\s*$/, "") + "]") : [];
+  let data = { pool: [], f: {} };
+  try { data = await post("/map"); } catch (e) { status.textContent = "Showing ideas with rough scores."; }
+  const all = new Map();
+  for (const b of bank) { const k = key(b[0]); if (!all.has(k)) all.set(k, { k, t: nice(b[0]), c: b[1], lo: b[2], hi: b[3], tags: b[4], src: "starter" }); }
+  for (const p of data.pool) { if (!all.has(p.k)) all.set(p.k, { k: p.k, t: nice(p.t), c: COLORS[p.c] ? p.c : "Other", lo: p.lo, hi: p.hi, ints: p.ints, src: "ai" }); }
+  items = [...all.values()];
+  items.forEach(it => { it.f = data.f[it.k] || null; it.g = guess(it); it.v0 = vec(it); });
+  const cats = [...new Set(items.map(it => it.c))];
+  legend.innerHTML += cats.map(c => `<span><i style="background:${COLORS[c]}"></i>${c}</span>`).join("");
+  start = startVec(items); reweight();
+  layout(false); refresh();
+  if (THINK) return thinkStart();
+  const n = items.filter(it => it.f).length;
+  status.textContent = n ? `${n} of ${items.length} ideas scored by AI, the rest roughly.` : "Rough scores from each idea's words.";
+}
+load().catch(e => { $("#status").textContent = "The map didn't load. Try again in a minute."; if (THINK) tell({ ww: "fail" }); });
+
+/* Think mode: your dot glides from where it was last round to where your picks put it now,
+   then each new idea bursts out of your dot to its place on the map. */
+const YKEY = "wishwell-app-map-you";
+let thinkReady = false, thinkQueue = null, thinkYou = null;
+function thinkStart() {
+  let last = null;
+  try { const a = JSON.parse(localStorage.getItem(YKEY) || "null"); if (Array.isArray(a) && a.length === DIM) last = Float32Array.from(a); } catch (e) {}
+  thinkYou = youVec(items, start);
+  you.pos = project(P, (last || start).map((x, i) => x * PW[i])).map(x => x * scale);
+  items.forEach(it => { if (it.pick) { it.pick = false; it.size = 1; } });
+  picks = [];
+  thinkReady = true; tell({ ww: "ready" });
+  if (thinkQueue) { burst(thinkQueue); thinkQueue = null; }
+}
+function burst(list) {
+  try { localStorage.setItem(YKEY, JSON.stringify(Array.from(thinkYou))); } catch (e) {}
+  const by = new Map(items.map(it => [it.k, it])), fresh = [];
+  for (const o of list.slice(0, 12)) {
+    const k = key(o.t); if (!k) continue;
+    let it = by.get(k);
+    if (!it) {
+      it = { k, t: nice(o.t), c: COLORS[o.c] ? o.c : "Other", lo: Math.max(0, +o.lo || 0), hi: Math.max(0, +o.hi || +o.lo || 0), src: "ai", f: null };
+      it.g = guess(it); it.v0 = vec(it); it.v = it.v0.map((x, i) => x * PW[i]);
+      it.to = project(P, it.v).map(x => x * scale); it.pos = it.to.slice();
+      items.push(it); by.set(k, it);
+    }
+    it.hide = true; fresh.push(it);
+  }
+  fresh.forEach((it, i) => setTimeout(() => {
+    it.pos = you.pos.slice(); it.hide = false; it.born = performance.now();
+    it.size = 1.9; it.col = COLORS[it.c] || COLORS.Other; it.dim = false; it.ring = false; it.pick = true; picks.push(it);
+  }, 300 + i * 260));
+  setTimeout(() => tell({ ww: "shown" }), 300 + fresh.length * 260 + 1800);
+}
+addEventListener("message", e => {
+  if (!THINK || e.origin !== location.origin || e.source !== parent) return;
+  const d = e.data || {};
+  if (d.ww === "ideas" && Array.isArray(d.ideas)) { if (thinkReady) burst(d.ideas); else thinkQueue = d.ideas; }
+});
+</script>
+</body>
+</html>

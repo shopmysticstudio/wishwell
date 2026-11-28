@@ -86,6 +86,17 @@ if (html.split(COUPON_LINE).length !== 2 || /<a[^>]*>[^<]*coupons on the Wishwel
 if (!html.includes("passOnly:true")) throw new Error("Free app build: AI must be key-only.");
 writeFileSync(join(out, "index.html"), html);
 
+// Gift map (version 5): one page beside index.html. Same wording checks, no web fonts, no links out.
+const map = readFileSync(join(src, "map", "index.html"), "utf8");
+for (const bad of ["Holiday Pass", "fonts.googleapis.com", "x-beta-code", "beta code", "/map/score"]) {
+  if (map.includes(bad)) throw new Error(`Free app build: "${bad}" is in map/index.html.`);
+}
+for (const bad of [/gumroad/i, /\bbuy\b/i, /\bpurchas/i, /\bwebsite\b/i, /\bcheckout\b/i, /\$\d+\.99/, /<a [^>]*href="https?:/i]) {
+  if (bad.test(map)) throw new Error(`Free app build: ${bad} matches something in map/index.html.`);
+}
+mkdirSync(join(out, "map"), { recursive: true });
+writeFileSync(join(out, "map", "index.html"), map);
+
 // Fonts (SIL Open Font License), copied from the @fontsource packages.
 const fontDir = join(out, "fonts");
 mkdirSync(fontDir, { recursive: true });
