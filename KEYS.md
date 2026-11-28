@@ -49,7 +49,7 @@ or a price, and never says where to buy (Google Play's rule on steering buyers).
 
 ## Limits for key holders
 
-- Free (no key, website only): 2 AI rounds a day, 10 a week (unchanged).
+- Free (no key, website only): 6 AI rounds a day, no weekly cap.
 - Key holders: **25 a day** (today's `PASS_DAILY`), plus a weekly cap of
   **100** so one key can't eat the whole AI budget. Counted per key, across all
   its devices, app and website together. Same day start (midnight US Eastern).

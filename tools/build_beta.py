@@ -52,10 +52,10 @@ def main():
     c = re.sub(r'shareBase: "[^"]*"', 'shareBase: "%s"' % SHARE_BASE, c)
     # GUMROAD_URL (optional) turns on the Holiday Pass Buy button in the beta.
     c = re.sub(r'gumroadUrl: "[^"]*"', 'gumroadUrl: "%s"' % os.environ.get("GUMROAD_URL", "").strip(), c)
-    # Beta code holders get 15 free AI rounds (the Worker's BETA_ROUNDS enforces it).
-    c = re.sub(r'freeRounds: \d+', 'freeRounds: 15', c)
-    assert "freeRounds: 15" in c
-    # The beta keeps its 15 rounds in total, not the public site's daily and weekly limits.
+    # Beta code holders get 30 free AI rounds (the Worker's BETA_ROUNDS enforces it).
+    c = re.sub(r'freeRounds: \d+', 'freeRounds: 30', c)
+    assert "freeRounds: 30" in c
+    # The beta keeps its 30 rounds in total, not the public site's daily and weekly limits.
     c = re.sub(r"freeDaily: \d+", "freeDaily: 0", c)
     c = re.sub(r"freeWeekly: \d+", "freeWeekly: 0", c)
     assert "freeDaily: 0" in c and "freeWeekly: 0" in c
