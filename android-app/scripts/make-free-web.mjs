@@ -65,7 +65,7 @@ swap('Buy<span class="pl">Paid link</span></a>', "Buy</a>", "Paid link label");
 swap('rel="noopener sponsored"', 'rel="noopener"', "sponsored rel");
 
 // Footer.
-swapRe(/<footer>[\s\S]*?<\/footer>/, "<footer>Free app. No accounts. Your lists stay on this phone. With a key, AI ideas send your quiz answers, Details and idea titles to the Wishwell AI service. Prices are rough estimates, not live prices. Buy, Compare prices and Magic Coupons open a store or deals search in your browser.</footer>", "footer");
+swapRe(/<footer>[\s\S]*?<\/footer>/, "<footer>Free app. No accounts. Your lists stay on this phone. With a key, AI ideas send your quiz answers, Details and idea titles to the Wishwell AI service. Unless you turn it off under the ideas, the app sends anonymous choices (interests, quiz answers and which ideas you circled, starred, cut or have) to improve picks. Prices are rough estimates, not live prices. Buy, Compare prices and Magic Coupons open a store or deals search in your browser.</footer>", "footer");
 
 // Coupons: plain text pointing to the shared store coupons on the website (Leo, Nov 27). No link, and nothing about passes, keys or prices.
 const COUPON_LINE = "Shoppers share store coupons on the Wishwell website.";
