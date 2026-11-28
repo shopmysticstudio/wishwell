@@ -1039,7 +1039,7 @@ function logSend(body){if(!LOG_URL)return Promise.resolve(false);const u=LOG_URL
   return fetch(u,{method:"POST",body:b,keepalive:b.length<60000,headers:{"content-type":"text/plain"}}).then(r=>r.ok)
     .catch(()=>{try{return !!(navigator.sendBeacon&&navigator.sendBeacon(u,new Blob([b],{type:"text/plain"})))}catch(e){return false}})}catch(e){return Promise.resolve(false)}}
 const logCtx=()=>({fw:S.forWho,age:S.age,lean:S.lean,style:S.style,budget:S.budget,ints:S.ints,quiz:Object.keys(S.quiz).filter(id=>PAIRS.some(p=>p.id===id)).map(id=>id+"="+S.quiz[id]),det:!!String(S.notes||"").trim()});
-const logSrc=i=>i.like?"rec":i.src==="AI pick"?"ai":"starter";
+const logSrc=i=>i.like?"rec":i.wild?"wild":i.src==="AI pick"?"ai":"starter";
 /* Ideas whose title shares a word with a name or a capitalized word from Details are never logged. */
 const logNames=()=>{const w=new Set(),words=t=>String(t||"").split(/\s+/).forEach(x=>{x=x.toLowerCase().replace(/[^a-z]/g,"");if(x.length>1)w.add(x)});
   String(S.notes||"").replace(/\b[A-Z][a-z]{2,}\b/g,m=>{w.add(m.toLowerCase());return m});words(S.name);((S.g&&S.g.people)||[]).forEach(p=>words(p&&typeof p==="object"?p.name:p));return w};
@@ -1395,7 +1395,7 @@ Reply with only a JSON array. Each element: {"title": short name under 50 charac
   const out=await sample.json(prompt,{modelTier:"default",payload:{n,forWho:S.forWho,age:S.age||"",lean:S.lean||"",ints:S.ints,quiz:PAIRS.flatMap(p=>picks(p).map(o=>o[1]+" ("+o[2]+")")),style:S.style,notes:S.notes,budget:S.budget,kept,top,keptAi:keptAiNew(),cut,seen,cats:Object.keys(CATS)}});
   const arr=Array.isArray(out)?out:(out&&Array.isArray(out.ideas)?out.ideas:[]);
   const have=new Set(S.items.map(i=>i.title.toLowerCase()));let c=0;
-  arr.forEach(o=>{if(c<n&&o&&o.title&&!have.has(String(o.title).toLowerCase())){have.add(String(o.title).toLowerCase());addItem({title:o.title,cat:o.category,lo:o.lo,hi:o.hi,why:o.why,search:o.search,src:"AI pick"});c++}});
+  arr.forEach(o=>{if(c<n&&o&&o.title&&!have.has(String(o.title).toLowerCase())){have.add(String(o.title).toLowerCase());const it=addItem({title:o.title,cat:o.category,lo:o.lo,hi:o.hi,why:o.why,search:o.search,src:"AI pick"});if(o.wild===true)it.wild=1;c++}});
   return c;
 }
 /* AI ideas kept since the last round, so the idea pool counts each keep once */
