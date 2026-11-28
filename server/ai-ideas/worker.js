@@ -597,6 +597,29 @@ const num = (v, d) => { const n = Number(v); return Number.isFinite(n) && n >= 0
 const today = () => new Date().toISOString().slice(0, 10);
 // Day in US Eastern, the same as the free rounds (starts at 5 AM UTC).
 const statsDay = env => new Date(Date.now() - num(env.TRIAL_DAY_START_HOUR_UTC, 5) * 3600000).toISOString().slice(0, 10);
+/* AI usage log: every Workers AI call adds what it used (Cloudflare's "neurons", from the reply's usage)
+   to daily totals in ai_use, by UTC day (the day Cloudflare's free 10,000 resets on), job and model:
+     use:<day>:<job>:<model>    neurons used      calls:<day>:<job>:<model>  calls made
+     fail:<day>:<job>:<model>   calls that failed (a time-out still counts as failed, though it may have used some)
+   Kept 40 days. Read them with: SELECT k, n FROM ai_use WHERE k LIKE 'use:2026-11-28:%' */
+async function logAiUse(env, job, model, out, failed) {
+  if (!env.DB) return;
+  const day = today(), m = String(model).split("/").pop().slice(0, 40), exp = Math.floor(Date.now() / 1000) + 40 * 86400;
+  const u = out && (out.usage || (out.result && out.result.usage));
+  const neurons = u && Number.isFinite(Number(u.neurons)) ? Math.round(Number(u.neurons)) : 0;
+  const add = [["calls", 1]];
+  if (failed) add.push(["fail", 1]);
+  if (neurons > 0) add.push(["use", neurons]);
+  const q = "INSERT INTO ai_use (k, n, exp) VALUES (?1, ?2, ?3) ON CONFLICT(k) DO UPDATE SET n = ai_use.n + excluded.n, exp = excluded.exp";
+  try { await runAll(env.DB, add.map(([kind, n]) => env.DB.prepare(q).bind(kind + ":" + day + ":" + job + ":" + m, n, exp))); } catch (e) {}
+}
+async function aiRun(env, job, model, input) {
+  let out;
+  try { out = await env.AI.run(model, input); }
+  catch (e) { await logAiUse(env, job, model, null, true); throw e; }
+  await logAiUse(env, job, model, out, false);
+  return out;
+}
 
 /* ---------- page counter (/hit) ---------- */
 // Only these pages and events are counted; anything else is dropped. No ids, addresses or full URLs.
@@ -1073,7 +1096,7 @@ export default {
       const model = env.MAP_MODEL || BACKUP_MODEL;
       let scored = [];
       try {
-        const out = await withTime(env.AI.run(model, { messages: mapMessages(items), max_tokens: 2400, temperature: 0.1 }), num(env.AI_TIMEOUT_MS, 20000));
+        const out = await withTime(aiRun(env, "map", model, { messages: mapMessages(items), max_tokens: 2400, temperature: 0.1 }), num(env.AI_TIMEOUT_MS, 20000));
         scored = parseFactors(out, items);
       } catch (e) { return reply({ scored: [], error: "ai_failed" }, 200); }
       if (scored.length) await runAll(env.DB, scored.map(it => env.DB.prepare("INSERT OR IGNORE INTO idea_factors (key, title, category, f, model, day) VALUES (?1, ?2, ?3, ?4, ?5, ?6)").bind(it.key, it.t, it.c, JSON.stringify(it.f), model, day)));
@@ -1266,7 +1289,7 @@ export default {
     if (path === "/photo") {
       let items = [], err = "";
       try {
-        const o = await withTime(env.AI.run(env.PHOTO_MODEL || PHOTO_MODEL, { messages: photoMessages(img), max_tokens: 900, temperature: 0.2 }), num(env.PHOTO_TIMEOUT_MS, 30000));
+        const o = await withTime(aiRun(env, "photo", env.PHOTO_MODEL || PHOTO_MODEL, { messages: photoMessages(img), max_tokens: 900, temperature: 0.2 }), num(env.PHOTO_TIMEOUT_MS, 30000));
         items = parsePhoto(o);
       } catch (e) { err = String(e && e.message || e); }
       if (!items.length) {
@@ -1284,12 +1307,12 @@ export default {
     const main = env.MODEL || DEFAULT_MODEL, backup = env.BACKUP_MODEL || BACKUP_MODEL;
     const ask = async (model, ms) => {
       // Thinking models (GLM, Qwen, DeepSeek) are asked to answer directly; others get the plain request.
-      if (!/glm|qwen|qwq|deepseek|kimi/i.test(model)) return await withTime(env.AI.run(model, input), ms);
+      if (!/glm|qwen|qwq|deepseek|kimi/i.test(model)) return await withTime(aiRun(env, "ideas", model, input), ms);
       try {
-        return await withTime(env.AI.run(model, { ...input, chat_template_kwargs: { enable_thinking: false } }), ms);
+        return await withTime(aiRun(env, "ideas", model, { ...input, chat_template_kwargs: { enable_thinking: false } }), ms);
       } catch (first) {
         if (/4006|allocation|5035|paid|timeout/i.test(String(first && first.message))) throw first;
-        return await withTime(env.AI.run(model, input), ms);
+        return await withTime(aiRun(env, "ideas", model, input), ms);
       }
     };
     let out, ideas = [];
