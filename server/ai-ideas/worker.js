@@ -4,6 +4,8 @@
    Routes (all POST, JSON):
      /        gift ideas. Body: the app's payload (n, forWho, ints, quiz, style, notes, budget,
               kept, keptAi, cut, seen). Answers a JSON array of {title, category, lo, hi, why, search}.
+              With "dry": true and the beta code, a test run: answers {dry, saved: false, model, ideas
+              (each with "from": "ai" or "crowd"), hints} and saves nothing. tools/try_ideas.py calls it.
      /verify  Holiday Pass check. Body: {"license_key": "...", "email": "..."} plus the x-device-id
               header. Answers {"valid": true|false, "reason": ""|"not_found"|"device_limit"|...}.
               Too many wrong tries from one network in a day: 429 {"error":"too_many_tries"}.
@@ -1149,8 +1151,23 @@ export default {
     const day = today();
     let mode, counterKeys = [], left, refund = null;
 
+    /* Test run ({"dry": true} on /, beta code only): the same AI round, but nothing is saved. No round
+       counts against a device, no pool rows, tags or shown counts, no daily stats, no timing notes. It has
+       its own daily cap (DRY_DAILY) and still counts toward TRIAL_GLOBAL_DAILY, so the free AI allowance
+       stays safe. {"crowd": false} leaves out the hints from what other people kept and cut. */
+    const dry = path === "/" && !!raw && raw.dry === true;
     const passKey = request.headers.get("x-pass-key");
-    if (passKey) {
+    if (dry) {
+      if (!beta) return reply({ error: "beta_code_required" }, 403);
+      if (!env.DB) return reply({ error: "not_set_up" }, 429);
+      const w = windows(num(env.TRIAL_DAY_START_HOUR_UTC, 5)), globalCap = num(env.TRIAL_GLOBAL_DAILY, 40);
+      const counters = [["dry:" + w.day, num(env.DRY_DAILY, 25), 2 * 86400]];
+      if (globalCap > 0) counters.push(["gd:" + w.day, globalCap, 2 * 86400]);
+      const r = await reserve(env.DB, counters);
+      if (!r) return reply({ error: "dry_limit", reset: w.dayEnd }, 429);
+      mode = "dry"; refund = () => unreserve(env.DB, counters.map(c => c[0]));
+      left = ["x-dry-left", counters[0][1] - r[0]];
+    } else if (passKey) {
       if (await tooManyTries(env, ip, false)) return reply({ error: "too_many_tries" }, 429);
       const lic = await checkLicense(passKey, request.headers.get("x-pass-email"), env, false);
       if (!lic.valid) {
@@ -1260,7 +1277,7 @@ export default {
       return reply({ items }, 200, { [left[0]]: String(Math.max(0, left[1])), ...(left[2] || {}) });
     }
 
-    if (String(env.CROWD || "on") !== "off") Object.assign(q, await crowdHints(env.DB, q, env));
+    if (String(env.CROWD || "on") !== "off" && !(dry && raw.crowd === false)) Object.assign(q, await crowdHints(env.DB, q, env));
     const input = { messages: buildMessages(q), max_tokens: 1200, temperature: 0.7 };
     // Each model call gets a time limit. When the main model is slow or its reply is unusable,
     // the backup model gets one try, so a round answers in under a minute.
@@ -1305,11 +1322,19 @@ export default {
     }
 
     // Temporary timing notes (no user data), only when a diag table exists.
-    if (env.DB) later(Promise.resolve().then(() => env.DB.prepare("INSERT INTO diag (at, model, ms1, ms2, info1, info2, n) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    if (env.DB && !dry) later(Promise.resolve().then(() => env.DB.prepare("INSERT INTO diag (at, model, ms1, ms2, info1, info2, n) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .bind(new Date().toISOString(), dg.model, dg.ms1, dg.ms2, dg.info1, dg.info2, ideas.length).run()));
 
     if (!ideas.length && refund) await refund();
     if (!ideas.length) return reply({ error: "no_usable_ideas", detail: describe(out), dropped: ideas.dropped }, 429);
+
+    if (dry) {
+      // Which ideas match something other people kept (the crowd hint), and which are the model's own.
+      const liked = q.liked || [];
+      const out2 = ideas.map(i => ({ ...i, from: liked.some(l => ideaKey(l) === ideaKey(i.title) || closeness(i.title, [l]) >= 2) ? "crowd" : "ai" }));
+      return reply({ dry: true, saved: false, model: dg.model, ideas: out2,
+        hints: { liked, avoid: q.avoid || [], catUp: q.catUp || [], catDown: q.catDown || [] } }, 200, { [left[0]]: String(Math.max(0, left[1])) });
+    }
 
     // Count the round only now that it produced ideas.
     await countIt();

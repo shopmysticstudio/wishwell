@@ -35,6 +35,9 @@ TRIAL_NET_WEEKLY = "off"
 # until tomorrow, so the free Workers AI allowance (10,000 Neurons a day, about 60 rounds) always
 # has room left for Holiday Pass rounds.
 TRIAL_GLOBAL_DAILY = "40"
+# Test runs ({"dry": true}, beta code only, nothing saved) a day, for everyone together. They also
+# count toward TRIAL_GLOBAL_DAILY.
+DRY_DAILY = "25"
 # Older lifetime limit, only used if TRIAL_DAILY and TRIAL_WEEKLY are removed.
 TRIAL_ROUNDS = "3"
 TRIAL_PER_NETWORK = "off"
