@@ -812,7 +812,9 @@ const won = L => S.best[L] != null && starsFor(L, S.best[L]) >= 1;
 const PASS_KEY = "wishwell-games-pass";
 function readPass() {
   try { const g = JSON.parse(localStorage.getItem(PASS_KEY) || "null"); if (g && g.key && g.email) return { key: g.key, email: g.email, kind: "games" }; } catch (e) {}
-  try { const h = JSON.parse(localStorage.getItem("wishwell-beta-pass") || "null"); if (h && h.ok && h.key && h.email) return { key: h.key, email: h.email, kind: "holiday" }; } catch (e) {}
+  for (const k of ["wishwell-pass", "wishwell-beta-pass"]) {   // a Holiday Pass from the public app or the beta
+    try { const h = JSON.parse(localStorage.getItem(k) || "null"); if (h && h.ok && h.key && h.email) return { key: h.key, email: h.email, kind: "holiday" }; } catch (e) {}
+  }
   return null;
 }
 function deviceId() {
@@ -831,7 +833,8 @@ function deviceId() {
 function mount(root, opt) {
   opt = opt || {};
   const net = opt.net || {}, URL0 = String(net.url || "").trim().replace(/\/+$/, ""), REW = !!net.rewards && !!URL0, BUY = String(net.buyUrl || "").trim(), PRICE = net.price || "$1.99";
-  if (/[?&]preview=1/.test(location.search)) { S.preview = true; save(); }
+  if (opt.showPreview === false) S.preview = false;   // no tester preview here, even if another page turned it on
+  else if (/[?&]preview=1/.test(location.search)) { S.preview = true; save(); }
   let PASS = readPass();
   const hasPass = () => !!PASS;
   const isOpen = L => S.preview || ((L === 1 || won(L - 1)) && (L <= FREE || hasPass()));

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wishwell Holiday Games</title>
+<meta name="description" content="25 cozy holiday mini game levels up a Christmas tree. The first 4 are free.">
+<meta name="theme-color" content="#23284d">
+<link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&family=Caveat:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="advent.css?v=4">
+<style>body{margin:0;background:#23284d}</style>
+</head>
+<body>
+<div id="advent"></div>
+<script src="../app/config.js"></script>
+<script src="advent.js?v=4"></script>
+<script>
+/* Public copy of the beta's Holiday Games (beta/advent). Keep the two in step.
+   buyUrl: the Games Pass checkout link (blank = "coming soon"). rewards: bonus AI rounds, off here for now. */
+WishwellAdvent.mount(document.getElementById("advent"),{backHref:"../",backLabel:"Wishwell",showPreview:false,
+  net:{url:(window.WISHWELL_CONFIG||{}).aiUrl||"",buyUrl:"",price:"$1.99",rewards:false}});
+if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js",{scope:"./"}).catch(()=>{});
+</script>
+<script src="../count.js" defer></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 /* Wishwell Holiday Games: keeps the levels and games working offline. Bump VERSION, and the ?v= in index.html, when any file here changes. */
-const VERSION = "wishwell-advent-v3";
-const FILES = ["./", "index.html", "advent.css?v=3", "advent.js?v=3", "../img/mark.png", "../icons/favicon-32.png"];
+const VERSION = "wishwell-advent-v4";
+const FILES = ["./", "index.html", "advent.css?v=4", "advent.js?v=4", "../img/mark.png", "../icons/favicon-32.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith("wishwell-advent-") && k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim()));
