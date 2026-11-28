@@ -427,6 +427,7 @@ async function round(n, opt) {
   }
   const r = rankRound(n);
   if (r.T) await noteGaps(r.T);
+  W.last = "round " + (S.round || 0) + ": " + r.picks.length + " picks, " + r.picks.filter(x => x.best >= TH).length + " good, top " + r.picks.slice(0, 3).map(x => x.p.t + " " + x.best.toFixed(2)).join("; ") + (r.confident ? "" : " (AI)");
   if (!r.confident && !opt.force) return { got: 0, why: "few_matches" };
   return { got: addPicks(r.picks.slice(0, n), S.round || 0) };
 }
@@ -459,4 +460,11 @@ window.WWSmart = {
   owned: ownedList, _test: { normalize, cleanText, noteParts, rankRound, terms, sim, vec, W }
 };
 start();
+// ?smartdebug=1 shows what the matcher is doing, for testing.
+if (/[?&]smartdebug=1/.test(location.search)) {
+  const d = document.createElement("pre"); d.id = "wwDebug";
+  d.style.cssText = "position:fixed;left:6px;bottom:6px;z-index:99;background:#000c;color:#fff;font:11px monospace;padding:6px;border-radius:6px;max-width:96vw;white-space:pre-wrap;margin:0";
+  document.body.appendChild(d);
+  setInterval(() => { const st = WWSmart.state(); d.textContent = "matcher " + st.emb + " · pool " + st.pool + " · vectors " + st.vec + (st.slow ? " · slow" : "") + (W.last ? "\n" + W.last : ""); }, 1000);
+}
 })();
