@@ -308,7 +308,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"a6aa7e97b48d4bc8180dc123e1903cbc",hash:"eea3ca99e751bd8ed87ffc26608c7ea943044be4d55013978e2d82b0d6ed68bc",iter:200000};
+window.WISHWELL_BETA={salt:"4852288e01887887bbf1124192988633",hash:"6fcc0def98486ccf9e9521bae9711b48f502508b3166fc24330a075445f6e424",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
@@ -1019,7 +1019,7 @@ const LOG_BASE=AI_ON&&location.hostname==="shopmysticstudio.github.io"?String(CF
 let LOGOK="";try{LOGOK=localStorage.getItem("wishwell-share-ok")||""}catch(e){}
 const setLogOk=v=>{LOGOK=v;try{localStorage.setItem("wishwell-share-ok",v)}catch(e){}};
 let LOG_URL=LOG_BASE&&(!PRIV||LOGOK==="yes")?LOG_BASE:"";
-function logOptIn(){setLogOk("yes");LOG_URL=LOG_BASE}
+function logOptIn(){setLogOk("yes");LOG_URL=LOG_BASE;try{window.wishwellCountStart&&window.wishwellCountStart()}catch(e){}}
 const LOG_SURF=/\/beta\//.test(location.pathname)?"beta":"web";
 const newLid=()=>{const a=new Uint8Array(16);crypto.getRandomValues(a);return [...a].map(x=>x.toString(16).padStart(2,"0")).join("")};
 /* a plain fetch first, like the AI calls (some blockers drop beacons), and a beacon only if fetch fails */
@@ -2005,6 +2005,6 @@ setAi();
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
 </script>
-<script src="../count.js" defer></script>
+<script src="../count.js?v=2" defer></script>
 </body>
 </html>

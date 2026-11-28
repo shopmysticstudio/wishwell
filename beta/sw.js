@@ -1,6 +1,6 @@
 /* Wishwell service worker: keeps the app working offline.
    Bump VERSION whenever you change any file so phones pick up the update. */
-const VERSION = "wishwell-beta-v37";
+const VERSION = "wishwell-beta-v38";
 const FILES = ["./", "index.html", "config.js", "manifest.webmanifest", "img/mark.png",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-192.png", "icons/icon-maskable-512.png",
   "icons/apple-touch-icon.png", "icons/favicon-32.png"];
@@ -28,6 +28,8 @@ self.addEventListener("fetch", e => {
       .catch(() => caches.match(r)));
     return;
   }
+  // The page counter is never served from a cache (an old copy may post to an address that's blocked).
+  if (u.pathname.endsWith("/count.js")) return;
   // Pages: network first so updates show, cache when offline. Other files: cache first.
   if (r.mode === "navigate") {
     // Only the app page itself is kept for offline use; other pages under this folder load normally.

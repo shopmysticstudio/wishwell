@@ -968,7 +968,7 @@ const LOG_BASE=AI_ON&&location.hostname==="shopmysticstudio.github.io"?String(CF
 let LOGOK="";try{LOGOK=localStorage.getItem("wishwell-share-ok")||""}catch(e){}
 const setLogOk=v=>{LOGOK=v;try{localStorage.setItem("wishwell-share-ok",v)}catch(e){}};
 let LOG_URL=LOG_BASE&&(!PRIV||LOGOK==="yes")?LOG_BASE:"";
-function logOptIn(){setLogOk("yes");LOG_URL=LOG_BASE}
+function logOptIn(){setLogOk("yes");LOG_URL=LOG_BASE;try{window.wishwellCountStart&&window.wishwellCountStart()}catch(e){}}
 const LOG_SURF=/\/beta\//.test(location.pathname)?"beta":"web";
 const newLid=()=>{const a=new Uint8Array(16);crypto.getRandomValues(a);return [...a].map(x=>x.toString(16).padStart(2,"0")).join("")};
 /* a plain fetch first, like the AI calls (some blockers drop beacons), and a beacon only if fetch fails */
@@ -1954,6 +1954,6 @@ setAi();
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
 </script>
-<script src="../count.js" defer></script>
+<script src="../count.js?v=2" defer></script>
 </body>
 </html>
