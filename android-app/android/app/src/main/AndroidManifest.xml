@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="true"
@@ -40,4 +41,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Buzz when an idea is circled or cut. A normal permission: no prompt, no data. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Birthday reminders (optional, asked for the first time someone turns one on). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Reminders a few days ahead don't need to land on the exact minute, so no exact-alarm permission. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
 </manifest>

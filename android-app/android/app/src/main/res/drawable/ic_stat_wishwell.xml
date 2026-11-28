@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Small white gift for the status bar (Android shows notification icons as a single color). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M20,7h-2.18A3,3 0,0 0,12 3.76,3 3,0 0,0 6.18,7H4A1,1 0,0 0,3 8v3a1,1 0,0 0,1 1h7V7h2v5h7a1,1 0,0 0,1 -1V8A1,1 0,0 0,20 7zM9,7a1,1 0,1 1,1 -1v1zM15,7h-1V6a1,1 0,1 1,1 1zM4,13v7a1,1 0,0 0,1 1h6v-8zM13,21h6a1,1 0,0 0,1 -1v-7h-7z"/>
+</vector>

@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(SoundCheckPlugin.class);
+        registerPlugin(WishwellNativePlugin.class);
         super.onCreate(savedInstanceState);
         // Draw edge to edge on every Android version, the way Android 15 and later do by default.
         // Transparent bars with light icons; Capacitor's SystemBars then pads the app by the status bar,
