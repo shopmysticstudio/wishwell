@@ -557,8 +557,8 @@ function burst(list) {
   fresh.forEach((it, i) => setTimeout(() => {
     it.pos = you.pos.slice(); it.hide = false; it.born = performance.now();
     it.size = 1.9; it.col = COLORS[it.c] || COLORS.Other; it.dim = false; it.ring = false; it.pick = true; picks.push(it);
-  }, 250 + i * 220));
-  setTimeout(() => tell({ ww: "shown" }), 250 + fresh.length * 220 + 1500);
+  }, 300 + i * 260));
+  setTimeout(() => tell({ ww: "shown" }), 300 + fresh.length * 260 + 1800);
 }
 addEventListener("message", e => {
   if (!THINK || e.origin !== location.origin || e.source !== parent) return;

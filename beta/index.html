@@ -308,7 +308,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"9661cae721c6edf917e11ca8f5004602",hash:"9e5e974a7f20f1076c5280c9f11f80ea16b911255e831486fd47fe5fec7b0c55",iter:200000};
+window.WISHWELL_BETA={salt:"ae4b430609cba3acd5f6a1c0e2f8dd61",hash:"5279f08b00f9fb22d0f57821e60430b7090bb087d1183edc8a0124a7bf8c59fd",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
@@ -1396,9 +1396,11 @@ function thinkShow(tm,ideas){
     tm.o.querySelector(".tmcap").textContent=`Here come ${ideas.length} new ideas, landing near you.`;
     const m={ww:"ideas",ideas:ideas.map(i=>({t:i.title,c:i.cat,lo:i.lo,hi:i.hi}))};
     if(tm.ready)tm.f.contentWindow.postMessage(m,location.origin);else tm.q=m;
-    t1=setTimeout(tm.fin,8000);t2=setTimeout(()=>{if(!tm.ready)tm.fin()},3000);
+    t1=setTimeout(tm.fin,9000);t2=setTimeout(()=>{if(!tm.ready)tm.fin()},3000);
   });
 }
+/* ?thinkdemo=1 on the beta replays the map with the last 8 AI ideas, with no AI round, to check how it looks. */
+if(THINKMAP&&/[?&]thinkdemo=1/.test(location.search))setTimeout(async()=>{const tm=thinkOpen();await new Promise(r=>setTimeout(r,4000));await thinkShow(tm,S.items.filter(i=>i.src==="AI pick").slice(-8))},1500);
 async function getIdeas(){
   if(busy)return;busy=true;S.round=(S.round||0)+1;const mb=$("#moreBtn");mb.disabled=true;
   const msg=$("#msg");msg.innerHTML="";let got=0;
