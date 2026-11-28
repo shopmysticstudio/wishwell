@@ -11,7 +11,7 @@
 const DBG = /[?&]smartdebug=1/.test(location.search);
 if (DBG) { const d = document.createElement("pre"); d.id = "wwDebug"; d.textContent = "smart.js loaded";
   d.style.cssText = "position:fixed;left:6px;bottom:6px;z-index:99;background:#000c;color:#fff;font:11px monospace;padding:6px;border-radius:6px;max-width:96vw;white-space:pre-wrap;margin:0";
-  document.body.appendChild(d); addEventListener("error", e => { d.textContent += "\nerror: " + e.message + " @" + e.lineno; }); }
+  document.body.appendChild(d); addEventListener("error", e => { window.__wwErr = (window.__wwErr || "") + "\nerror: " + e.message + " @" + (e.filename || "").split("/").pop() + ":" + e.lineno; d.textContent += window.__wwErr; }); }
 if (!/\/beta\/($|index\.html)/.test(location.pathname) || typeof S === "undefined") { if (DBG) document.getElementById("wwDebug").textContent += "\nstopped: path " + location.pathname + " S " + typeof S; return; }
 const BASE = AI_ON ? String(CFG.aiUrl).trim().replace(/\/+$/, "") : "";
 const code = () => window.WISHWELL_ACCESS_CODE || "";
@@ -464,10 +464,10 @@ window.WWSmart = {
   round, after, report, orderQuiz, archive, checkSwipe, makeSwipe, state: () => ({ emb: W.embState, pool: W.pool ? W.pool.length : 0, vec: W.vec.size, slow: W.slow }),
   owned: ownedList, _test: { normalize, cleanText, noteParts, rankRound, terms, sim, vec, W }
 };
-try { start(); } catch (e) { if (DBG) document.getElementById("wwDebug").textContent += "\nstart failed: " + e.message; }
+try { start(); } catch (e) { if (DBG) document.getElementById("wwDebug").textContent += (window.__wwErr = "\nstart failed: " + e.message); }
 // ?smartdebug=1 shows what the matcher is doing, for testing.
 if (DBG) {
   const d = document.getElementById("wwDebug");
-  setInterval(() => { const st = WWSmart.state(); d.textContent = "matcher " + st.emb + " · pool " + st.pool + " · vectors " + st.vec + (st.slow ? " · slow" : "") + (W.last ? "\n" + W.last : ""); }, 1000);
+  setInterval(() => { const st = WWSmart.state(); d.textContent = "matcher " + st.emb + " · pool " + st.pool + " · vectors " + st.vec + (st.slow ? " · slow" : "") + (W.last ? "\n" + W.last : "") + (window.__wwErr || ""); }, 1000);
 }
 })();
