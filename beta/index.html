@@ -316,7 +316,7 @@ html.locked #gate{display:grid;position:fixed;inset:0;z-index:100;place-items:ce
 <script>
 /* Beta code screen. Only a salted fingerprint of the code is here, not the code. */
 document.documentElement.classList.add("locked");
-window.WISHWELL_BETA={salt:"22a3897bfcf4e4e35f7b9b3ea5cefccd",hash:"ad8389a43856dbf28159e13faa606e0335ff95f393340136b7eb048103b1d8a1",iter:200000};
+window.WISHWELL_BETA={salt:"f5e15f8d932a99cddd1b9828af435994",hash:"83f4f81c4273a74479b31192a68a220ae64888ace0ba18ed5a2e7ad39e099f88",iter:200000};
 window.wishwellBetaCheck=async function(code){
   const c=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   if(c.length<8||!(window.crypto&&crypto.subtle))return false;
@@ -1073,7 +1073,9 @@ function bfItems(){const n=logNames();return S.items.filter(i=>i.lr==null&&!i.mi
 function logBackfill(){
   const its=bfItems();if(!its.length)return[];const lid=newLid(),by={},ps=[];
   its.forEach(i=>{const r=Math.min(200,Math.max(1,i.round||1));(by[r]=by[r]||[]).push(i)});
-  Object.keys(by).forEach(r=>{const list=by[r].slice(0,24);list.forEach((i,k)=>{i.ll=lid;i.lr=+r;i.lp=k;i.lx="none:0"});
+  // Only rounds where something was circled, cut or marked have it: a round nobody touched may never have been seen.
+  logBackfill.sent=0;
+  Object.keys(by).forEach(r=>{if(!by[r].some(i=>i.status==="kept"||i.status==="cut"||i.status==="have"))return;logBackfill.sent+=Math.min(24,by[r].length);const list=by[r].slice(0,24);list.forEach((i,k)=>{i.ll=lid;i.lr=+r;i.lp=k;i.lx="none:0"});
     const ai=list.some(i=>i.src==="AI pick"),st=list.some(i=>i.src!=="AI pick");
     ps.push(logSend({lid,r:+r,s:LOG_SURF,bf:1,src:ai&&st?"mixed":ai?"ai":"starter",ctx:logCtx(),ideas:list.map(i=>({p:i.lp,t:i.title,c:i.cat,src:logSrc(i),lo:i.lo,hi:i.hi}))}))});
   setTimeout(logFlush,3000);return ps;
@@ -1094,11 +1096,12 @@ function bfLineShow(){const l=$("#bfLine");if(l)l.hidden=!LOG_BASE||bfAll().leng
 /* Send every idea on the list as shared later, then what was done with each; resolves with how it went. */
 async function shareAll(){const its=bfAll();if(its.length<3)return{n:0,ok:false};
   its.forEach(i=>{i.lr=null;i.ll=null;i.lx=null});S.bf="shared";const a=await Promise.all(logBackfill());save();const b=await Promise.all(logFlush()||[]);
-  const all=[...a,...b];return{n:its.length,ok:all.length>0&&all.every(Boolean)}}
+  const all=[...a,...b],n=logBackfill.sent||0;return{n,ok:n>0&&all.length>0&&all.every(Boolean)}}
 async function shareTap(btn){if(!LOG_URL)logOptIn();if(btn){btn.disabled=true;btn.textContent="Sending..."}
   const r=await shareAll();
   if(r.ok){if(btn)btn.textContent="Sent";toast(`Sent ${r.n} picks. Thanks!`)}
-  else{if(btn){btn.disabled=false;btn.textContent="Try again"}toast(r.n?"Couldn't reach Wishwell's server. Check your connection and try again.":"Nothing to share yet.")}}
+  else if(!r.n){if(btn){btn.disabled=false;btn.textContent="Share my past picks"}toast(btn?"Nothing to share yet. Circle or cut a few ideas first.":"Thanks! You're helping make Wishwell better.")}
+  else{if(btn){btn.disabled=false;btn.textContent="Try again"}toast("Couldn't reach Wishwell's server. Check your connection and try again.")}}
 $("#bfAgain").addEventListener("click",()=>shareTap($("#bfAgain")));
 /* Asked once per device, big: share anonymous picks to help improve Wishwell? Count me in turns sharing on
    (also when the browser asks sites not to track) and sends the picks already on the list; No thanks turns it
